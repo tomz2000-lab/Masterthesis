@@ -1,0 +1,61 @@
+company_car:
+  starting_price: 45000
+  buyer_budget: 40000
+  seller_cost: 38000
+  buyer_batna: 41000
+  seller_batna: 39000
+  rounds: 5
+  batna_decay:
+    buyer: 0.02    # 2% per round
+    seller: 0.01   # 1% per round
+
+resource_allocation:
+  total_resources: 100
+  constraints:
+    gpu_bandwidth: 240  # 3x + 4y <= 240
+    min_gpu: 20         # x >= 20
+    min_bandwidth: 15   # y >= 15
+  batnas:
+    development: 300    # External provider utility
+    marketing: 360      # Alternative SaaS platform utility
+  batna_decay:
+    development: 0.03   # 3% per round
+    marketing: 0.02     # 2% per round
+  rounds: 5
+  uncertainty:
+    stochastic_demand:
+      type: "normal"
+      mean: 0
+      std: 5
+    market_volatility:
+      type: "uniform"
+      min: -0.08
+      max: 0.08
+
+integrative_negotiations:
+  issues:
+    server_room:
+      options: [50, 100, 150]     # sqm
+      points: [10, 30, 60]
+    meeting_access:
+      options: [2, 4, 7]          # days per week
+      points: [10, 30, 60]
+    cleaning:
+      options: ["IT", "Shared", "Outsourced"]
+      points: [30, 50, 10]
+    branding:
+      options: ["Minimal", "Moderate", "Prominent"]
+      points: [10, 30, 60]
+  weights:
+    IT:
+      server_room: 0.4
+      meeting_access: 0.1
+      cleaning: 0.3
+      branding: 0.2
+    Marketing:
+      server_room: 0.1
+      meeting_access: 0.4
+      cleaning: 0.2
+      branding: 0.3
+  rounds: 5
+  batna_decay: 0.02

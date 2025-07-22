@@ -1,0 +1,22 @@
+platform:
+  logging_level: "INFO"
+  max_retries: 3
+  timeout_seconds: 30
+  results_dir: "results"
+
+models:
+  memory_management: true
+  auto_unload: true
+  default_models: ["model_a", "model_b", "model_c"]
+
+games:
+  default_rounds: 5
+  allow_early_termination: true
+
+metrics:
+  calculate_all: true
+  export_detailed: true
+
+experiments:
+  runs_per_comparison: 10
+  statistical_significance: 0.05
