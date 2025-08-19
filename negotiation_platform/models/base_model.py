@@ -23,6 +23,11 @@ class BaseLLMModel(ABC):
         pass
 
     @abstractmethod
+    def parse_action(self, response: str) -> Dict[str, Any]:
+        """Parse LLM response into a structured action"""
+        pass
+
+    @abstractmethod
     def unload_model(self):
         """Unload model from memory"""
         pass

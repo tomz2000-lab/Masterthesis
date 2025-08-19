@@ -2,8 +2,8 @@
 Feasibility Metric: Is the agreement even possible
 """
 from typing import Dict, List, Any
-from .base_metric import BaseMetric
-from .base_game import GameResult, PlayerAction
+from negotiation_platform.core.base_metric import BaseMetric
+from negotiation_platform.games.base_game import GameResult, PlayerAction
 
 class FeasibilityMetric(BaseMetric):
     """
@@ -19,7 +19,7 @@ class FeasibilityMetric(BaseMetric):
         results = {}
 
         # Check if an agreement was actually reached
-        agreement_reached = 'agreement' in game_result.game_data
+        agreement_reached = game_result.game_data.get('agreement_reached', False)
 
         if not agreement_reached:
             # No agreement reached - feasibility is 0 for all players
@@ -27,15 +27,45 @@ class FeasibilityMetric(BaseMetric):
                 results[player_id] = 0.0
             return results
 
-        # Get the final agreement details
-        agreement = game_result.game_data['agreement']
-        initial_inventories = game_result.game_data.get('initial_inventories', {})
+        # Check game type to determine feasibility logic
+        game_type = game_result.game_data.get('game_type', 'unknown')
+        
+        if game_type == 'resource_allocation':
+            # For resource allocation: if agreement reached, it's feasible
+            # (the game engine already validated constraints)
+            for player_id in game_result.players:
+                results[player_id] = 1.0
+            return results
+        
+        elif game_type == 'integrative_negotiations':
+            # For integrative negotiations: if agreement reached, it's feasible
+            # (the game engine validated the proposal format and constraints)
+            for player_id in game_result.players:
+                results[player_id] = 1.0
+            return results
+
+        # For price bargaining (company_car), if agreement was reached, it's feasible for both parties
+        # (the game logic already validated it against BATNAs)
+        agreed_price = game_result.game_data.get('agreed_price', 0)
+        private_info = game_result.game_data.get('private_info', {})
 
         for player_id in game_result.players:
-            feasible = self._check_agreement_feasibility(
-                player_id, agreement, initial_inventories
-            )
-            results[player_id] = 1.0 if feasible else 0.0
+            if player_id in private_info:
+                player_info = private_info[player_id]
+                batna = player_info.get('batna', 0.0)
+                role = player_info.get('role', '')
+                
+                # Check if the agreed price meets this player's constraints
+                if role == "buyer":
+                    # Feasible if buyer paid <= their BATNA
+                    feasible = agreed_price <= batna
+                else:  # seller
+                    # Feasible if seller received >= their BATNA
+                    feasible = agreed_price >= batna
+                
+                results[player_id] = 1.0 if feasible else 0.0
+            else:
+                results[player_id] = 0.0
 
         return results
 

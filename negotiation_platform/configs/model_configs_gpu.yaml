@@ -9,21 +9,20 @@ model_a:
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: true  # Should work properly on GPU
-    api_token: "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"  # Add your HF token here
+    api_token: "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"
 
 model_b:
   type: "huggingface"
-  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Same model as A, different personality
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Same as others for consistency
   config:
     device: "auto"  # Will use GPU automatically
-    temperature: 0.5  # Very conservative negotiator
+    temperature: 0.5  # Medium temperature negotiator
     max_length: 512
     do_sample: true
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: true  # GPU quantization
-    api_token: "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"  # Add your HF token here
-
+    api_token: "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"
 
 model_c:
   type: "huggingface"
@@ -36,4 +35,4 @@ model_c:
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: true  # GPU quantization
-    api_token: "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"  # Add your HF token here
+    api_token: "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"

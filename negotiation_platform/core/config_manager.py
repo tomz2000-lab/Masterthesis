@@ -7,7 +7,8 @@ class ConfigManager:
     """Manages platform configuration from YAML files."""
     
     def __init__(self, config_dir: str = "configs"):
-        self.config_dir = Path(config_dir)
+        script_dir = Path(__file__).parent.parent
+        self.config_dir = script_dir / config_dir
         self._configs = {}
         self.load_all_configs()
     
@@ -23,8 +24,8 @@ class ConfigManager:
             config_path = self.config_dir / config_file
             if config_path.exists():
                 self._configs[config_file[:-5]] = self.load_config(config_path)
-            else:
-                self._configs[config_file[:-5]] = self._get_default_config(config_file[:-5])
+            #else:
+                #self._configs[config_file[:-5]] = self._get_default_config(config_file[:-5])
     
     def load_config(self, config_path: Path) -> Dict[str, Any]:
         """Load configuration from YAML file."""
@@ -49,53 +50,53 @@ class ConfigManager:
         games = self.get_config("game_configs")
         return games.get(game_name)
     
-    def _get_default_config(self, config_type: str) -> Dict[str, Any]:
+    #def _get_default_config(self, config_type: str) -> Dict[str, Any]:
         """Get default configuration if file doesn't exist."""
-        defaults = {
-            "model_configs": {
-                "model_a": {
-                    "type": "huggingface",
-                    "model_name": "microsoft/DialoGPT-medium",
-                    "config": {"device": "auto", "temperature": 0.7}
-                },
-                "model_b": {
-                    "type": "huggingface", 
-                    "model_name": "facebook/blenderbot-400M-distill",
-                    "config": {"device": "auto", "temperature": 0.8}
-                },
-                "model_c": {
-                    "type": "huggingface",
-                    "model_name": "microsoft/DialoGPT-small",
-                    "config": {"device": "auto", "temperature": 0.6}
-                }
-            },
-            "game_configs": {
-                "company_car": {
-                    "starting_price": 45000,
-                    "buyer_budget": 40000,
-                    "seller_cost": 38000,
-                    "buyer_batna": 41000,
-                    "seller_batna": 39000,
-                    "rounds": 5,
-                    "batna_decay": {"buyer": 0.02, "seller": 0.01}
-                },
-                "resource_allocation": {
-                    "total_resources": 100,
-                    "constraints": {"gpu_bandwidth": 240, "min_gpu": 20, "min_bandwidth": 15},
-                    "batnas": {"development": 300, "marketing": 360},
-                    "batna_decay": {"development": 0.03, "marketing": 0.02}
-                },
-                "integrative_negotiations": {
-                    "issues": ["server_room", "meeting_access", "cleaning", "branding"],
-                    "rounds": 5,
-                    "batna_decay": 0.02
-                }
-            },
-            "platform_config": {
-                "logging_level": "INFO",
-                "max_retries": 3,
-                "timeout_seconds": 30,
-                "results_dir": "results"
-            }
-        }
+        #defaults = {
+            #"model_configs": {
+                #"model_a": {
+                    #"type": "huggingface",
+                    #"model_name": "microsoft/DialoGPT-medium",
+                    #"config": {"device": "auto", "temperature": 0.7}
+                #},
+                #"model_b": {
+                 #   "type": "huggingface",
+                  #  "model_name": "facebook/blenderbot-400M-distill",
+                   # "config": {"device": "auto", "temperature": 0.8}
+                #},
+                #"model_c": {
+                 #   "type": "huggingface",
+                  #  "model_name": "microsoft/DialoGPT-small",
+                   # "config": {"device": "auto", "temperature": 0.6}
+               # }
+           # },
+           # "game_configs": {
+               # "company_car": {
+                  #  "starting_price": 45000,
+                   # "buyer_budget": 40000,
+                   # "seller_cost": 38000,
+                   # "buyer_batna": 41000,
+                   # "seller_batna": 39000,
+                   # "rounds": 5,
+                   # "batna_decay": {"buyer": 0.02, "seller": 0.01}
+               # },
+               # "resource_allocation": {
+                   # "total_resources": 100,
+                   # "constraints": {"gpu_bandwidth": 240, "min_gpu": 20, "min_bandwidth": 15},
+                   # "batnas": {"development": 300, "marketing": 360},
+                   # "batna_decay": {"development": 0.03, "marketing": 0.02}
+               # },
+               # "integrative_negotiations": {
+                   # "issues": ["server_room", "meeting_access", "cleaning", "branding"],
+                   # "rounds": 5,
+                   # "batna_decay": 0.02
+               # }
+           # },
+           # "platform_config": {
+               # "logging_level": "INFO",
+               # "max_retries": 3,
+               # "timeout_seconds": 30,
+               # "results_dir": "results"
+           # }
+       # }
         return defaults.get(config_type, {})

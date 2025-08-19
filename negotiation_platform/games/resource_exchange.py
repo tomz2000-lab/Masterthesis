@@ -10,7 +10,7 @@ class ResourceAllocationGame(BaseGame):
     """
     
     def __init__(self, config: Dict[str, Any]):
-        super().__init__(config)
+        super().__init__(game_id="resource_allocation", config=config)
         self.total_resources = config.get("total_resources", 100)
         self.constraints = config.get("constraints", {
             "gpu_bandwidth": 240,  # 3x + 4y <= 240
@@ -37,14 +37,14 @@ class ResourceAllocationGame(BaseGame):
             "current_round": 1,
             "private_info": {
                 self.development: {
-                    "role": "development",
+                    "team": "development",
                     "utility_function": "12x + 3y + ε",
                     "batna": self.batnas["development"],
                     "batna_decay": self.batna_decay["development"],
                     "uncertainty": "stochastic_demand"  # ε ~ N(0,5)
                 },
                 self.marketing: {
-                    "role": "marketing",
+                    "team": "marketing",
                     "utility_function": "3x + 12y + i", 
                     "batna": self.batnas["marketing"],
                     "batna_decay": self.batna_decay["marketing"],
@@ -67,21 +67,28 @@ class ResourceAllocationGame(BaseGame):
         else:
             decay_rate = self.batna_decay["marketing"]
             base_batna = self.batnas["marketing"]
-            
-        return base_batna * ((1 - decay_rate) ** (round_num - 1))
+        
+        current_batna = base_batna * ((1 - decay_rate) ** (round_num - 1))
+        print(f"[DEBUG] {player} BATNA: base={base_batna}, decay_rate={decay_rate}, round={round_num}, current={current_batna:.4f}")
+        return current_batna
     
     def calculate_utility(self, player: str, x: float, y: float, round_num: int) -> float:
         """Calculate utility with uncertainty factors."""
+        print(f"[DEBUG] calculate_utility called with: player={player}, x={x}, y={y}, round={round_num}")
         if player == self.development:
             # Development: 12x + 3y + ε (stochastic demand N(0,5))
             epsilon = np.random.normal(0, 5)
             base_utility = 12 * x + 3 * y
-            return base_utility + epsilon
+            final_utility = base_utility + epsilon
+            print(f"[DEBUG] Development utility: x={x}, y={y}, base=12*{x}+3*{y}={base_utility}, epsilon={epsilon:.4f}, final={final_utility:.4f}")
+            return final_utility
         else:
             # Marketing: 3x + 12y + i (market volatility U(-8%, +8%))  
             i_factor = np.random.uniform(-0.08, 0.08)
             base_utility = 3 * x + 12 * y
-            return base_utility * (1 + i_factor)
+            final_utility = base_utility * (1 + i_factor)
+            print(f"[DEBUG] Marketing utility: x={x}, y={y}, base=3*{x}+12*{y}={base_utility}, i_factor={i_factor:.6f}, multiplier={1+i_factor:.6f}, final={final_utility:.4f}")
+            return final_utility
     
     def is_valid_allocation(self, x: float, y: float) -> bool:
         """Check if allocation satisfies all constraints."""
@@ -217,3 +224,33 @@ class ResourceAllocationGame(BaseGame):
                     for player in utilities.keys()}
         
         return max(surpluses, key=surpluses.get)
+    
+    def process_action(self, action) -> Dict[str, Any]:
+        """Process a single player action (required by base class)"""
+        # This method is required by the abstract base class but not used
+        # in our current implementation since we use process_actions instead
+        return {}
+    
+    def check_end_conditions(self) -> bool:
+        """Check if the game should end (required by base class)"""
+        return self.is_game_over(getattr(self, 'game_data', {}))
+    
+    def calculate_scores(self) -> Dict[str, float]:
+        """Calculate final scores for all players (required by base class)"""
+        if hasattr(self, 'game_data'):
+            if self.game_data.get("agreement_reached", False):
+                return self.game_data.get("final_utilities", {})
+        return {player: 0.0 for player in getattr(self, 'players', [])}
+    
+    def get_game_prompt(self, player_id: str) -> str:
+        """Get the current game prompt for a specific player (required by base class)"""
+        if not hasattr(self, 'game_data'):
+            return "Game not initialized properly"
+            
+        private_info = self.game_data.get("private_info", {}).get(player_id, {})
+        current_round = self.game_data.get("current_round", 1)
+        team = private_info.get("team", player_id)
+        
+        return f"""You are team {team.upper()} in a resource allocation negotiation.
+Round {current_round} - Make your move by proposing a trade or accepting an offer.
+Available actions: propose_trade, accept"""

@@ -1,9 +1,9 @@
 from typing import Dict, Type, Any, Optional
 import logging
 from negotiation_platform.games.base_game import BaseGame
-from games.company_car_game import CompanyCarGame
-from games.resource_allocation import ResourceAllocationGame
-from games.integrative_negotiations import IntegrativeNegotiationsGame
+from negotiation_platform.games.price_bargaining import CompanyCarGame
+from negotiation_platform.games.resource_exchange import ResourceAllocationGame
+from negotiation_platform.games.integrative_negotiation import IntegrativeNegotiationsGame
 
 
 class GameEngine:
@@ -11,8 +11,8 @@ class GameEngine:
 
     def __init__(self):
         self.registered_games: Dict[str, Type[BaseGame]] = {}
+        self.logger = logging.getLogger(__name__) #Must become before next line in order to work
         self._register_default_games()
-        self.logger = logging.getLogger(__name__)
 
     def _register_default_games(self):
         """Register built-in games."""

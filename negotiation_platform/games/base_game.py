@@ -51,7 +51,7 @@ class BaseGame(ABC):
         pass
 
     @abstractmethod
-    def is_valid_action(self, action: PlayerAction) -> bool:
+    def is_valid_action(self, player: str, action: Dict[str, Any], game_state: Dict[str, Any]) -> bool:
         """Check if an action is valid in current game state"""
         pass
 

@@ -2,12 +2,17 @@ company_car:
   starting_price: 45000
   buyer_budget: 40000
   seller_cost: 38000
-  buyer_batna: 41000
-  seller_batna: 39000
+  buyer_batna: 44000    # Alternative car costs more - creates negotiation space
+  seller_batna: 39000   # Minimum seller will accept
   rounds: 5
   batna_decay:
     buyer: 0.02    # 2% per round
     seller: 0.01   # 1% per round
+  # Training parameters to encourage acceptance
+  acceptance_training:
+    profit_threshold: 0.10    # Accept offers within 10% of BATNA
+    urgency_multiplier: 1.5   # Increase acceptance likelihood each round
+    risk_aversion: 0.8        # Higher = more likely to accept safe deals
 
 resource_allocation:
   total_resources: 100

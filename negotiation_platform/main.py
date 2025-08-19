@@ -3,18 +3,28 @@
 Main entry point for the Negotiation Platform.
 Demonstrates usage and provides example runs.
 """
-
+#from dotenv import load_dotenv
+#load_dotenv()
 import argparse
 import json
 import logging
+import sys
+import os
 from datetime import datetime
 from pathlib import Path
 
+# Add parent directory to Python path if running directly
+if __name__ == "__main__":
+    current_dir = Path(__file__).parent
+    parent_dir = current_dir.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+
 from negotiation_platform.core.llm_manager import LLMManager
-from core.game_engine import GameEngine
-from core.metrics_calculator import MetricsCalculator
-from core.session_manager import SessionManager
-from core.config_manager import ConfigManager
+from negotiation_platform.core.game_engine import GameEngine
+from negotiation_platform.core.metrics_calculator import MetricsCalculator
+from negotiation_platform.core.session_manager import SessionManager
+from negotiation_platform.core.config_manager import ConfigManager
 
 
 def setup_logging(level="INFO"):
@@ -39,9 +49,9 @@ def run_single_negotiation(config_manager, models, game_type="company_car"):
     metrics_calculator = MetricsCalculator()
     session_manager = SessionManager(llm_manager, game_engine, metrics_calculator)
 
-    # Load models
-    for model_name in models:
-        llm_manager.load_model(model_name)
+    # Don't pre-load models - use lazy loading instead!
+    # Models will be loaded automatically when first used
+    print(f"🔄 Models will be loaded on-demand: {models}")
 
     # Run negotiation
     players = models[:2]  # Use first two models as players
@@ -61,8 +71,9 @@ def run_single_negotiation(config_manager, models, game_type="company_car"):
 
     print(f"Metrics: {result.get('metrics', {})}")
 
-    # Cleanup
-    llm_manager.unload_all_models()
+    # Keep models loaded for potential reuse
+    # Only unload when explicitly needed or at program exit
+    print("🔄 Keeping models loaded for potential reuse")
 
     return result
 

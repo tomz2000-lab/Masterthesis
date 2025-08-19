@@ -4,7 +4,7 @@ Metrics Calculator - Main component for calculating all negotiation metrics
 from typing import Dict, List, Any, Optional
 import importlib
 from .base_metric import BaseMetric
-from .base_game import GameResult, PlayerAction
+from negotiation_platform.games.base_game import GameResult, PlayerAction
 
 class MetricsCalculator:
     """
@@ -18,10 +18,10 @@ class MetricsCalculator:
 
     def _register_default_metrics(self):
         """Register the default metrics"""
-        from .utility_surplus import UtilitySurplusMetric
-        from .risk_minimization import RiskMinimizationMetric
-        from .deadline_sensitivity import DeadlineSensitivityMetric
-        from .feasibility import FeasibilityMetric
+        from ..metrics.utility_surplus import UtilitySurplusMetric
+        from ..metrics.risk_minimization import RiskMinimizationMetric
+        from ..metrics.deadline_sensitivity import DeadlineSensitivityMetric
+        from ..metrics.feasibility import FeasibilityMetric
 
         # Register default metrics
         self.register_metric("utility_surplus", UtilitySurplusMetric())
@@ -39,6 +39,55 @@ class MetricsCalculator:
         if metric_id in self.metrics:
             del self.metrics[metric_id]
             print(f"🗑️  Unregistered metric: {metric_id}")
+
+    def calculate_all(self, game_state: Dict[str, Any], actions_history: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+        """Calculate all metrics using game_state and actions_history (session manager interface)"""
+        # Convert game_state to GameResult for compatibility with metrics
+        game_result = GameResult(
+            game_id=game_state.get("game_type", "unknown"),
+            players=game_state.get("players", []),
+            winner=self._determine_winner(game_state),
+            final_scores=self._calculate_final_scores(game_state),
+            total_rounds=game_state.get("current_round", 0),
+            game_data=game_state,
+            success=game_state.get("agreement_reached", False)
+        )
+        
+        # Convert actions_history to PlayerAction objects
+        player_actions = []
+        for round_data in actions_history:
+            round_num = round_data.get("round", 0)
+            actions = round_data.get("actions", {})
+            for player_id, action_data in actions.items():
+                player_action = PlayerAction(
+                    player_id=player_id,
+                    action_type=action_data.get("type", "unknown"),
+                    action_data=action_data,
+                    timestamp=0.0,  # Not available in current format
+                    round_number=round_num
+                )
+                player_actions.append(player_action)
+        
+        return self.calculate_all_metrics(game_result, player_actions)
+    
+    def _determine_winner(self, game_state: Dict[str, Any]) -> Optional[str]:
+        """Determine winner from game state"""
+        if game_state.get("agreement_reached", False):
+            # For bilateral negotiations, both players win if agreement is reached
+            return None  # Or could implement game-specific logic
+        return None
+    
+    def _calculate_final_scores(self, game_state: Dict[str, Any]) -> Dict[str, float]:
+        """Calculate final scores from game state"""
+        players = game_state.get("players", [])
+        final_utilities = game_state.get("final_utilities", {})
+        
+        # Use final utilities if available, otherwise default to 0
+        scores = {}
+        for player in players:
+            scores[player] = final_utilities.get(player, 0.0)
+        
+        return scores
 
     def calculate_all_metrics(self, game_result: GameResult,
                             actions_history: List[PlayerAction]) -> Dict[str, Dict[str, float]]:

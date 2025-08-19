@@ -144,8 +144,7 @@ class SessionManager:
                     raw_reply = loaded_agents[p_name].generate_response(prompt, game_state=game_state)
 
                     try:
-                        # Pass game_type for Pydantic validation
-                        parsed_action = loaded_agents[p_name].parse_action(raw_reply, game_type=game_type)
+                        parsed_action = loaded_agents[p_name].parse_action(raw_reply)
                     except Exception as exc:  # noqa: BLE001
                         self.logger.warning(
                             f"[{session_id}]  Parse failure by {p_name} (attempt {attempt}): {exc}"
@@ -304,9 +303,9 @@ Should accept? YES (fair deal)
 
 ONLY respond with EXACTLY this JSON format:
 SUCCESS: {{"type": "accept"}}
-ALTERNATIVE: {{"type": "propose", "gpu_hours": 30, "bandwidth": 20}}
+ALTERNATIVE: {{"type": "propose_trade", "offer": {{"gpu": 30}}, "request": {{"bandwidth": 20}}}}
 
-CRITICAL: Use only "type": "accept" OR "type": "propose"
+CRITICAL: Use only "type": "accept" OR "type": "propose_trade"
 NO other type names allowed!
 
 Response:"""
@@ -314,26 +313,22 @@ Response:"""
             # Make a simple proposal
             if "development" in team.lower():
                 return f"""TEAM {team.upper()} - Round {current_round}/{deadline}
-No proposals yet. YOU MUST MAKE A PROPOSAL FIRST.
-
-YOU ARE PROPOSING (not accepting). YOUR ACTION: PROPOSE
+No proposals yet.
 
 ONLY respond with EXACTLY this JSON format:
-{{"type": "propose", "gpu_hours": 35, "bandwidth": 25}}
+{{"type": "propose_trade", "offer": {{"bandwidth": 25}}, "request": {{"gpu": 35}}}}
 
-CRITICAL: Use "type": "propose" (NOT accept, NOT offer) - YOU ARE MAKING A PROPOSAL!
+CRITICAL: Use ONLY "type": "propose_trade" - NO other names!
 
 Response:"""
             else:  # marketing
                 return f"""TEAM {team.upper()} - Round {current_round}/{deadline}
-No proposals yet. YOU MUST MAKE A PROPOSAL FIRST.
-
-YOU ARE PROPOSING (not accepting). YOUR ACTION: PROPOSE
+No proposals yet.
 
 ONLY respond with EXACTLY this JSON format:
-{{"type": "propose", "gpu_hours": 30, "bandwidth": 35}}
+{{"type": "propose_trade", "offer": {{"gpu": 35}}, "request": {{"bandwidth": 25}}}}
 
-CRITICAL: Use "type": "propose" (NOT accept, NOT offer) - YOU ARE MAKING A PROPOSAL!
+CRITICAL: Use ONLY "type": "propose_trade" - NO other names!
 
 Response:"""
 
