@@ -47,8 +47,46 @@ grep -c "🚗\|ACCEPT IMMEDIATELY\|expert negotiator" /home/s391129/negotiation_
 cd /home/s391129
 echo "=== Running Negotiation Platform ==="
 
-# Debug test for resource allocation utility calculation
-echo "=== Testing Resource Allocation with Debug Logging ==="
+# Test all three negotiation games
+echo "=== Testing All Three Negotiation Games ==="
+
+# Test 1: Resource Allocation
+echo ""
+echo "🔧 Testing RESOURCE ALLOCATION game..."
+echo "======================================"
 python -m negotiation_platform.main --quick --game resource_allocation
 
-echo "=== Debug Test Complete ==="
+if [ $? -eq 0 ]; then
+    echo "✅ Resource allocation test PASSED"
+else
+    echo "❌ Resource allocation test FAILED"
+fi
+
+# Test 2: Company Car
+echo ""
+echo "🚗 Testing COMPANY CAR game..."
+echo "=============================="
+python -m negotiation_platform.main --quick --game company_car
+
+if [ $? -eq 0 ]; then
+    echo "✅ Company car test PASSED"
+else
+    echo "❌ Company car test FAILED"
+fi
+
+# Test 3: Integrative Negotiations (if available)
+echo ""
+echo "🤝 Testing INTEGRATIVE NEGOTIATIONS game..."
+echo "=========================================="
+python -m negotiation_platform.main --quick --game integrative_negotiations
+
+if [ $? -eq 0 ]; then
+    echo "✅ Integrative negotiations test PASSED"
+else
+    echo "❌ Integrative negotiations test FAILED - may not be implemented yet"
+fi
+
+echo ""
+echo "🎉 ALL GAME TESTS COMPLETED!"
+echo "============================"
+echo "Check the output above to see which games are working."
