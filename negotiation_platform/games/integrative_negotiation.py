@@ -15,7 +15,8 @@ class IntegrativeNegotiationsGame(BaseGame):
     """
 
     def __init__(self, config: Dict[str, Any]):
-        super().__init__(config)
+        # Initialize base class with game type as game_id
+        super().__init__(game_id="integrative_negotiations", config=config)
         self.max_rounds = config.get("rounds", 5)
         self.batna_decay = config.get("batna_decay", 0.02)  # 2% per round as specified
 
@@ -62,16 +63,16 @@ class IntegrativeNegotiationsGame(BaseGame):
         # Base BATNA values (to be adjusted with decay)
         self.base_batnas = config.get("batnas", {"IT": 200, "Marketing": 220})
 
-    def initialize_game(self, players: List[str]) -> Dict[str, Any]:
+    def initialize_game(self, players: List[str]) -> bool:
         """Initialize integrative negotiations game."""
         if len(players) != 2:
-            raise ValueError("Integrative negotiations game requires exactly 2 players")
+            return False
 
         self.players = players
         self.it_team = players[0]  # First player is IT
         self.marketing_team = players[1]  # Second player is Marketing
 
-        return {
+        self.game_data = {
             "game_type": "integrative_negotiations",
             "players": self.players,
             "rounds": self.max_rounds,
@@ -103,6 +104,8 @@ class IntegrativeNegotiationsGame(BaseGame):
             "proposals_history": [],
             "current_proposal": None
         }
+        
+        return True
 
     def get_current_batna(self, player: str, round_num: int) -> float:
         """Calculate time-adjusted BATNA for current round."""
@@ -363,3 +366,98 @@ class IntegrativeNegotiationsGame(BaseGame):
             summary["failure_reason"] = game_state.get("reason", "Unknown")
 
         return summary
+
+    # Required abstract methods from BaseGame
+    def process_action(self, action) -> Dict[str, Any]:
+        """Process a single player action (required by base class)"""
+        # Add action to history if it has the required structure
+        if hasattr(action, 'player_id') and hasattr(action, 'action_data'):
+            self.add_action(action)
+        
+        # Extract action data and player info
+        action_data = action.action_data if hasattr(action, 'action_data') else action
+        player = action.player_id if hasattr(action, 'player_id') else action.get('player', '')
+        
+        # Delegate to process_actions method with single action
+        actions_dict = {player: action_data}
+        if hasattr(self, 'game_data'):
+            self.game_data = self.process_actions(actions_dict, self.game_data)
+            return self.game_data
+        else:
+            # Game not initialized properly
+            return {}
+    
+    def check_end_conditions(self) -> bool:
+        """Check if the game should end (required by base class)"""
+        if hasattr(self, 'game_data'):
+            return self.is_game_over(self.game_data)
+        return False
+    
+    def calculate_scores(self) -> Dict[str, float]:
+        """Calculate final scores for all players (required by base class)"""
+        if hasattr(self, 'game_data'):
+            if self.game_data.get("agreement_reached", False):
+                return self.game_data.get("final_utilities", {})
+        return {player: 0.0 for player in getattr(self, 'players', [])}
+    
+    def get_game_prompt(self, player_id: str) -> str:
+        """Get the current game prompt for a specific player (required by base class)"""
+        if not hasattr(self, 'game_data') or not hasattr(self, 'it_team') or not hasattr(self, 'marketing_team'):
+            return "Game not initialized properly"
+            
+        private_info = self.game_data.get("private_info", {}).get(player_id, {})
+        current_round = self.game_data.get("current_round", 1)
+        role = private_info.get("role", "unknown")
+        
+        # Get current BATNA for this player and round
+        batna = self.get_current_batna(player_id, current_round)
+        
+        # Create role-specific prompt
+        if role == "IT":
+            return f"""You are the IT TEAM in an integrative negotiation about office space allocation.
+
+SCENARIO: You and the Marketing team need to negotiate how to share office resources and responsibilities.
+
+YOUR PRIORITIES (weights):
+- Server Room Size: 40% (you need adequate space for servers)
+- Meeting Room Access: 10% (less critical for your work)
+- Cleaning Responsibility: 30% (affects your work environment)
+- Branding Visibility: 20% (moderate importance)
+
+YOUR BATNA: {batna:.0f} points (deteriorates over time)
+CURRENT ROUND: {current_round}/{self.max_rounds}
+
+ISSUES TO NEGOTIATE:
+1. Server Room Size: 50 sqm (10 pts), 100 sqm (30 pts), 150 sqm (60 pts)
+2. Meeting Room Access: 2 days/week (10 pts), 4 days/week (30 pts), 7 days/week (60 pts)
+3. Cleaning Responsibility: IT handles (30 pts), Shared (50 pts), Outsourced (10 pts)
+4. Branding Visibility: Minimal (10 pts), Moderate (30 pts), Prominent (60 pts)
+
+You can propose packages addressing all issues, accept/reject proposals, or make counter-proposals.
+Respond with JSON format: {{"type": "propose", "proposal": {{"server_room": 150, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}"""
+        
+        elif role == "Marketing":
+            return f"""You are the MARKETING TEAM in an integrative negotiation about office space allocation.
+
+SCENARIO: You and the IT team need to negotiate how to share office resources and responsibilities.
+
+YOUR PRIORITIES (weights):
+- Server Room Size: 10% (less relevant to your operations)
+- Meeting Room Access: 40% (critical for client meetings)
+- Cleaning Responsibility: 20% (affects professional appearance)
+- Branding Visibility: 30% (important for brand image)
+
+YOUR BATNA: {batna:.0f} points (deteriorates over time)
+CURRENT ROUND: {current_round}/{self.max_rounds}
+
+ISSUES TO NEGOTIATE:
+1. Server Room Size: 50 sqm (10 pts), 100 sqm (30 pts), 150 sqm (60 pts)
+2. Meeting Room Access: 2 days/week (10 pts), 4 days/week (30 pts), 7 days/week (60 pts)
+3. Cleaning Responsibility: IT handles (30 pts), Shared (50 pts), Outsourced (10 pts)
+4. Branding Visibility: Minimal (10 pts), Moderate (30 pts), Prominent (60 pts)
+
+You can propose packages addressing all issues, accept/reject proposals, or make counter-proposals.
+Respond with JSON format: {{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}"""
+        
+        else:
+            return f"Unknown role: {role}. Game state may be corrupted."
