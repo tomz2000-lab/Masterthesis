@@ -63,10 +63,10 @@ class IntegrativeNegotiationsGame(BaseGame):
         # Base BATNA values (to be adjusted with decay)
         self.base_batnas = config.get("batnas", {"IT": 200, "Marketing": 220})
 
-    def initialize_game(self, players: List[str]) -> bool:
+    def initialize_game(self, players: List[str]) -> Dict[str, Any]:
         """Initialize integrative negotiations game."""
         if len(players) != 2:
-            return False
+            raise ValueError("Integrative negotiations game requires exactly 2 players")
 
         self.players = players
         self.it_team = players[0]  # First player is IT
@@ -105,7 +105,7 @@ class IntegrativeNegotiationsGame(BaseGame):
             "current_proposal": None
         }
         
-        return True
+        return self.game_data
 
     def get_current_batna(self, player: str, round_num: int) -> float:
         """Calculate time-adjusted BATNA for current round."""
