@@ -70,7 +70,7 @@ def validate_and_constrain_action(raw_response: str, game_type: str) -> Dict[str
         
         if action_type == "accept":
             action = AcceptAction(**parsed)
-        elif action_type == "offer" and game_type == "price_bargaining":
+        elif action_type == "offer" and game_type in ["price_bargaining", "company_car"]:
             action = OfferAction(**parsed)
         elif action_type == "propose" and game_type == "resource_allocation":
             action = ResourceProposalAction(**parsed)
@@ -106,7 +106,7 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
         return {"type": "accept"}
     
     # Auto-correct offer variations for price bargaining
-    if game_type == "price_bargaining" and any(word in action_type for word in ["offer", "bid", "propose"]):
+    if game_type in ["price_bargaining", "company_car"] and any(word in action_type for word in ["offer", "bid", "propose"]):
         price = parsed.get("price") or parsed.get("amount") or parsed.get("value")
         if price is not None:
             return {"type": "offer", "price": float(price)}
