@@ -91,6 +91,15 @@ class CompanyCarGame(BaseGame):
         elif action_type in ["accept", "reject"]:
             return True
 
+        elif action_type in ["counter", "counteroffer"]:
+            # Treat counter/counteroffer as regular offers
+            price = action.get("price", 0)
+            return price > 0 and 10000 <= price <= 100000
+
+        elif action_type in ["offer_accepted", "offer_response"]:
+            # Treat these as accept actions
+            return True
+
         elif action_type == "noop":
             # Allow no-op actions as fallback
             return True
@@ -101,10 +110,23 @@ class CompanyCarGame(BaseGame):
         """Process player actions and update game state."""
         current_round = game_state["current_round"]
 
+        # Normalize action types - treat counter/counteroffer as offers
+        normalized_actions = {}
+        for player, action in actions.items():
+            action_type = action.get("type", "")
+            if action_type in ["counter", "counteroffer"]:
+                # Convert to offer
+                normalized_actions[player] = {"type": "offer", "price": action.get("price")}
+            elif action_type in ["offer_accepted", "offer_response"]:
+                # Convert to accept
+                normalized_actions[player] = {"type": "accept"}
+            else:
+                normalized_actions[player] = action
+
         # Check for offers and responses
-        offers = {player: action for player, action in actions.items()
+        offers = {player: action for player, action in normalized_actions.items()
                   if action.get("type") == "offer"}
-        responses = {player: action for player, action in actions.items()
+        responses = {player: action for player, action in normalized_actions.items()
                      if action.get("type") in ["accept", "reject"]}
 
         # Process offers
@@ -232,44 +254,50 @@ class CompanyCarGame(BaseGame):
         private_info = self.game_data.get("private_info", {}).get(player_id, {})
         current_round = self.game_data.get("current_round", 1)
         
+        # Get previous offers from game state
+        other_player = self.seller if player_id == self.buyer else self.buyer
+        other_offer = self.game_data.get(f"{other_player}_last_offer", None)
+        my_offer = self.game_data.get(f"{player_id}_last_offer", None)
+        
+        # Build offer history
+        offer_history = []
+        if my_offer:
+            role_name = "You" 
+            offer_history.append(f"- Your last offer: €{my_offer:,.0f}")
+        if other_offer:
+            other_role = "Seller" if other_player == self.seller else "Buyer"
+            offer_history.append(f"- {other_role}'s last offer: €{other_offer:,.0f}")
+        
+        offer_status = "\n".join(offer_history) if offer_history else "No offers made yet."
+        
         if player_id == self.buyer:
-            role = "buyer"
             budget = private_info.get("budget", self.buyer_budget)
             batna = self.get_current_batna(player_id, current_round)
             
-            return f"""You are the BUYER in a company car negotiation.
-            
-SCENARIO: You need to purchase a company car for your business.
-STARTING PRICE: €{self.starting_price:,}
-YOUR BUDGET: €{budget:,}
-YOUR BATNA (alternative): €{batna:,.0f} (deteriorates over time)
-CURRENT ROUND: {current_round}/{self.max_rounds}
+            return f"""BUYER - Round {current_round}/{self.max_rounds}
+Your limit: €{batna:,.0f}
+{offer_status}
 
-Your goal is to buy the car at the lowest possible price while staying within your budget and BATNA.
-You can make offers, accept offers, or reject offers.
+VALID ACTIONS (respond with exact JSON format):
+- Make offer: {{"type": "offer", "price": AMOUNT}}
+- Accept other's offer: {{"type": "accept"}}
+- Reject other's offer: {{"type": "reject"}}
+- Counteroffer: {{"type": "counter", "price": AMOUNT}}
 
-Available actions:
-- offer: {{"type": "offer", "price": AMOUNT}}
-- accept: {{"type": "accept"}}
-- reject: {{"type": "reject"}}"""
+Strategy: Buy as low as possible, but stay above your BATNA of €{batna:,.0f}"""
 
         else:  # seller
-            role = "seller"
             cost = private_info.get("cost", self.seller_cost)
             batna = self.get_current_batna(player_id, current_round)
             
-            return f"""You are the SELLER in a company car negotiation.
-            
-SCENARIO: You are selling a company car.
-STARTING PRICE: €{self.starting_price:,}
-YOUR COST: €{cost:,}
-YOUR BATNA (alternative buyer): €{batna:,.0f} (deteriorates over time)
-CURRENT ROUND: {current_round}/{self.max_rounds}
+            return f"""SELLER - Round {current_round}/{self.max_rounds}
+Your minimum: €{batna:,.0f}
+{offer_status}
 
-Your goal is to sell the car at the highest possible price above your cost and BATNA.
-You can make offers, accept offers, or reject offers.
+VALID ACTIONS (respond with exact JSON format):
+- Make offer: {{"type": "offer", "price": AMOUNT}}
+- Accept other's offer: {{"type": "accept"}}  
+- Reject other's offer: {{"type": "reject"}}
+- Counteroffer: {{"type": "counter", "price": AMOUNT}}
 
-Available actions:
-- offer: {{"type": "offer", "price": AMOUNT}}
-- accept: {{"type": "accept"}}
-- reject: {{"type": "reject"}}"""
+Strategy: Sell as high as possible, but stay above your BATNA of €{batna:,.0f}"""
