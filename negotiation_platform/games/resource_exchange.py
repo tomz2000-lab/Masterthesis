@@ -351,18 +351,25 @@ class ResourceAllocationGame(BaseGame):
         
         turn_indicator = "🟢 YOUR TURN" if is_my_turn else "🔴 OTHER TEAM'S TURN"
         
-        return f"""You are team {team.upper()} in a resource allocation negotiation.
-Round {current_round}/{self.max_rounds} - {turn_indicator}
-
-Your utility function: {utility_function}
-{offer_context}
-
-{action_guidance}
-
-Available actions:
-{available_actions}
-
-Constraints: 3*gpu_hours + 4*bandwidth ≤ 240, gpu_hours ≥ 20, bandwidth ≥ 15
-
-⚠️ CRITICAL: When accepting, use ONLY {{"type": "accept"}} - do NOT include values!
-🎯 IMPORTANT: Only act when it's YOUR TURN (🟢). Wait when it's the other team's turn (🔴)."""
+        # Strong, strict prompt: require a single JSON object as the entire reply
+        return (
+            f"You are team {team.upper()} in a resource allocation negotiation.\n"
+            f"Round {current_round}/{self.max_rounds} - {turn_indicator}\n\n"
+            f"Your utility function: {utility_function}\n"
+            f"{offer_context}\n\n"
+            "IMPORTANT INSTRUCTIONS (READ CAREFULLY):\n"
+            "1) You MUST REPLY WITH EXACTLY ONE SINGLE LINE containing ONLY A JSON OBJECT and nothing else (no explanation, no punctuation outside JSON).\n"
+            "2) If there have been NO proposals yet, YOU MUST MAKE THE INITIAL PROPOSAL. The only valid JSON is:\n"
+            "   {\"type\": \"propose\", \"gpu_hours\": <INT>, \"bandwidth\": <INT>}\n"
+            "3) If the other team has made the last proposal, YOUR RESPONSE MUST BE ONE OF THE FOLLOWING (exact formats):\n"
+            "   a) Accept by reference (do NOT include numbers): {\"type\": \"accept\"}\n"
+            "   b) Counter-proposal with new values: {\"type\": \"propose\", \"gpu_hours\": <INT>, \"bandwidth\": <INT>}\n"
+            "4) Do NOT output synonyms or other action names (e.g., 'accepted', 'offer_accepted', 'offer', 'counter', 'offer_response').\n"
+            "5) When accepting, your JSON must contain ONLY {\"type\": \"accept\"} and NO numeric fields; any numeric fields will be ignored.\n"
+            "6) Only act when it's YOUR TURN (🟢); otherwise reply with the exact JSON: {\"type\": \"noop\"} if required by the platform, or no message.\n\n"
+            "CONSTRAINTS: 3*gpu_hours + 4*bandwidth <= 240, gpu_hours >= 20, bandwidth >= 15\n\n"
+            "EXAMPLE VALID RESPONSES (single-line JSON only):\n"
+            "{\"type\": \"propose\", \"gpu_hours\": 35, \"bandwidth\": 25}\n"
+            "{\"type\": \"accept\"}\n\n"
+            "If you fail to follow these exact formats, your response will be treated as INVALID."
+        )
