@@ -3,9 +3,9 @@ model_a:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Perfect for L40 GPUs
   config:
     device: "auto"  # Will use GPU automatically
-    temperature: 0.7
+    temperature: 0.0
     max_length: 512
-    do_sample: true
+    do_sample: false
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: true  # Should work properly on GPU
@@ -16,9 +16,9 @@ model_b:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Same model as A, different personality
   config:
     device: "auto"  # Will use GPU automatically
-    temperature: 0.5  # Very conservative negotiator
+    temperature: 0.0  # Very conservative negotiator
     max_length: 512
-    do_sample: true
+    do_sample: false
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: true  # GPU quantization
@@ -30,9 +30,9 @@ model_c:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Same model as A, different personality
   config:
     device: "auto"  # Will use GPU automatically
-    temperature: 0.3  # Very conservative negotiator
+    temperature: 0.0  # Very conservative negotiator
     max_length: 512
-    do_sample: true
+    do_sample: false
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: true  # GPU quantization
