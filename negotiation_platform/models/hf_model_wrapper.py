@@ -77,15 +77,24 @@ class HuggingFaceModelWrapper(BaseLLMModel):
         if not self.is_loaded:
             raise RuntimeError(f"Model {self.model_name} not loaded")
 
-        # Optimized generation parameters for focused JSON responses
+        # Helper: read only from self.config (top-level) or nested 'generation' dict
+        gen_conf = self.config.get('generation', {}) if isinstance(self.config.get('generation', {}), dict) else {}
+        def _cfg(key, default):
+            if key in self.config:
+                return self.config[key]
+            if key in gen_conf:
+                return gen_conf[key]
+            return default
+
+        # Build generation parameters strictly from YAML-configurable values (kwargs will NOT override these)
         generation_params = {
-            'max_new_tokens': kwargs.get('max_new_tokens', 120),   # More tokens for complete responses
-            'temperature': kwargs.get('temperature', 0.3),        # Slightly higher for creativity
-            'top_p': kwargs.get('top_p', 0.8),                    # More diverse sampling
-            'do_sample': kwargs.get('do_sample', True),
+            'max_new_tokens': _cfg('max_new_tokens', 120),
+            'temperature': _cfg('temperature', 0.3),
+            'top_p': _cfg('top_p', 0.8),
+            'do_sample': _cfg('do_sample', True),
             'pad_token_id': self.tokenizer.eos_token_id,
-            'repetition_penalty': 1.1,                           # Lighter repetition penalty
-            'num_beams': 1                                       # Faster, more deterministic
+            'repetition_penalty': _cfg('repetition_penalty', 1.1),
+            'num_beams': _cfg('num_beams', 1),
         }
 
         # Remove parameters that may not be supported by all models
