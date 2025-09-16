@@ -133,7 +133,7 @@ class SessionManager:
 
             for p_name in players:
                 # Build prompt based on visible state
-                prompt = self._compose_prompt(p_name, game_state)
+                prompt = self._compose_prompt(p_name, game_state, game_instance)
                 
                 # DEBUG: Log the actual prompt being sent (using info level to ensure it shows)
                 self.logger.info(f"🎯 [PROMPT DEBUG] Prompt for {p_name}:")
@@ -203,10 +203,15 @@ class SessionManager:
     # ------------------------------------------------------------------ #
     # HELPER METHODS                                                     #
     # ------------------------------------------------------------------ #
-    def _compose_prompt(self, player: str, game_state: Dict[str, Any]) -> str:
+    def _compose_prompt(self, player: str, game_state: Dict[str, Any], game_instance=None) -> str:
         """
-        Ultra-simple prompts adapted for different game types.
+        Delegate to game instance for prompt generation.
         """
+        # Use the game instance's prompt method instead of built-in templates
+        if game_instance and hasattr(game_instance, 'get_game_prompt'):
+            return game_instance.get_game_prompt(player)
+        
+        # Fallback to built-in templates if game instance doesn't have prompt method
         current_round = game_state["current_round"]
         deadline = game_state["rounds"]
         private = game_state["private_info"][player]
