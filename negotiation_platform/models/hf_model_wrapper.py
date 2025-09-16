@@ -4,8 +4,10 @@ Hugging Face model wrapper for plug-and-play integration
 #from dotenv import load_dotenv
 #load_dotenv()
 import os
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+import time
+import os
 from .base_model import BaseLLMModel
 from typing import Dict, Any
 
@@ -16,50 +18,158 @@ class HuggingFaceModelWrapper(BaseLLMModel):
         super().__init__(model_name, config)
         self.tokenizer = None
         self.model = None
-        self.device = config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+        # Handle 'auto' device setting and normalize to 'cuda' or 'cpu'
+        device_config = config.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+        if device_config == 'auto':
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            self.device = device_config
 
     def load_model(self):
         """Load Hugging Face model and tokenizer"""
         try:
             print(f"Loading {self.model_name}...")
+            # Enable more verbose transformers logs to help diagnose slow steps
+            os.environ.setdefault('TRANSFORMERS_VERBOSITY', 'info')
+            os.environ.setdefault('HF_HUB_OFFLINE', '0')
+            
+            # Check if we should disable TorchDynamo (helps with some hanging issues)
+            if os.environ.get('TORCHDYNAMO_DISABLE'):
+                print(f"🔧 TorchDynamo is DISABLED via environment variable")
+            else:
+                print(f"🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)")
+                # Disable TorchDynamo to prevent hanging issues
+                print(f"🔧 DISABLING TorchDynamo to prevent potential hanging...")
+                os.environ['TORCHDYNAMO_DISABLE'] = '1'
+                try:
+                    # Import torch._dynamo safely without shadowing the torch module
+                    import torch._dynamo as torch_dynamo
+                    torch_dynamo.config.suppress_errors = True
+                except Exception as dynamo_error:
+                    print(f"⚠️ Could not configure TorchDynamo: {dynamo_error}")
+
+            t_start = time.time()
+            # Print environment info for debugging
+            import transformers
+            print(f"🔧 Environment: transformers={transformers.__version__}, torch={torch.__version__}")
+            print(f"🔧 CUDA available: {torch.cuda.is_available()}, device_count: {torch.cuda.device_count() if torch.cuda.is_available() else 0}")
+            
             # Get the token from config or from environment variable
             hf_token = self.config.get('api_token') or os.getenv("HUGGINGFACE_TOKEN")
 
             # Configure quantization for faster loading
             quantization_config = None
             if self.config.get('load_in_8bit', False):
-                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-                print("🔧 Using 8-bit quantization for faster loading")
+                print("🔧 Importing BitsAndBytesConfig for 8-bit quantization...")
+                t_bnb_start = time.time()
+                try:
+                    from transformers import BitsAndBytesConfig
+                    import bitsandbytes as bnb
+                    print(f"🔧 BitsAndBytes import successful in {time.time() - t_bnb_start:.2f}s, version: {getattr(bnb, '__version__', 'unknown')}")
+                    quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+                    print("🔧 Using 8-bit quantization for faster loading")
+                except Exception as e:
+                    print(f"❌ BitsAndBytes import/config failed: {e}")
+                    raise
             elif self.config.get('load_in_4bit', False):
-                quantization_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                    bnb_4bit_quant_type="nf4"
-                )
-                print("🔧 Using 4-bit quantization for ultra-fast loading")
+                print("🔧 Importing BitsAndBytesConfig for 4-bit quantization...")
+                t_bnb_start = time.time()
+                try:
+                    from transformers import BitsAndBytesConfig
+                    import bitsandbytes as bnb
+                    print(f"🔧 BitsAndBytes import successful in {time.time() - t_bnb_start:.2f}s, version: {getattr(bnb, '__version__', 'unknown')}")
+                    quantization_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_compute_dtype=torch.float16,
+                        bnb_4bit_quant_type="nf4"
+                    )
+                    print("🔧 Using 4-bit quantization for ultra-fast loading")
+                except Exception as e:
+                    print(f"❌ BitsAndBytes import/config failed: {e}")
+                    raise
 
+            print("🔁 Starting tokenizer.from_pretrained()")
+            t_tok_start = time.time()
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_name,
                 token=hf_token,  # Updated from use_auth_token
                 trust_remote_code=self.config.get('trust_remote_code', True)
             )
+            t_tok_end = time.time()
+            print(f"✅ Tokenizer loaded in {t_tok_end - t_tok_start:.2f}s")
 
+            print("🔧 Building model kwargs...")
+            t_kwargs_start = time.time()
             model_kwargs = {
                 'token': hf_token,  # Updated from use_auth_token
                 'torch_dtype': torch.float16 if self.device == 'cuda' else torch.float32,
-                'device_map': 'auto' if self.device == 'cuda' else None,
                 'trust_remote_code': self.config.get('trust_remote_code', True),
                 'low_cpu_mem_usage': True,  # Reduces memory usage during loading
             }
             
+            # Handle device_map configuration - prioritize explicit config
+            device_map_config = self.config.get('device_map')
+            if device_map_config:
+                model_kwargs['device_map'] = device_map_config
+                print(f"🔧 Using configured device_map: {device_map_config}")
+            elif self.device == 'cuda':
+                model_kwargs['device_map'] = 'auto'
+                print("🔧 Using default device_map: auto (CUDA available)")
+            else:
+                print("🔧 No device_map set (CPU mode)")
+            
             # Add quantization if configured
             if quantization_config:
+                print("🔧 Adding quantization_config to model_kwargs...")
                 model_kwargs['quantization_config'] = quantization_config
 
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                **model_kwargs
-            )
+            t_kwargs_end = time.time()
+            print(f"✅ Model kwargs built in {t_kwargs_end - t_kwargs_start:.2f}s")
+            print(f"� Model kwargs keys: {list(model_kwargs.keys())}")
+            print(f"🔧 device_map: {model_kwargs.get('device_map')}")
+            print(f"🔧 torch_dtype: {model_kwargs.get('torch_dtype')}")
+            print(f"🔧 low_cpu_mem_usage: {model_kwargs.get('low_cpu_mem_usage')}")
+            print(f"🔧 trust_remote_code: {model_kwargs.get('trust_remote_code')}")
+
+            print(f"�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='{self.model_name}'")
+            print(f"🔧 About to call: AutoModelForCausalLM.from_pretrained('{self.model_name}', **{list(model_kwargs.keys())})")
+            
+            # Flush output to ensure we see this print before any potential hang
+            import sys
+            sys.stdout.flush()
+            
+            t_model_start = time.time()
+            try:
+                print(f"🔧 Starting model load (optimized settings)...")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    **model_kwargs
+                )
+                
+                t_model_end = time.time()
+                print(f"✅ Model loaded successfully in {t_model_end - t_model_start:.2f}s (total since entry {t_model_end - t_start:.2f}s)")
+            except Exception as e:
+                t_model_error = time.time()
+                print(f"❌ Model loading failed after {t_model_error - t_model_start:.2f}s with error: {str(e)}")
+                print(f"❌ Exception type: {type(e).__name__}")
+                import traceback
+                print(f"❌ Traceback:\n{traceback.format_exc()}")
+                raise
+
+            # Device placement: if transformers performed auto-placement, report the device
+            try:
+                first_param = next(self.model.parameters())
+                print(f"🔧 [INFO] First model parameter device after load: {first_param.device}")
+            except Exception:
+                print("🔧 [INFO] Could not inspect model parameters after load")
+
+            # Print GPU usage via nvidia-smi (best-effort; may not be available in all environments)
+            try:
+                import subprocess
+                smi = subprocess.run(['nvidia-smi','--query-gpu=utilization.gpu,memory.used','--format=csv,noheader,nounits'], capture_output=True, text=True, timeout=5)
+                print(f"🔧 [GPU] nvidia-smi output:\n{smi.stdout.strip()}")
+            except Exception:
+                print("🔧 [GPU] nvidia-smi not available or timed out")
 
             # Add padding token if not exists
             if self.tokenizer.pad_token is None:
