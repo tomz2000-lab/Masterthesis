@@ -259,45 +259,92 @@ class CompanyCarGame(BaseGame):
         other_offer = self.game_data.get(f"{other_player}_last_offer", None)
         my_offer = self.game_data.get(f"{player_id}_last_offer", None)
         
-        # Build offer history
+        # Build offer history with explicit accept/reject guidance  
         offer_history = []
+        accept_guidance = ""
+        
         if my_offer:
-            role_name = "You" 
+            role_name = "You"
             offer_history.append(f"- Your last offer: €{my_offer:,.0f}")
+            
         if other_offer:
-            other_role = "Seller" if other_player == self.seller else "Buyer"
+            other_role = "Seller" if other_player == self.seller else "Buyer"  
             offer_history.append(f"- {other_role}'s last offer: €{other_offer:,.0f}")
+            
+            # Generate explicit accept/reject guidance
+            if player_id == self.buyer:
+                batna = self.get_current_batna(player_id, current_round)
+                if other_offer <= batna:
+                    accept_guidance = f"\n→ ACCEPT this offer (saves you €{batna - other_offer:,.0f})"
+                else:
+                    accept_guidance = f"\n→ Offer is too high, counter-offer below €{batna:,.0f}"
+                    
+            else:  # seller
+                batna = self.get_current_batna(player_id, current_round)
+                if other_offer >= batna:
+                    accept_guidance = f"\n→ ACCEPT this offer (profit €{other_offer - batna:,.0f})"
+                else:
+                    accept_guidance = f"\n→ Offer is too low, counter-offer above €{batna:,.0f}"
         
         offer_status = "\n".join(offer_history) if offer_history else "No offers made yet."
+        offer_status += accept_guidance
         
         if player_id == self.buyer:
             budget = private_info.get("budget", self.buyer_budget)
             batna = self.get_current_batna(player_id, current_round)
             
-            return f"""BUYER - Round {current_round}/{self.max_rounds}
-Your limit: €{batna:,.0f}
-{offer_status}
+            if other_offer:
+                decision_guidance = "ACCEPT IT" if other_offer <= batna else "COUNTER-OFFER"
+                return f"""You are a BUYER in a car negotiation. Round {current_round}/{self.max_rounds}.
+Your maximum budget: €{batna:,.0f}
+Seller's offer: €{other_offer:,.0f}
+Decision: {decision_guidance} (offer is {'acceptable' if other_offer <= batna else 'too high'})
 
-VALID ACTIONS (respond with exact JSON format):
-- Make offer: {{"type": "offer", "price": AMOUNT}}
-- Accept other's offer: {{"type": "accept"}}
-- Reject other's offer: {{"type": "reject"}}
-- Counteroffer: {{"type": "counter", "price": AMOUNT}}
+TASK: Respond with ONLY valid JSON. No explanations.
+Valid responses:
+{{"type": "accept"}}
+{{"type": "offer", "price": 40000}}
+{{"type": "reject"}}
 
-Strategy: Buy as low as possible, but stay above your BATNA of €{batna:,.0f}"""
+Your response:"""
+            else:
+                return f"""You are a BUYER in a car negotiation. Round {current_round}/{self.max_rounds}.
+Your maximum budget: €{batna:,.0f}
+No offers yet. Make a reasonable offer below your budget.
+
+TASK: Respond with ONLY valid JSON. No explanations.
+Valid responses:
+{{"type": "offer", "price": 40000}}
+{{"type": "reject"}}
+
+Your response:"""
 
         else:  # seller
             cost = private_info.get("cost", self.seller_cost)
             batna = self.get_current_batna(player_id, current_round)
             
-            return f"""SELLER - Round {current_round}/{self.max_rounds}
-Your minimum: €{batna:,.0f}
-{offer_status}
+            if other_offer:
+                decision_guidance = "ACCEPT IT" if other_offer >= batna else "COUNTER-OFFER"
+                return f"""You are a SELLER in a car negotiation. Round {current_round}/{self.max_rounds}.
+Your minimum price: €{batna:,.0f}
+Buyer's offer: €{other_offer:,.0f}
+Decision: {decision_guidance} (offer is {'acceptable' if other_offer >= batna else 'too low'})
 
-VALID ACTIONS (respond with exact JSON format):
-- Make offer: {{"type": "offer", "price": AMOUNT}}
-- Accept other's offer: {{"type": "accept"}}  
-- Reject other's offer: {{"type": "reject"}}
-- Counteroffer: {{"type": "counter", "price": AMOUNT}}
+TASK: Respond with ONLY valid JSON. No explanations.
+Valid responses:
+{{"type": "accept"}}
+{{"type": "offer", "price": 42000}}
+{{"type": "reject"}}
 
-Strategy: Sell as high as possible, but stay above your BATNA of €{batna:,.0f}"""
+Your response:"""
+            else:
+                return f"""You are a SELLER in a car negotiation. Round {current_round}/{self.max_rounds}.
+Your minimum price: €{batna:,.0f}
+No offers yet. Make a reasonable offer above your minimum.
+
+TASK: Respond with ONLY valid JSON. No explanations.
+Valid responses:
+{{"type": "offer", "price": 42000}}
+{{"type": "reject"}}
+
+Your response:"""
