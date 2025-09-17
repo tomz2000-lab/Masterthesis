@@ -1,97 +1,92 @@
 import random
-import numpy as np
 from typing import Dict, List, Any, Optional, Tuple
-from .base_game import BaseGame
+from .base_game import BaseGame, PlayerAction
 
 class ResourceAllocationGame(BaseGame):
     """
-    Resource allocation game between Development and Marketing teams.
-    Based on document specifications with stochastic demand and market volatility.
+    Resource allocation game - MINIMAL VERSION LIKE WORKING STUB
     """
     
     def __init__(self, config: Dict[str, Any]):
+        # Initialize exactly like car game stub that worked
         super().__init__(game_id="resource_allocation", config=config)
-        self.total_resources = config.get("total_resources", 100)
-        self.constraints = config.get("constraints", {
-            "gpu_bandwidth": 240,  # 3x + 4y <= 240
-            "min_gpu": 20,         # x >= 20
-            "min_bandwidth": 15    # y >= 15
-        })
-        self.batnas = config.get("batnas", {"development": 300, "marketing": 360})
-        self.batna_decay = config.get("batna_decay", {"development": 0.03, "marketing": 0.02})
+        self.starting_price = config.get("starting_price", 45000)
+        self.buyer_budget = config.get("buyer_budget", 40000)
+        self.seller_cost = config.get("seller_cost", 38000)
+        self.buyer_batna = config.get("buyer_batna", 44000)
+        self.seller_batna = config.get("seller_batna", 39000)
         self.max_rounds = config.get("rounds", 5)
+        self.batna_decay = config.get("batna_decay", {"buyer": 0.02, "seller": 0.01})
         
     def initialize_game(self, players: List[str]) -> Dict[str, Any]:
-        """Initialize resource allocation game."""
+        """Initialize resource allocation game - SAME STRUCTURE AS CAR GAME."""
         if len(players) != 2:
             raise ValueError("Resource allocation game requires exactly 2 players")
-            
+
         self.players = players
-        self.development = players[0]  # Development team
-        self.marketing = players[1]    # Marketing team
-        
-        return {
+        self.development = players[0]  # First player is development team  
+        self.marketing = players[1]    # Second player is marketing team
+        self.state = self.state.__class__.ACTIVE  # CRITICAL: Set to active state (like car game)
+
+        # Build game data structure EXACTLY like car game pattern
+        self.game_data = {
             "game_type": "resource_allocation",
             "players": self.players,
             "rounds": self.max_rounds,
             "current_round": 1,
-            "current_turn": self.development,  # Development team goes first
-            "waiting_for_response": False,     # Track if we're waiting for a response to a proposal
             "private_info": {
                 self.development: {
-                    "team": "development",
+                    "role": "development",
+                    "team": "Development Team",
                     "utility_function": "12x + 3y + ε",
-                    "batna": self.batnas["development"],
-                    "batna_decay": self.batna_decay["development"],
-                    "uncertainty": "stochastic_demand",  # ε ~ N(0,5)
-                    "role": "first_proposer"  # This team makes initial proposal
+                    "batna": self.development_batna,
+                    "description": "GPU-intensive machine learning projects"
                 },
                 self.marketing: {
-                    "team": "marketing",
-                    "utility_function": "3x + 12y + i", 
-                    "batna": self.batnas["marketing"],
-                    "batna_decay": self.batna_decay["marketing"],
-                    "uncertainty": "market_volatility",  # i ~ U(-8%, +8%)
-                    "role": "responder"  # This team responds to initial proposal
+                    "role": "marketing",
+                    "team": "Marketing Team", 
+                    "utility_function": "3x + 12y + i",
+                    "batna": self.marketing_batna,
+                    "description": "bandwidth-intensive analytics and campaigns"
                 }
             },
             "public_info": {
+                "deadline": self.max_rounds,
                 "total_resources": self.total_resources,
-                "constraints": self.constraints,
-                "deadline": self.max_rounds
-            },
-            "offers_history": []
+                "constraints": {
+                    "gpu_bandwidth": self.gpu_bandwidth_constraint,
+                    "min_gpu": self.min_gpu,
+                    "min_bandwidth": self.min_bandwidth
+                }
+            }
         }
+        return self.game_data
     
     def get_current_batna(self, player: str, round_num: int) -> float:
-        """Calculate time-adjusted BATNA for current round."""
+        """Calculate time-adjusted BATNA for current round - SAME PATTERN AS CAR GAME."""
         if player == self.development:
             decay_rate = self.batna_decay["development"]
-            base_batna = self.batnas["development"]
+            base_batna = self.development_batna
         else:
             decay_rate = self.batna_decay["marketing"]
-            base_batna = self.batnas["marketing"]
+            base_batna = self.marketing_batna
         
         current_batna = base_batna * ((1 - decay_rate) ** (round_num - 1))
-        print(f"[DEBUG] {player} BATNA: base={base_batna}, decay_rate={decay_rate}, round={round_num}, current={current_batna:.4f}")
         return current_batna
     
     def calculate_utility(self, player: str, x: float, y: float, round_num: int) -> float:
-        """Calculate utility with uncertainty factors."""
-        print(f"[DEBUG] calculate_utility called with: player={player}, x={x}, y={y}, round={round_num}")
+        """Calculate utility with uncertainty factors - SIMPLIFIED FOR STABILITY."""
         if player == self.development:
-            # Development: 12x + 3y + ε (stochastic demand N(0,5))
-            epsilon = np.random.normal(0, 5)
+            # Development: 12x + 3y + ε (simplified: small random component)
+            epsilon = random.gauss(0, 1)  # Reduced variance for stability
             base_utility = 12 * x + 3 * y
             final_utility = base_utility + epsilon
-            print(f"[DEBUG] Development utility: x={x}, y={y}, base=12*{x}+3*{y}={base_utility}, epsilon={epsilon:.4f}, final={final_utility:.4f}")
             return final_utility
         else:
-            # Marketing: 3x + 12y + i (market volatility U(-8%, +8%))  
-            i_factor = np.random.uniform(-0.08, 0.08)
+            # Marketing: 3x + 12y + i (simplified: small random component)  
+            i_factor = random.uniform(-0.02, 0.02)  # Reduced volatility for stability
             base_utility = 3 * x + 12 * y
             final_utility = base_utility * (1 + i_factor)
-            print(f"[DEBUG] Marketing utility: x={x}, y={y}, base=3*{x}+12*{y}={base_utility}, i_factor={i_factor:.6f}, multiplier={1+i_factor:.6f}, final={final_utility:.4f}")
             return final_utility
     
     def is_valid_allocation(self, x: float, y: float) -> bool:
@@ -294,7 +289,7 @@ class ResourceAllocationGame(BaseGame):
         return {player: 0.0 for player in getattr(self, 'players', [])}
     
     def get_game_prompt(self, player_id: str) -> str:
-        """Get the current game prompt for a specific player (required by base class)"""
+        """Get role-based game prompt with decision guidance (following successful car game design)"""
         if not hasattr(self, 'game_data'):
             return "Game not initialized properly"
             
@@ -302,74 +297,89 @@ class ResourceAllocationGame(BaseGame):
         current_round = self.game_data.get("current_round", 1)
         current_turn = self.game_data.get("current_turn", self.development)
         waiting_for_response = self.game_data.get("waiting_for_response", False)
-        team = private_info.get("team", player_id)
+        team = private_info.get("team", player_id).upper()
         offers_history = self.game_data.get("offers_history", [])
         
-        # Check if it's this player's turn
+        # Calculate current BATNA with time decay
+        current_batna = self.get_current_batna(player_id, current_round)
+        
+        # Role-based identity establishment
+        if team == "DEVELOPMENT":
+            role_desc = "DEVELOPMENT TEAM responsible for GPU-intensive machine learning projects"
+            your_focus = "You need GPU hours for training AI models and processing large datasets"
+            your_utility = "12x + 3y + ε (where ε represents stochastic demand uncertainty)"
+        else:
+            role_desc = "MARKETING TEAM responsible for bandwidth-intensive analytics and campaigns"  
+            your_focus = "You need bandwidth for data analysis, customer analytics, and digital campaigns"
+            your_utility = "3x + 12y + i (where i represents market volatility)"
+        
+        # Determine decision context and guidance
         is_my_turn = (current_turn == player_id)
         
-        # Build context based on game state
         if not offers_history:
-            # No proposals yet
+            # Initial state - no proposals yet
             if is_my_turn and not waiting_for_response:
-                action_guidance = "🎯 IT'S YOUR TURN: Make the INITIAL PROPOSAL to start the negotiation."
-                available_actions = "- propose: {\"type\": \"propose\", \"gpu_hours\": X, \"bandwidth\": Y}"
+                decision_guidance = "Decision: MAKE INITIAL PROPOSAL"
+                action_reason = f"As {team}, you should propose a resource allocation that maximizes your utility while being acceptable to Marketing."
             else:
-                action_guidance = "⏳ Wait for the other team to make the initial proposal."
-                available_actions = "- wait (no action needed this round)"
-            offer_context = "No proposals have been made yet."
+                decision_guidance = "Decision: WAIT FOR PROPOSAL"
+                action_reason = "Wait for the other team to make the initial proposal."
         else:
-            # There are proposals in history
+            # There are existing proposals
             last_offer = offers_history[-1]
             last_proposer = last_offer["player"]
-            last_gpu = last_offer["gpu_hours"]
+            last_gpu = last_offer["gpu_hours"] 
             last_bandwidth = last_offer["bandwidth"]
             
             if last_proposer == player_id:
                 # I made the last proposal
-                offer_context = f"Your current proposal: {last_gpu} GPU hours, {last_bandwidth} GB/s bandwidth."
-                if is_my_turn:
-                    action_guidance = "⏳ Wait for the other team's response to your proposal."
-                    available_actions = "- wait (no action needed this round)"
-                else:
-                    action_guidance = "⏳ Waiting for other team to respond to your proposal."
-                    available_actions = "- wait (no action needed this round)"
+                decision_guidance = "Decision: WAIT FOR RESPONSE"
+                action_reason = f"Wait for the other team to respond to your proposal of {last_gpu} GPU hours and {last_bandwidth} GB/s bandwidth."
             else:
-                # Other player made the last proposal
-                other_team = "MARKETING" if team.lower() == "development" else "DEVELOPMENT"
-                offer_context = f"{other_team}'s current proposal: {last_gpu} GPU hours, {last_bandwidth} GB/s bandwidth."
-                
+                # Other team made the last proposal - I need to respond
                 if is_my_turn and waiting_for_response:
-                    action_guidance = f"🎯 IT'S YOUR TURN: Respond to {other_team}'s proposal of {last_gpu} GPU hours and {last_bandwidth} GB/s bandwidth."
-                    available_actions = """- accept: {"type": "accept"} (accept EXACTLY their proposal - do NOT include values!)
-- propose: {"type": "propose", "gpu_hours": X, "bandwidth": Y} (make counter-proposal with YOUR preferred values)"""
+                    # Calculate utility and BATNA to determine if offer is acceptable
+                    proposed_utility = self.calculate_utility(player_id, last_gpu, last_bandwidth, current_round)
+                    
+                    if proposed_utility >= current_batna:
+                        decision_guidance = "Decision: ACCEPT IT"
+                        action_reason = f"The proposed allocation ({last_gpu} GPU, {last_bandwidth} bandwidth) gives you utility {proposed_utility:.1f}, which is acceptable (above your BATNA of {current_batna:.1f})."
+                    else:
+                        decision_guidance = "Decision: COUNTER-OFFER"
+                        action_reason = f"The proposed allocation ({last_gpu} GPU, {last_bandwidth} bandwidth) gives you utility {proposed_utility:.1f}, which is too low (below your BATNA of {current_batna:.1f})."
                 else:
-                    action_guidance = "⏳ Wait for your turn to respond."
-                    available_actions = "- wait (no action needed this round)"
+                    decision_guidance = "Decision: WAIT YOUR TURN"
+                    action_reason = "Wait for your turn to respond to the other team's proposal."
+
+        # Build the role-based prompt with explicit decision guidance
+        prompt = f"""You are a {role_desc}.
+
+{your_focus}. Your utility function is {your_utility}.
+
+Current Situation (Round {current_round}/{self.max_rounds}):
+- Your current BATNA (reservation value): {current_batna:.1f}
+- Resource constraints: 3*GPU + 4*bandwidth ≤ 240, GPU ≥ 20, bandwidth ≥ 15
+"""
         
-        utility_function = private_info.get("utility_function", "Unknown")
-        
-        turn_indicator = "🟢 YOUR TURN" if is_my_turn else "🔴 OTHER TEAM'S TURN"
-        
-        # Strong, strict prompt: require a single JSON object as the entire reply
-        return (
-            f"You are team {team.upper()} in a resource allocation negotiation.\n"
-            f"Round {current_round}/{self.max_rounds} - {turn_indicator}\n\n"
-            f"Your utility function: {utility_function}\n"
-            f"{offer_context}\n\n"
-            "IMPORTANT INSTRUCTIONS (READ CAREFULLY):\n"
-            "1) You MUST REPLY WITH EXACTLY ONE SINGLE LINE containing ONLY A JSON OBJECT and nothing else (no explanation, no punctuation outside JSON).\n"
-            "2) If there have been NO proposals yet, YOU MUST MAKE THE INITIAL PROPOSAL. The only valid JSON is:\n"
-            "   {\"type\": \"propose\", \"gpu_hours\": <INT>, \"bandwidth\": <INT>}\n"
-            "3) If the other team has made the last proposal, YOUR RESPONSE MUST BE ONE OF THE FOLLOWING (exact formats):\n"
-            "   a) Accept by reference (do NOT include numbers): {\"type\": \"accept\"}\n"
-            "   b) Counter-proposal with new values: {\"type\": \"propose\", \"gpu_hours\": <INT>, \"bandwidth\": <INT>}\n"
-            "4) Do NOT output synonyms or other action names (e.g., 'accepted', 'offer_accepted', 'offer', 'counter', 'offer_response').\n"
-            "5) When accepting, your JSON must contain ONLY {\"type\": \"accept\"} and NO numeric fields; any numeric fields will be ignored.\n"
-            "6) Only act when it's YOUR TURN (🟢); otherwise reply with the exact JSON: {\"type\": \"noop\"} if required by the platform, or no message.\n\n"
-            "CONSTRAINTS: 3*gpu_hours + 4*bandwidth <= 240, gpu_hours >= 20, bandwidth >= 15\n\n"
-            "EXAMPLE VALID RESPONSES (single-line JSON only):\n"
-            "{\"type\": \"propose\", \"gpu_hours\": 35, \"bandwidth\": 25}\n"
-            "{\"type\": \"accept\"}\n\n"
-            "If you fail to follow these exact formats, your response will be treated as INVALID."
-        )
+        # Add offer history context
+        if offers_history:
+            prompt += f"\nLatest Proposal: {offers_history[-1]['gpu_hours']} GPU hours, {offers_history[-1]['bandwidth']} GB/s bandwidth (from {offers_history[-1]['player']})\n"
+        else:
+            prompt += "\nNo proposals have been made yet.\n"
+            
+        prompt += f"""
+{decision_guidance}
+
+Reasoning: {action_reason}
+
+TASK: Respond with ONLY valid JSON (no explanations or additional text):"""
+
+        # Add specific JSON format based on decision
+        if "MAKE INITIAL PROPOSAL" in decision_guidance or "COUNTER-OFFER" in decision_guidance:
+            prompt += '\n{"type": "propose", "gpu_hours": X, "bandwidth": Y}'
+        elif "ACCEPT IT" in decision_guidance:
+            prompt += '\n{"type": "accept"}'
+        else:
+            prompt += '\n{"type": "noop"}'
+            
+        return prompt
