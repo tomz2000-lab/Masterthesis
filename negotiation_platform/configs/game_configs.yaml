@@ -17,9 +17,9 @@ company_car:
 resource_allocation:
   total_resources: 100
   constraints:
-    gpu_bandwidth: 240  # 3x + 4y <= 240
-    min_gpu: 20         # x >= 20
-    min_bandwidth: 15   # y >= 15
+    gpu_bandwidth: 300  # 3x + 4y <= 300 (increased to allow more feasible solutions)
+    min_gpu: 5          # x >= 5 (reduced to be more flexible)
+    min_bandwidth: 5    # y >= 5 (reduced to be more flexible)
   batnas:
     development: 300    # External provider utility
     marketing: 360      # Alternative SaaS platform utility
