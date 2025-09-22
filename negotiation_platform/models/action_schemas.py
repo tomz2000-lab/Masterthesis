@@ -18,6 +18,15 @@ class AcceptAction(BaseModel):
     """Accept action for any game type"""
     type: Literal["accept"] = Field(..., description="Must be exactly 'accept'")
 
+class CounterAction(BaseModel):
+    """Price bargaining counter-offer action"""
+    type: Literal["counter"] = Field(..., description="Must be exactly 'counter'")
+    price: float = Field(..., ge=0, description="Price in euros, must be positive")
+
+class RejectAction(BaseModel):
+    """Reject action for any game type"""
+    type: Literal["reject"] = Field(..., description="Must be exactly 'reject'")
+
 class ResourceProposalAction(BaseModel):
     """Resource allocation proposal with gpu_hours and bandwidth"""
     type: Literal["propose"] = Field(..., description="Must be exactly 'propose'")
@@ -31,17 +40,16 @@ class ProposeTradeAction(BaseModel):
     request: Dict[str, float] = Field(..., description="Resources requested")
 
 class IntegrativeProposalAction(BaseModel):
-    """Integrative negotiation proposal"""
+    """Integrative negotiation proposal with nested structure"""
     type: Literal["propose"] = Field(..., description="Must be exactly 'propose'")
-    server_room: int = Field(..., ge=50, le=150, description="Server room size in sqm")
-    meeting_access: int = Field(..., ge=2, le=7, description="Meeting access days per week")
-    cleaning: Literal["shared", "it", "outsourced"] = Field(..., description="Cleaning responsibility")
-    branding: Literal["minimal", "moderate", "prominent"] = Field(..., description="Branding visibility")
+    proposal: Dict[str, Any] = Field(..., description="Nested proposal with server_room, meeting_access, cleaning, branding")
 
 # Union of all possible actions
 GameAction = Union[
     OfferAction,
     AcceptAction, 
+    CounterAction,
+    RejectAction,
     ResourceProposalAction,
     ProposeTradeAction,
     IntegrativeProposalAction
@@ -70,13 +78,17 @@ def validate_and_constrain_action(raw_response: str, game_type: str) -> Dict[str
         
         if action_type == "accept":
             action = AcceptAction(**parsed)
+        elif action_type == "reject":
+            action = RejectAction(**parsed)
         elif action_type == "offer" and game_type in ["price_bargaining", "company_car"]:
             action = OfferAction(**parsed)
+        elif action_type == "counter" and game_type in ["price_bargaining", "company_car"]:
+            action = CounterAction(**parsed)
         elif action_type == "propose" and game_type == "resource_allocation":
             action = ResourceProposalAction(**parsed)
         elif action_type == "propose_trade" and game_type == "resource_allocation":
             action = ProposeTradeAction(**parsed)
-        elif action_type == "propose" and game_type == "integrative":
+        elif action_type == "propose" and game_type == "integrative_negotiations":
             action = IntegrativeProposalAction(**parsed)
         else:
             # Try to auto-correct common mistakes
@@ -105,11 +117,21 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
     if any(word in action_type for word in ["accept", "agree", "yes"]):
         return {"type": "accept"}
     
+    # Auto-correct common rejection variations
+    if any(word in action_type for word in ["reject", "decline", "no"]):
+        return {"type": "reject"}
+    
     # Auto-correct offer variations for price bargaining
     if game_type in ["price_bargaining", "company_car"] and any(word in action_type for word in ["offer", "bid", "propose"]):
         price = parsed.get("price") or parsed.get("amount") or parsed.get("value")
         if price is not None:
             return {"type": "offer", "price": float(price)}
+    
+    # Auto-correct counter variations for price bargaining
+    if game_type in ["price_bargaining", "company_car"] and any(word in action_type for word in ["counter", "counteroffer"]):
+        price = parsed.get("price") or parsed.get("amount") or parsed.get("value")
+        if price is not None:
+            return {"type": "counter", "price": float(price)}
     
     # Auto-correct resource allocation variations
     if game_type == "resource_allocation" and any(word in action_type for word in ["trade", "propose", "offer"]):
@@ -125,5 +147,78 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
         request = parsed.get("request") or parsed.get("want") or parsed.get("ask") or {}
         if offer and request:
             return {"type": "propose_trade", "offer": offer, "request": request}
+    
+    # Auto-correct integrative negotiations variations
+    if game_type == "integrative_negotiations" and any(word in action_type for word in ["propose", "offer"]):
+        # Check if it's already in the correct nested format
+        proposal = parsed.get("proposal")
+        if proposal and isinstance(proposal, dict):
+            # Auto-correct common invalid values to nearest valid options
+            corrected_proposal = {}
+            
+            # Auto-correct server_room to nearest valid value
+            if "server_room" in proposal:
+                server_room = proposal["server_room"]
+                if server_room <= 75:
+                    corrected_proposal["server_room"] = 50
+                elif server_room <= 125:
+                    corrected_proposal["server_room"] = 100
+                else:
+                    corrected_proposal["server_room"] = 150
+            
+            # Auto-correct meeting_access to nearest valid value  
+            if "meeting_access" in proposal:
+                meeting_access = proposal["meeting_access"]
+                if meeting_access <= 3:
+                    corrected_proposal["meeting_access"] = 2
+                elif meeting_access <= 5:
+                    corrected_proposal["meeting_access"] = 4
+                else:
+                    corrected_proposal["meeting_access"] = 7
+            
+            # Auto-correct cleaning values
+            if "cleaning" in proposal:
+                cleaning = str(proposal["cleaning"]).lower()
+                if "it" in cleaning:
+                    corrected_proposal["cleaning"] = "IT"
+                elif "shared" in cleaning:
+                    corrected_proposal["cleaning"] = "Shared"
+                else:
+                    corrected_proposal["cleaning"] = "Outsourced"
+            
+            # Auto-correct branding values
+            if "branding" in proposal:
+                branding = str(proposal["branding"]).lower()
+                if "minimal" in branding:
+                    corrected_proposal["branding"] = "Minimal"
+                elif "moderate" in branding:
+                    corrected_proposal["branding"] = "Moderate"
+                else:
+                    corrected_proposal["branding"] = "Prominent"
+            
+            # Use original values for any keys not corrected
+            for key, value in proposal.items():
+                if key not in corrected_proposal:
+                    corrected_proposal[key] = value
+                    
+            return {"type": "propose", "proposal": corrected_proposal}
+        
+        # Try to extract proposal from flat format
+        server_room = parsed.get("server_room") 
+        meeting_access = parsed.get("meeting_access")
+        cleaning = parsed.get("cleaning")
+        branding = parsed.get("branding")
+        
+        if all(x is not None for x in [server_room, meeting_access, cleaning, branding]):
+            # Apply same corrections to flat format
+            corrected_server_room = 50 if server_room <= 75 else (100 if server_room <= 125 else 150)
+            corrected_meeting_access = 2 if meeting_access <= 3 else (4 if meeting_access <= 5 else 7)
+            
+            return {"type": "propose", "proposal": {
+                "server_room": corrected_server_room,
+                "meeting_access": corrected_meeting_access, 
+                "cleaning": str(cleaning).title(),
+                "branding": str(branding).title()
+            }}
     
     return None
