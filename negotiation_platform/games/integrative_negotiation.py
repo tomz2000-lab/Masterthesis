@@ -1,5 +1,5 @@
 from typing import Dict, List, Any, Optional, Tuple
-from .base_game import BaseGame
+from .base_game import BaseGame, PlayerAction
 
 
 class IntegrativeNegotiationsGame(BaseGame):
@@ -400,64 +400,102 @@ class IntegrativeNegotiationsGame(BaseGame):
                 return self.game_data.get("final_utilities", {})
         return {player: 0.0 for player in getattr(self, 'players', [])}
     
-    def get_game_prompt(self, player_id: str) -> str:
-        """Get the current game prompt for a specific player (required by base class)"""
-        if not hasattr(self, 'game_data') or not hasattr(self, 'it_team') or not hasattr(self, 'marketing_team'):
-            return "Game not initialized properly"
-            
-        private_info = self.game_data.get("private_info", {}).get(player_id, {})
-        current_round = self.game_data.get("current_round", 1)
+    def get_system_prompt(self, player_id: str, game_state: Dict[str, Any]) -> str:
+        """Get system prompt for integrative negotiations - follows resource allocation pattern."""
+        return """You are an expert negotiator participating in an integrative negotiation about office space allocation.
+Focus on value creation and finding win-win solutions.
+Your responses must be valid JSON only."""
+
+    def get_human_prompt(self, player_id: str, game_state: Dict[str, Any]) -> str:
+        """Get detailed human prompt following resource allocation pattern."""
+        private_info = game_state.get("private_info", {}).get(player_id, {})
+        current_round = game_state.get("current_round", 1)
         role = private_info.get("role", "unknown")
         
         # Get current BATNA for this player and round
         batna = self.get_current_batna(player_id, current_round)
         
-        # Create role-specific prompt
+        # Check for existing proposals
+        current_proposal = game_state.get("current_proposal")
+        proposals_history = game_state.get("proposals_history", [])
+        
+        base_prompt = f"""**Round {current_round}/{self.max_rounds} - Integrative Office Space Negotiation**
+Your current BATNA: {batna:.1f} points
+
+"""
+
+        # Add proposal context
+        if current_proposal:
+            base_prompt += f"**Current proposal on table:** {current_proposal['proposal']}\n\n"
+        elif not proposals_history:
+            base_prompt += "**No offers have been made yet. You should make the opening proposal.**\n\n"
+
+        # Role-specific information
         if role == "IT":
-            return f"""You are the IT TEAM in an integrative negotiation about office space allocation.
+            base_prompt += f"""**ROLE:** You are the IT Team. Your priorities:
+**PRIORITIES (weights):** Server Room: 40%, Cleaning: 30%, Branding: 20%, Meeting Access: 10%
+**SUGGESTED OPENING:** Consider: {{"server_room": 150, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}
 
-SCENARIO: You and the Marketing team need to negotiate how to share office resources and responsibilities.
+**ISSUES TO NEGOTIATE (EXACT VALUES ONLY):**
+1. **Server Room Size:** MUST be exactly 50, 100, OR 150 sqm (10 pts, 30 pts, 60 pts respectively)
+2. **Meeting Room Access:** MUST be exactly 2, 4, OR 7 days/week (10 pts, 30 pts, 60 pts respectively)
+3. **Cleaning Responsibility:** MUST be exactly "IT", "Shared", OR "Outsourced" (30 pts, 50 pts, 10 pts respectively)
+4. **Branding Visibility:** MUST be exactly "Minimal", "Moderate", OR "Prominent" (10 pts, 30 pts, 60 pts respectively)
 
-YOUR PRIORITIES (weights):
-- Server Room Size: 40% (you need adequate space for servers)
-- Meeting Room Access: 10% (less critical for your work)
-- Cleaning Responsibility: 30% (affects your work environment)
-- Branding Visibility: 20% (moderate importance)
+**Your Options:**
+1. Make a proposal: Address all 4 issues
+2. Accept: Accept the current proposal
+3. Reject: Reject and continue negotiation
 
-YOUR BATNA: {batna:.0f} points (deteriorates over time)
-CURRENT ROUND: {current_round}/{self.max_rounds}
+**RESPONSE FORMAT:** Respond with ONLY valid JSON. No explanations.
+**CRITICAL:** You MUST use the exact values listed above. No other values will be accepted.
+Valid responses:
+{{"type": "propose", "proposal": {{"server_room": 150, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
+{{"type": "accept"}}
+{{"type": "reject"}}"""
 
-ISSUES TO NEGOTIATE:
-1. Server Room Size: 50 sqm (10 pts), 100 sqm (30 pts), 150 sqm (60 pts)
-2. Meeting Room Access: 2 days/week (10 pts), 4 days/week (30 pts), 7 days/week (60 pts)
-3. Cleaning Responsibility: IT handles (30 pts), Shared (50 pts), Outsourced (10 pts)
-4. Branding Visibility: Minimal (10 pts), Moderate (30 pts), Prominent (60 pts)
-
-You can propose packages addressing all issues, accept/reject proposals, or make counter-proposals.
-Respond with JSON format: {{"type": "propose", "proposal": {{"server_room": 150, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}"""
-        
         elif role == "Marketing":
-            return f"""You are the MARKETING TEAM in an integrative negotiation about office space allocation.
+            base_prompt += f"""**ROLE:** You are the Marketing Team. Your priorities:
+**PRIORITIES (weights):** Meeting Access: 40%, Branding: 30%, Cleaning: 20%, Server Room: 10%
+**SUGGESTED OPENING:** Consider: {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}
 
-SCENARIO: You and the IT team need to negotiate how to share office resources and responsibilities.
+**ISSUES TO NEGOTIATE (EXACT VALUES ONLY):**
+1. **Server Room Size:** MUST be exactly 50, 100, OR 150 sqm (10 pts, 30 pts, 60 pts respectively)
+2. **Meeting Room Access:** MUST be exactly 2, 4, OR 7 days/week (10 pts, 30 pts, 60 pts respectively)
+3. **Cleaning Responsibility:** MUST be exactly "IT", "Shared", OR "Outsourced" (30 pts, 50 pts, 10 pts respectively)
+4. **Branding Visibility:** MUST be exactly "Minimal", "Moderate", OR "Prominent" (10 pts, 30 pts, 60 pts respectively)
 
-YOUR PRIORITIES (weights):
-- Server Room Size: 10% (less relevant to your operations)
-- Meeting Room Access: 40% (critical for client meetings)
-- Cleaning Responsibility: 20% (affects professional appearance)
-- Branding Visibility: 30% (important for brand image)
+**Your Options:**
+1. Make a proposal: Address all 4 issues  
+2. Accept: Accept the current proposal
+3. Reject: Reject and continue negotiation
 
-YOUR BATNA: {batna:.0f} points (deteriorates over time)
-CURRENT ROUND: {current_round}/{self.max_rounds}
+**RESPONSE FORMAT:** Respond with ONLY valid JSON. No explanations.
+**CRITICAL:** You MUST use the exact values listed above. No other values will be accepted.
+Valid responses:
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}
+{{"type": "accept"}}
+{{"type": "reject"}}"""
 
-ISSUES TO NEGOTIATE:
-1. Server Room Size: 50 sqm (10 pts), 100 sqm (30 pts), 150 sqm (60 pts)
-2. Meeting Room Access: 2 days/week (10 pts), 4 days/week (30 pts), 7 days/week (60 pts)
-3. Cleaning Responsibility: IT handles (30 pts), Shared (50 pts), Outsourced (10 pts)
-4. Branding Visibility: Minimal (10 pts), Moderate (30 pts), Prominent (60 pts)
+        return base_prompt
 
-You can propose packages addressing all issues, accept/reject proposals, or make counter-proposals.
-Respond with JSON format: {{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}"""
-        
-        else:
-            return f"Unknown role: {role}. Game state may be corrupted."
+    def get_game_prompt(self, player_id: str) -> str:
+        """Get the current game prompt for a specific player (required by base class)"""
+        if not hasattr(self, 'game_data'):
+            return "Game not initialized properly"
+        return self.get_human_prompt(player_id, self.game_data)
+
+    # Abstract methods required by BaseGame interface
+    def process_action(self, action: PlayerAction) -> Dict[str, Any]:
+        """Process a single action - wrapper for compatibility."""
+        return {"status": "processed"}
+
+    def check_end_conditions(self) -> bool:
+        """Check if game should end."""
+        return hasattr(self, 'game_data') and self.is_game_over(self.game_data)
+
+    def calculate_scores(self) -> Dict[str, float]:
+        """Calculate final scores for all players."""
+        if hasattr(self, 'game_data') and self.game_data.get("agreement_reached"):
+            return self.game_data.get("final_utilities", {})
+        return {player: 0.0 for player in getattr(self, 'players', [])}
