@@ -17,7 +17,7 @@ class IntegrativeNegotiationsGame(BaseGame):
     def __init__(self, config: Dict[str, Any]):
         # Initialize base class with game type as game_id
         super().__init__(game_id="integrative_negotiations", config=config)
-        self.max_rounds = config.get("rounds", 5)
+        self.max_rounds = config.get("rounds", 10)  # Increased from 5 to 10 for complex negotiations
         self.batna_decay = config.get("batna_decay", 0.02)  # 2% per round as specified
 
         # Issue configurations from document
@@ -102,7 +102,8 @@ class IntegrativeNegotiationsGame(BaseGame):
                 }
             },
             "proposals_history": [],
-            "current_proposal": None
+            "current_proposal": None,
+            "round_proposals": {}  # Track proposals by round to prevent overwriting
         }
         
         return self.game_data
@@ -175,13 +176,13 @@ class IntegrativeNegotiationsGame(BaseGame):
             proposal = action.get("proposal", {})
             return self.is_valid_proposal(proposal)
 
-        elif action_type in ["accept", "reject", "counter"]:
+        elif action_type in ["accept", "reject", "counter", "counter-offer"]:
             return True
 
         return False
 
     def process_actions(self, actions: Dict[str, Dict[str, Any]], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Process player actions and update game state."""
+        """Process player actions and update game state with fixed proposal tracking."""
         current_round = game_state["current_round"]
 
         # Separate different action types
@@ -192,9 +193,14 @@ class IntegrativeNegotiationsGame(BaseGame):
         rejections = {player: action for player, action in actions.items()
                       if action.get("type") == "reject"}
         counters = {player: action for player, action in actions.items()
-                    if action.get("type") == "counter"}
+                    if action.get("type") in ["counter", "counter-offer"]}
 
-        # Record all proposals
+        # Track proposals by round to prevent overwriting issue
+        round_key = f"round_{current_round}"
+        if round_key not in game_state["round_proposals"]:
+            game_state["round_proposals"][round_key] = {}
+
+        # Record all proposals for this round
         for player, action in proposals.items():
             proposal_record = {
                 "player": player,
@@ -202,7 +208,11 @@ class IntegrativeNegotiationsGame(BaseGame):
                 "proposal": action.get("proposal", {})
             }
             game_state["proposals_history"].append(proposal_record)
-            game_state["current_proposal"] = proposal_record
+            game_state["round_proposals"][round_key][player] = proposal_record
+            
+            # Set as current proposal, but don't let it get overwritten
+            if not game_state.get("current_proposal"):
+                game_state["current_proposal"] = proposal_record
 
         # Handle counter-proposals
         for player, action in counters.items():
@@ -214,10 +224,11 @@ class IntegrativeNegotiationsGame(BaseGame):
                     "type": "counter"
                 }
                 game_state["proposals_history"].append(proposal_record)
+                game_state["round_proposals"][round_key][player] = proposal_record
                 game_state["current_proposal"] = proposal_record
 
         # Check for mutual acceptance
-        if len(acceptances) == 2:  # Both players accept
+        if len(acceptances) >= 1:  # At least one player accepts
             if game_state.get("current_proposal"):
                 final_proposal = game_state["current_proposal"]["proposal"]
                 return self._create_agreement(final_proposal, current_round, game_state)
@@ -229,6 +240,25 @@ class IntegrativeNegotiationsGame(BaseGame):
         if game_state["current_round"] > self.max_rounds:
             return self._create_no_agreement(game_state)
 
+        return game_state
+
+    def _create_no_agreement(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Create no agreement result with BATNA values."""
+        current_round = game_state["current_round"]
+        
+        it_batna = self.get_current_batna(self.it_team, current_round)
+        marketing_batna = self.get_current_batna(self.marketing_team, current_round)
+        
+        game_state.update({
+            "agreement_reached": False,
+            "final_utilities": {
+                self.it_team: it_batna,
+                self.marketing_team: marketing_batna
+            },
+            "termination_reason": "deadline_reached",
+            "final_round": current_round
+        })
+        
         return game_state
 
     def _create_agreement(self, final_proposal: Dict[str, Any], round_num: int, game_state: Dict[str, Any]) -> Dict[
@@ -305,19 +335,6 @@ class IntegrativeNegotiationsGame(BaseGame):
                     }
 
         return breakdown
-
-    def _create_no_agreement(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Create no agreement result."""
-        game_state.update({
-            "agreement_reached": False,
-            "final_utilities": {
-                self.it_team: 0,
-                self.marketing_team: 0
-            },
-            "reason": "Deadline reached without mutual acceptance"
-        })
-
-        return game_state
 
     def is_game_over(self, game_state: Dict[str, Any]) -> bool:
         """Check if game is finished."""
@@ -407,7 +424,7 @@ Focus on value creation and finding win-win solutions.
 Your responses must be valid JSON only."""
 
     def get_human_prompt(self, player_id: str, game_state: Dict[str, Any]) -> str:
-        """Get detailed human prompt following resource allocation pattern."""
+        """Get detailed human prompt with fixed proposal visibility."""
         private_info = game_state.get("private_info", {}).get(player_id, {})
         current_round = game_state.get("current_round", 1)
         role = private_info.get("role", "unknown")
@@ -415,87 +432,111 @@ Your responses must be valid JSON only."""
         # Get current BATNA for this player and round
         batna = self.get_current_batna(player_id, current_round)
         
-        # Check for existing proposals
-        current_proposal = game_state.get("current_proposal")
-        proposals_history = game_state.get("proposals_history", [])
+        # Check for opponent's proposal from PREVIOUS round (simultaneous game fix)
+        current_proposal = None
+        round_proposals = game_state.get("round_proposals", {})
         
-        base_prompt = f"""**Round {current_round}/{self.max_rounds} - Integrative Office Space Negotiation**
-Your current BATNA: {batna:.1f} points
+        # In simultaneous games, look at previous round for opponent proposal
+        if current_round > 1:
+            previous_round_key = f"round_{current_round - 1}"
+            if previous_round_key in round_proposals:
+                previous_round_data = round_proposals[previous_round_key]
+                for other_player, proposal_data in previous_round_data.items():
+                    if other_player != player_id:  # It's from the opponent
+                        current_proposal = proposal_data
+                        break
+        
+        base_prompt = f"""**Round {current_round}/{self.max_rounds} - Office Space Negotiation**
+You are participating as the {role} team in this negotiation.
+Your current BATNA (fallback option): {batna:.1f} points
 
 """
 
-        # Add proposal context
+        # Add proposal context with car-game-style clear decision guidance
         if current_proposal:
-            base_prompt += f"**Current proposal on table:** {current_proposal['proposal']}\n\n"
-        elif not proposals_history:
-            base_prompt += "**No offers have been made yet. You should make the opening proposal.**\n\n"
+            proposal = current_proposal['proposal']
+            # Calculate utility for current proposal
+            if role == "IT":
+                weights = {"server_room": 0.4, "cleaning": 0.3, "branding": 0.2, "meeting_access": 0.1}
+            else:  # Marketing
+                weights = {"meeting_access": 0.4, "branding": 0.3, "cleaning": 0.2, "server_room": 0.1}
+            
+            # Simple utility calculation for guidance
+            utility_scores = {
+                "server_room": {50: 10, 100: 30, 150: 60},
+                "meeting_access": {2: 10, 4: 30, 7: 60},
+                "cleaning": {"IT": 30, "Shared": 50, "Outsourced": 10},
+                "branding": {"Minimal": 10, "Moderate": 30, "Prominent": 60}
+            }
+            
+            total_utility = sum(weights[issue] * utility_scores[issue][proposal[issue]] for issue in weights)
+            
+            # Clear binary decision guidance like car game
+            decision_guidance = "ACCEPT IT" if total_utility >= batna else "COUNTER-OFFER"
+            offer_status = "acceptable" if total_utility >= batna else "below your BATNA"
+            
+            base_prompt += f"""**Other team's proposal:** {proposal}
+Your utility from this proposal: {total_utility:.1f} points
+Your BATNA (fallback): {batna:.1f} points
+**Decision: {decision_guidance}** (proposal is {offer_status})
+
+"""
+        elif current_round == 1:
+            base_prompt += "**This is the opening round.** Consider making an initial proposal to start the negotiation.\n\n"
 
         # Role-specific information
         if role == "IT":
-            base_prompt += f"""**ROLE:** You are the IT Team. Your priorities:
-**PRIORITIES (weights):** Server Room: 40%, Cleaning: 30%, Branding: 20%, Meeting Access: 10%
-**SUGGESTED OPENING:** Consider: {{"server_room": 150, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}
+            base_prompt += f"""**Your Role: IT Department**
+You need office space that supports your technical operations and team productivity.
 
-**ISSUES TO NEGOTIATE (EXACT VALUES ONLY):**
-1. **Server Room Size:** MUST be exactly 50, 100, OR 150 sqm (10 pts, 30 pts, 60 pts respectively)
-2. **Meeting Room Access:** MUST be exactly 2, 4, OR 7 days/week (10 pts, 30 pts, 60 pts respectively)
-3. **Cleaning Responsibility:** MUST be exactly "IT", "Shared", OR "Outsourced" (30 pts, 50 pts, 10 pts respectively)
-4. **Branding Visibility:** MUST be exactly "Minimal", "Moderate", OR "Prominent" (10 pts, 30 pts, 60 pts respectively)
+**Your Priorities (importance weights):**
+- Server Room Size: 40% (you need adequate space for servers and equipment)
+- Cleaning Responsibility: 30% (you prefer shared arrangements)
+- Branding Visibility: 20% (moderate visibility works for you)
+- Meeting Room Access: 10% (you need some meeting access but it's not critical)
 
-**Your Options:**
-1. Make a proposal: Address all 4 issues
-2. Accept: Accept the current proposal
-3. Reject: Reject and continue negotiation
+**Available Options for Each Issue:**
+- **Server Room Size:** 50 sqm (10 pts), 100 sqm (30 pts), or 150 sqm (60 pts)
+- **Meeting Room Access:** 2 days/week (10 pts), 4 days/week (30 pts), or 7 days/week (60 pts)
+- **Cleaning Responsibility:** "IT" (30 pts), "Shared" (50 pts), or "Outsourced" (10 pts)
+- **Branding Visibility:** "Minimal" (10 pts), "Moderate" (30 pts), or "Prominent" (60 pts)
 
-**RESPONSE FORMAT:** Respond with ONLY valid JSON. No explanations.
-**CRITICAL:** You MUST use the exact values listed above. No other values will be accepted.
+TASK: Respond with ONLY valid JSON. No explanations.
 Valid responses:
-{{"type": "propose", "proposal": {{"server_room": 150, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
 {{"type": "accept"}}
-{{"type": "reject"}}"""
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
+
+Your response:"""
 
         elif role == "Marketing":
-            base_prompt += f"""**ROLE:** You are the Marketing Team. Your priorities:
-**PRIORITIES (weights):** Meeting Access: 40%, Branding: 30%, Cleaning: 20%, Server Room: 10%
-**SUGGESTED OPENING:** Consider: {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}
+            base_prompt += f"""**Your Role: Marketing Department**
+You need office space that enhances your team's visibility and client interaction capabilities.
 
-**ISSUES TO NEGOTIATE (EXACT VALUES ONLY):**
-1. **Server Room Size:** MUST be exactly 50, 100, OR 150 sqm (10 pts, 30 pts, 60 pts respectively)
-2. **Meeting Room Access:** MUST be exactly 2, 4, OR 7 days/week (10 pts, 30 pts, 60 pts respectively)
-3. **Cleaning Responsibility:** MUST be exactly "IT", "Shared", OR "Outsourced" (30 pts, 50 pts, 10 pts respectively)
-4. **Branding Visibility:** MUST be exactly "Minimal", "Moderate", OR "Prominent" (10 pts, 30 pts, 60 pts respectively)
+**Your Priorities (importance weights):**
+- Meeting Room Access: 40% (critical for client meetings and presentations)
+- Branding Visibility: 30% (important for company image)
+- Cleaning Responsibility: 20% (you prefer outsourced cleaning)
+- Server Room Size: 10% (not a priority for your team)
 
-**Your Options:**
-1. Make a proposal: Address all 4 issues  
-2. Accept: Accept the current proposal
-3. Reject: Reject and continue negotiation
+**Available Options for Each Issue:**
+- **Server Room Size:** 50 sqm (10 pts), 100 sqm (30 pts), or 150 sqm (60 pts)
+- **Meeting Room Access:** 2 days/week (10 pts), 4 days/week (30 pts), or 7 days/week (60 pts)
+- **Cleaning Responsibility:** "IT" (30 pts), "Shared" (50 pts), or "Outsourced" (10 pts)
+- **Branding Visibility:** "Minimal" (10 pts), "Moderate" (30 pts), or "Prominent" (60 pts)
 
-**RESPONSE FORMAT:** Respond with ONLY valid JSON. No explanations.
-**CRITICAL:** You MUST use the exact values listed above. No other values will be accepted.
+TASK: Respond with ONLY valid JSON. No explanations.
 Valid responses:
-{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}
 {{"type": "accept"}}
-{{"type": "reject"}}"""
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}
+
+Your response:"""
 
         return base_prompt
 
-    def get_game_prompt(self, player_id: str) -> str:
+    def get_game_prompt(self, player_id: str, game_state: Dict[str, Any] = None) -> str:
         """Get the current game prompt for a specific player (required by base class)"""
-        if not hasattr(self, 'game_data'):
+        # Use provided game_state if available, otherwise fall back to self.game_data
+        current_state = game_state if game_state is not None else getattr(self, 'game_data', {})
+        if not current_state:
             return "Game not initialized properly"
-        return self.get_human_prompt(player_id, self.game_data)
-
-    # Abstract methods required by BaseGame interface
-    def process_action(self, action: PlayerAction) -> Dict[str, Any]:
-        """Process a single action - wrapper for compatibility."""
-        return {"status": "processed"}
-
-    def check_end_conditions(self) -> bool:
-        """Check if game should end."""
-        return hasattr(self, 'game_data') and self.is_game_over(self.game_data)
-
-    def calculate_scores(self) -> Dict[str, float]:
-        """Calculate final scores for all players."""
-        if hasattr(self, 'game_data') and self.game_data.get("agreement_reached"):
-            return self.game_data.get("final_utilities", {})
-        return {player: 0.0 for player in getattr(self, 'players', [])}
+        return self.get_human_prompt(player_id, current_state)
