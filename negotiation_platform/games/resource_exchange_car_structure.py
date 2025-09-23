@@ -297,7 +297,9 @@ class ResourceAllocationGame(BaseGame):
 Valid responses:
 {{"type": "offer", "gpu_hours": 25, "bandwidth": 40}}
 {{"type": "accept"}}
-{{"type": "reject"}}"""
+{{"type": "reject"}}
+
+Your response:"""
 
         else:  # Marketing Team
             return f"""You are the **Marketing Team** negotiating resource allocation with the Development Team.
@@ -330,7 +332,9 @@ Valid responses:
 Valid responses:
 {{"type": "offer", "gpu_hours": 20, "bandwidth": 45}}
 {{"type": "accept"}}
-{{"type": "reject"}}"""
+{{"type": "reject"}}
+
+Your response:"""
 
     def get_human_prompt(self, player_id: str, game_state: Dict[str, Any]) -> str:
         """Generate context-aware prompt for human player - adapted from car game."""
@@ -419,6 +423,7 @@ Valid responses:
         prompt += "- Example: {\"type\": \"offer\", \"gpu_hours\": 30, \"bandwidth\": 45}\n"
         prompt += "- DO NOT send incomplete JSON like {\"type\": \"offer\"}\n"
         prompt += "- Your offer MUST satisfy the constraints shown above!\n"
+        prompt += "\nYour response:"
         
         return prompt
 
