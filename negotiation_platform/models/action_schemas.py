@@ -1,9 +1,11 @@
 """
 Pydantic schemas for validating and constraining LLM action outputs
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, Any, Optional, Literal, Union
 import json
+import yaml
+import os
 
 class BaseAction(BaseModel):
     """Base action schema"""
@@ -40,9 +42,60 @@ class ProposeTradeAction(BaseModel):
     request: Dict[str, float] = Field(..., description="Resources requested")
 
 class IntegrativeProposalAction(BaseModel):
-    """Integrative negotiation proposal with nested structure"""
+    """Integrative negotiation proposal with constrained discrete values"""
     type: Literal["propose"] = Field(..., description="Must be exactly 'propose'")
-    proposal: Dict[str, Any] = Field(..., description="Nested proposal with server_room, meeting_access, cleaning, branding")
+    proposal: Dict[str, Any] = Field(..., description="Proposal with server_room, meeting_access, cleaning, branding using exact values only")
+    
+    @field_validator('proposal')
+    @classmethod
+    def validate_proposal_values(cls, v):
+        """Ensure all proposal values are valid discrete options"""
+        # Load valid options from game config
+        config_path = os.path.join(os.path.dirname(__file__), '..', 'configs', 'game_configs.yaml')
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+                integrative_config = config.get('integrative_negotiations', {}).get('issues', {})
+                
+                # Validate each issue
+                for issue, value in v.items():
+                    if issue in integrative_config:
+                        valid_options = integrative_config[issue]['options']
+                        if value not in valid_options:
+                            # Auto-correct to nearest valid option
+                            if issue == 'server_room':
+                                if value <= 75:
+                                    v[issue] = 50
+                                elif value <= 125:
+                                    v[issue] = 100
+                                else:
+                                    v[issue] = 150
+                            elif issue == 'meeting_access':
+                                if value <= 3:
+                                    v[issue] = 2
+                                elif value <= 5:
+                                    v[issue] = 4
+                                else:
+                                    v[issue] = 7
+                            elif issue == 'cleaning':
+                                if str(value).lower() in ['it']:
+                                    v[issue] = "IT"
+                                elif str(value).lower() in ['shared']:
+                                    v[issue] = "Shared"
+                                else:
+                                    v[issue] = "Outsourced"
+                            elif issue == 'branding':
+                                if str(value).lower() in ['minimal']:
+                                    v[issue] = "Minimal"
+                                elif str(value).lower() in ['moderate']:
+                                    v[issue] = "Moderate"
+                                else:
+                                    v[issue] = "Prominent"
+        except Exception as e:
+            # If config loading fails, use hardcoded fallback
+            pass
+            
+        return v
 
 # Union of all possible actions
 GameAction = Union[
@@ -148,77 +201,112 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
         if offer and request:
             return {"type": "propose_trade", "offer": offer, "request": request}
     
-    # Auto-correct integrative negotiations variations
-    if game_type == "integrative_negotiations" and any(word in action_type for word in ["propose", "offer"]):
-        # Check if it's already in the correct nested format
-        proposal = parsed.get("proposal")
-        if proposal and isinstance(proposal, dict):
-            # Auto-correct common invalid values to nearest valid options
-            corrected_proposal = {}
-            
-            # Auto-correct server_room to nearest valid value
-            if "server_room" in proposal:
-                server_room = proposal["server_room"]
-                if server_room <= 75:
-                    corrected_proposal["server_room"] = 50
-                elif server_room <= 125:
-                    corrected_proposal["server_room"] = 100
-                else:
-                    corrected_proposal["server_room"] = 150
-            
-            # Auto-correct meeting_access to nearest valid value  
-            if "meeting_access" in proposal:
-                meeting_access = proposal["meeting_access"]
-                if meeting_access <= 3:
-                    corrected_proposal["meeting_access"] = 2
-                elif meeting_access <= 5:
-                    corrected_proposal["meeting_access"] = 4
-                else:
-                    corrected_proposal["meeting_access"] = 7
-            
-            # Auto-correct cleaning values
-            if "cleaning" in proposal:
-                cleaning = str(proposal["cleaning"]).lower()
-                if "it" in cleaning:
-                    corrected_proposal["cleaning"] = "IT"
-                elif "shared" in cleaning:
-                    corrected_proposal["cleaning"] = "Shared"
-                else:
-                    corrected_proposal["cleaning"] = "Outsourced"
-            
-            # Auto-correct branding values
-            if "branding" in proposal:
-                branding = str(proposal["branding"]).lower()
-                if "minimal" in branding:
-                    corrected_proposal["branding"] = "Minimal"
-                elif "moderate" in branding:
-                    corrected_proposal["branding"] = "Moderate"
-                else:
-                    corrected_proposal["branding"] = "Prominent"
-            
-            # Use original values for any keys not corrected
-            for key, value in proposal.items():
-                if key not in corrected_proposal:
-                    corrected_proposal[key] = value
+            # Auto-correct integrative negotiations variations
+            if game_type == "integrative_negotiations" and any(word in action_type for word in ["propose", "offer"]):
+                # Load valid options from game config
+                config_path = os.path.join(os.path.dirname(__file__), '..', 'configs', 'game_configs.yaml')
+                try:
+                    with open(config_path, 'r') as f:
+                        config = yaml.safe_load(f)
+                        integrative_config = config.get('integrative_negotiations', {}).get('issues', {})
+                except Exception:
+                    integrative_config = {}
+                
+                # Check if it's already in the correct nested format
+                proposal = parsed.get("proposal")
+                if proposal and isinstance(proposal, dict):
+                    # Auto-correct invalid values to valid discrete options
+                    corrected_proposal = {}
                     
-            return {"type": "propose", "proposal": corrected_proposal}
-        
-        # Try to extract proposal from flat format
-        server_room = parsed.get("server_room") 
-        meeting_access = parsed.get("meeting_access")
-        cleaning = parsed.get("cleaning")
-        branding = parsed.get("branding")
-        
-        if all(x is not None for x in [server_room, meeting_access, cleaning, branding]):
-            # Apply same corrections to flat format
-            corrected_server_room = 50 if server_room <= 75 else (100 if server_room <= 125 else 150)
-            corrected_meeting_access = 2 if meeting_access <= 3 else (4 if meeting_access <= 5 else 7)
-            
-            return {"type": "propose", "proposal": {
-                "server_room": corrected_server_room,
-                "meeting_access": corrected_meeting_access, 
-                "cleaning": str(cleaning).title(),
-                "branding": str(branding).title()
-            }}
+                    # Auto-correct server_room
+                    if "server_room" in proposal:
+                        server_room = proposal["server_room"]
+                        valid_options = integrative_config.get('server_room', {}).get('options', [50, 100, 150])
+                        if server_room not in valid_options:
+                            if server_room <= 75:
+                                corrected_proposal["server_room"] = 50
+                            elif server_room <= 125:
+                                corrected_proposal["server_room"] = 100
+                            else:
+                                corrected_proposal["server_room"] = 150
+                        else:
+                            corrected_proposal["server_room"] = server_room
+                    
+                    # Auto-correct meeting_access
+                    if "meeting_access" in proposal:
+                        meeting_access = proposal["meeting_access"]
+                        valid_options = integrative_config.get('meeting_access', {}).get('options', [2, 4, 7])
+                        if meeting_access not in valid_options:
+                            if meeting_access <= 3:
+                                corrected_proposal["meeting_access"] = 2
+                            elif meeting_access <= 5:
+                                corrected_proposal["meeting_access"] = 4
+                            else:
+                                corrected_proposal["meeting_access"] = 7
+                        else:
+                            corrected_proposal["meeting_access"] = meeting_access
+                    
+                    # Auto-correct cleaning values
+                    if "cleaning" in proposal:
+                        cleaning = str(proposal["cleaning"])
+                        valid_options = integrative_config.get('cleaning', {}).get('options', ["IT", "Shared", "Outsourced"])
+                        if cleaning not in valid_options:
+                            cleaning_lower = cleaning.lower()
+                            if "it" in cleaning_lower:
+                                corrected_proposal["cleaning"] = "IT"
+                            elif "shared" in cleaning_lower:
+                                corrected_proposal["cleaning"] = "Shared"
+                            else:
+                                corrected_proposal["cleaning"] = "Outsourced"
+                        else:
+                            corrected_proposal["cleaning"] = cleaning
+                    
+                    # Auto-correct branding values
+                    if "branding" in proposal:
+                        branding = str(proposal["branding"])
+                        valid_options = integrative_config.get('branding', {}).get('options', ["Minimal", "Moderate", "Prominent"])
+                        if branding not in valid_options:
+                            branding_lower = branding.lower()
+                            if "minimal" in branding_lower:
+                                corrected_proposal["branding"] = "Minimal"
+                            elif "moderate" in branding_lower:
+                                corrected_proposal["branding"] = "Moderate"
+                            else:
+                                corrected_proposal["branding"] = "Prominent"
+                        else:
+                            corrected_proposal["branding"] = branding
+                    
+                    # Use original values for any keys not corrected
+                    for key, value in proposal.items():
+                        if key not in corrected_proposal:
+                            corrected_proposal[key] = value
+                            
+                    return {"type": "propose", "proposal": corrected_proposal}
+                
+                # Try to extract proposal from flat format
+                server_room = parsed.get("server_room") 
+                meeting_access = parsed.get("meeting_access")
+                cleaning = parsed.get("cleaning")
+                branding = parsed.get("branding")
+                
+                if all(x is not None for x in [server_room, meeting_access, cleaning, branding]):
+                    # Apply same corrections to flat format using config
+                    server_options = integrative_config.get('server_room', {}).get('options', [50, 100, 150])
+                    meeting_options = integrative_config.get('meeting_access', {}).get('options', [2, 4, 7])
+                    
+                    corrected_server_room = server_room
+                    if server_room not in server_options:
+                        corrected_server_room = 50 if server_room <= 75 else (100 if server_room <= 125 else 150)
+                    
+                    corrected_meeting_access = meeting_access
+                    if meeting_access not in meeting_options:
+                        corrected_meeting_access = 2 if meeting_access <= 3 else (4 if meeting_access <= 5 else 7)
+                    
+                    return {"type": "propose", "proposal": {
+                        "server_room": corrected_server_room,
+                        "meeting_access": corrected_meeting_access, 
+                        "cleaning": str(cleaning).title(),
+                        "branding": str(branding).title()
+                    }}
     
     return None
