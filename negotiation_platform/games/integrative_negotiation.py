@@ -60,8 +60,9 @@ class IntegrativeNegotiationsGame(BaseGame):
             }
         }
 
-        # Base BATNA values (to be adjusted with decay)
-        self.base_batnas = config.get("batnas", {"IT": 200, "Marketing": 220})
+        # Base BATNA values - must match point-based utility scale (max ~57 points)
+        # Set BATNAs to create negotiation pressure but be achievable
+        self.base_batnas = config.get("batnas", {"IT": 35, "Marketing": 30})
 
     def initialize_game(self, players: List[str]) -> Dict[str, Any]:
         """Initialize integrative negotiations game."""
@@ -439,12 +440,20 @@ Your responses must be valid JSON only."""
         # In simultaneous games, look at previous round for opponent proposal
         if current_round > 1:
             previous_round_key = f"round_{current_round - 1}"
+            print(f"🔍 [DEBUG] Looking for opponent proposal in {previous_round_key}")
+            print(f"🔍 [DEBUG] Available round_proposals keys: {list(round_proposals.keys())}")
             if previous_round_key in round_proposals:
                 previous_round_data = round_proposals[previous_round_key]
+                print(f"🔍 [DEBUG] Previous round data: {previous_round_data}")
                 for other_player, proposal_data in previous_round_data.items():
                     if other_player != player_id:  # It's from the opponent
                         current_proposal = proposal_data
+                        print(f"🔍 [DEBUG] Found opponent proposal from {other_player}: {proposal_data}")
                         break
+            else:
+                print(f"🔍 [DEBUG] No proposals found for {previous_round_key}")
+        else:
+            print(f"🔍 [DEBUG] Round 1 - no previous proposals to check")
         
         base_prompt = f"""**Round {current_round}/{self.max_rounds} - Office Space Negotiation**
 You are participating as the {role} team in this negotiation.
@@ -461,19 +470,16 @@ Your current BATNA (fallback option): {batna:.1f} points
             else:  # Marketing
                 weights = {"meeting_access": 0.4, "branding": 0.3, "cleaning": 0.2, "server_room": 0.1}
             
-            # Simple utility calculation for guidance
-            utility_scores = {
-                "server_room": {50: 10, 100: 30, 150: 60},
-                "meeting_access": {2: 10, 4: 30, 7: 60},
-                "cleaning": {"IT": 30, "Shared": 50, "Outsourced": 10},
-                "branding": {"Minimal": 10, "Moderate": 30, "Prominent": 60}
-            }
-            
-            total_utility = sum(weights[issue] * utility_scores[issue][proposal[issue]] for issue in weights)
+            # Use the actual game utility calculation method for consistency
+            total_utility = self.calculate_utility(player_id, proposal)
             
             # Clear binary decision guidance like car game
             decision_guidance = "ACCEPT IT" if total_utility >= batna else "COUNTER-OFFER"
             offer_status = "acceptable" if total_utility >= batna else "below your BATNA"
+            
+            print(f"🎯 [GUIDANCE] Player {player_id} ({role}): Proposal {proposal}")
+            print(f"🎯 [GUIDANCE] Utility: {total_utility:.1f}, BATNA: {batna:.1f}")
+            print(f"🎯 [GUIDANCE] Decision: {decision_guidance} ({offer_status})")
             
             base_prompt += f"""**Other team's proposal:** {proposal}
 Your utility from this proposal: {total_utility:.1f} points
@@ -501,9 +507,31 @@ You need office space that supports your technical operations and team productiv
 - **Cleaning Responsibility:** "IT" (30 pts), "Shared" (50 pts), or "Outsourced" (10 pts)
 - **Branding Visibility:** "Minimal" (10 pts), "Moderate" (30 pts), or "Prominent" (60 pts)
 
-TASK: Respond with ONLY valid JSON. No explanations.
+TASK: Respond with ONLY valid JSON. No explanations."""
+
+            # Add decision-specific instructions based on guidance
+            if current_proposal:
+                proposal = current_proposal['proposal']
+                total_utility = self.calculate_utility(player_id, proposal)
+                if total_utility >= batna:
+                    base_prompt += f"""
+**IMPORTANT: The other team's proposal gives you {total_utility:.1f} points, which is ABOVE your BATNA of {batna:.1f}.**
+**YOU SHOULD ACCEPT THIS PROPOSAL.**
+
+Required response:
+{{"type": "accept"}}
+
+Your response:"""
+                else:
+                    base_prompt += f"""
 Valid responses:
 {{"type": "accept"}}
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
+
+Your response:"""
+            else:
+                base_prompt += """
+Valid responses:
 {{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
 
 Your response:"""
@@ -524,9 +552,31 @@ You need office space that enhances your team's visibility and client interactio
 - **Cleaning Responsibility:** "IT" (30 pts), "Shared" (50 pts), or "Outsourced" (10 pts)
 - **Branding Visibility:** "Minimal" (10 pts), "Moderate" (30 pts), or "Prominent" (60 pts)
 
-TASK: Respond with ONLY valid JSON. No explanations.
+TASK: Respond with ONLY valid JSON. No explanations."""
+
+            # Add decision-specific instructions based on guidance (Marketing)
+            if current_proposal:
+                proposal = current_proposal['proposal']
+                total_utility = self.calculate_utility(player_id, proposal)
+                if total_utility >= batna:
+                    base_prompt += f"""
+**IMPORTANT: The other team's proposal gives you {total_utility:.1f} points, which is ABOVE your BATNA of {batna:.1f}.**
+**YOU SHOULD ACCEPT THIS PROPOSAL.**
+
+Required response:
+{{"type": "accept"}}
+
+Your response:"""
+                else:
+                    base_prompt += f"""
 Valid responses:
 {{"type": "accept"}}
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}
+
+Your response:"""
+            else:
+                base_prompt += """
+Valid responses:
 {{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}
 
 Your response:"""
