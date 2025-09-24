@@ -159,9 +159,27 @@ class ResourceAllocationGame(BaseGame):
             print(f"  - Min GPU: {gpu_hours} ≥ {self.constraints.get('min_gpu', 'MISSING')}?")
             print(f"  - Min BW: {bandwidth} ≥ {self.constraints.get('min_bandwidth', 'MISSING')}?")
             
-            is_valid = self.is_valid_allocation(gpu_hours, bandwidth)
-            print(f"🎯 [RESULT] Offer ({gpu_hours},{bandwidth}) → {'VALID' if is_valid else 'INVALID'}")
-            return is_valid
+            # First check physical constraints
+            is_physically_valid = self.is_valid_allocation(gpu_hours, bandwidth)
+            
+            if not is_physically_valid:
+                print(f"🎯 [RESULT] Offer ({gpu_hours},{bandwidth}) → INVALID (violates physical constraints)")
+                return False
+            
+            # Then check BATNA constraint - players cannot make offers worse than their own BATNA
+            current_round = game_state.get("current_round", 1)
+            player_utility = self.calculate_utility(player, gpu_hours, bandwidth, current_round)
+            player_batna = self.get_current_batna(player, current_round)
+            
+            print(f"  - BATNA Check: utility={player_utility:.1f} ≥ BATNA={player_batna:.1f}?")
+            
+            if player_utility < player_batna:
+                print(f"🎯 [RESULT] Offer ({gpu_hours},{bandwidth}) → INVALID (utility {player_utility:.1f} < BATNA {player_batna:.1f})")
+                print(f"⚠️ [RATIONAL] Players cannot make offers worse than their BATNA - this prevents irrational behavior")
+                return False
+            
+            print(f"🎯 [RESULT] Offer ({gpu_hours},{bandwidth}) → VALID (all constraints satisfied)")
+            return True
 
         elif action_type in ["accept", "ACCEPT"]:
             import logging
@@ -223,6 +241,10 @@ class ResourceAllocationGame(BaseGame):
                     dev_utility = self.calculate_utility(self.development, x, y, current_round)
                     marketing_utility = self.calculate_utility(self.marketing, x, y, current_round)
                     
+                    # Calculate BATNAs at agreement time for metrics
+                    dev_batna = self.get_current_batna(self.development, current_round)
+                    marketing_batna = self.get_current_batna(self.marketing, current_round)
+                    
                     game_state.update({
                         "agreement_reached": True,
                         "final_allocation": {"gpu_hours": x, "bandwidth": y},
@@ -230,6 +252,10 @@ class ResourceAllocationGame(BaseGame):
                         "final_utilities": {
                             self.development: dev_utility,
                             self.marketing: marketing_utility
+                        },
+                        "batnas_at_agreement": {
+                            self.development: dev_batna,
+                            self.marketing: marketing_batna
                         }
                     })
                     logger.warning(f"🎉 [GAME COMPLETE] Agreement: ({x},{y}), Round: {current_round}")
@@ -395,28 +421,33 @@ Your response:"""
             prompt += f"**ACTION REQUIRED:** Make an opening offer with: {{\"type\": \"offer\", \"gpu_hours\": X, \"bandwidth\": Y}}\n"
             prompt += f"**CRITICAL:** Verify your offer satisfies ALL constraints above!\n\n"
         
-        # Make the decision format more explicit for acceptance
+        # Force single response when accepting (like integrative negotiation)
         if proposed_utility and proposed_utility > current_batna:
             prompt += "**DECISION REQUIRED:** This offer is better than your BATNA.\n"
             prompt += "**RECOMMENDED ACTION:** Accept with: {\"type\": \"accept\"}\n\n"
-        
-        # Always show constraints so models know the rules
-        prompt += f"**CONSTRAINTS - ALL OFFERS MUST SATISFY:**\n"
-        prompt += f"1. **Total Resources:** gpu_hours + bandwidth ≤ {self.total_resources}\n"
-        prompt += f"2. **GPU-Bandwidth Limit:** 3×gpu_hours + 4×bandwidth ≤ {self.constraints.get('gpu_bandwidth', 300)}\n"
-        prompt += f"3. **Minimum GPU:** gpu_hours ≥ {self.constraints.get('min_gpu', 5)}\n"
-        prompt += f"4. **Minimum Bandwidth:** bandwidth ≥ {self.constraints.get('min_bandwidth', 5)}\n\n"
-        
-        prompt += "**Your Options:**\n"
-        prompt += "1. Make an offer: Specify allocation (gpu_hours=X, bandwidth=Y)\n"
-        prompt += "2. Accept: Accept the current proposal\n"
-        prompt += "3. Reject: Reject and continue negotiation\n\n"
-        
-        prompt += "**RESPONSE FORMAT:** Respond with ONLY valid JSON. No explanations.\n"
-        prompt += "Valid responses:\n"
-        prompt += '{"type": "offer", "gpu_hours": 25, "bandwidth": 40}\n'
-        prompt += '{"type": "accept"}\n'
-        prompt += '{"type": "reject"}\n'
+            
+            # FORCE single option when acceptance is recommended
+            prompt += "**IMPORTANT: You should accept this proposal immediately.**\n\n"
+            prompt += "Required response:\n"
+            prompt += '{"type": "accept"}\n'
+        else:
+            # Show all options only when not recommending acceptance
+            prompt += f"**CONSTRAINTS - ALL OFFERS MUST SATISFY:**\n"
+            prompt += f"1. **Total Resources:** gpu_hours + bandwidth ≤ {self.total_resources}\n"
+            prompt += f"2. **GPU-Bandwidth Limit:** 3×gpu_hours + 4×bandwidth ≤ {self.constraints.get('gpu_bandwidth', 300)}\n"
+            prompt += f"3. **Minimum GPU:** gpu_hours ≥ {self.constraints.get('min_gpu', 5)}\n"
+            prompt += f"4. **Minimum Bandwidth:** bandwidth ≥ {self.constraints.get('min_bandwidth', 5)}\n\n"
+            
+            prompt += "**Your Options:**\n"
+            prompt += "1. Make an offer: Specify allocation (gpu_hours=X, bandwidth=Y)\n"
+            prompt += "2. Accept: Accept the current proposal\n"
+            prompt += "3. Reject: Reject and continue negotiation\n\n"
+            
+            prompt += "**RESPONSE FORMAT:** Respond with ONLY valid JSON. No explanations.\n"
+            prompt += "Valid responses:\n"
+            prompt += '{"type": "offer", "gpu_hours": 25, "bandwidth": 40}\n'
+            prompt += '{"type": "accept"}\n'
+            prompt += '{"type": "reject"}\n'
         
         prompt += "\n**CRITICAL JSON REQUIREMENTS:**\n"
         prompt += "- For offers: MUST include both 'gpu_hours' and 'bandwidth' with numeric values\n"
