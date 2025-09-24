@@ -1,39 +1,43 @@
+# GPU configuration with IDENTICAL models to test first-mover disadvantage
 model_a:
   type: "huggingface"
-  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Perfect for L40 GPUs
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   config:
-    device: "auto"  # Will use GPU automatically
+    device: "cuda"
+    device_map: "auto"
     temperature: 0.0
-    max_length: 512
+    max_length: 1024
     do_sample: false
     pad_token_id: 50256
     trust_remote_code: true
-    load_in_8bit: true  # Should work properly on GPU
-    api_token: "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"  # Add your HF token here
+    load_in_8bit: false
+    #api_token: "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"
 
+# Same configuration - LLMManager should reuse model instances
 model_b:
   type: "huggingface"
-  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Same model as A, different personality
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   config:
-    device: "auto"  # Will use GPU automatically
-    temperature: 0.0  # Very conservative negotiator
-    max_length: 512
+    device: "cuda"
+    device_map: "auto"
+    temperature: 0.0
+    max_length: 1024
     do_sample: false
     pad_token_id: 50256
     trust_remote_code: true
-    load_in_8bit: true  # GPU quantization
-    api_token: "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"  # Add your HF token here
-
+    load_in_8bit: false
+    #api_token: "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"
 
 model_c:
   type: "huggingface"
-  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Same model as A, different personality
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   config:
-    device: "auto"  # Will use GPU automatically
-    temperature: 0.0  # Very conservative negotiator
-    max_length: 512
+    device: "cuda"
+    device_map: "auto"
+    temperature: 0.0
+    max_length: 1024
     do_sample: false
     pad_token_id: 50256
     trust_remote_code: true
-    load_in_8bit: true  # GPU quantization
-    api_token: "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"  # Add your HF token here
+    load_in_8bit: false
+    #api_token: "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"
