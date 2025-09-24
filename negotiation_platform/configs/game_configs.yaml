@@ -21,8 +21,8 @@ resource_allocation:
     min_gpu: 5          # x >= 5 (reduced to be more flexible)
     min_bandwidth: 5    # y >= 5 (reduced to be more flexible)
   batnas:
-    development: 300    # External provider utility
-    marketing: 360      # Alternative SaaS platform utility
+    development: 280    # Stronger first-mover advantage for better balance
+    marketing: 420      # Higher second-mover BATNA to level the playing field
   batna_decay:
     development: 0.03   # 3% per round
     marketing: 0.02     # 2% per round
@@ -62,5 +62,8 @@ integrative_negotiations:
       meeting_access: 0.4
       cleaning: 0.2
       branding: 0.3
+  batnas:
+    IT: 35        # Realistic BATNA (max achievable ~57, so this creates negotiation space)
+    Marketing: 30  # Realistic BATNA (max achievable ~58, so this creates negotiation space)
   rounds: 5
   batna_decay: 0.02
