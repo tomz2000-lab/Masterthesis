@@ -1,0 +1,35 @@
+MODEL-VS-MODEL COMPARISON ANALYSIS
+==================================================
+
+OVERALL HEAD-TO-HEAD RESULTS:
+Model A (3B) wins: 20/30 (66.7%)
+Model B (8B) wins: 10/30 (33.3%)
+Ties: 0/30 (0.0%)
+
+PERFORMANCE BY GAME TYPE:
+
+COMPANY_CAR:
+  Model A (3B) wins: 10/10
+  Model B (8B) wins: 0/10
+  Average agreement round: 3.0
+  Avg Model A utility: 4033.6
+  Avg Model B utility: 0.1
+
+RESOURCE_ALLOCATION:
+  Model A (3B) wins: 0/10
+  Model B (8B) wins: 10/10
+  Average agreement round: 1.0
+  Avg Model A utility: 139.2
+  Avg Model B utility: 356.8
+
+INTEGRATIVE_NEGOTIATION:
+  Model A (3B) wins: 10/10
+  Model B (8B) wins: 0/10
+  Average agreement round: 2.0
+  Avg Model A utility: 100.0
+  Avg Model B utility: 0.0
+
+AGREEMENT TIMING ANALYSIS:
+Average agreement round: 2.0
+Median agreement round: 2.0
+Agreement round range: 1 - 3

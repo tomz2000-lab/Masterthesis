@@ -1,0 +1,1244 @@
+=== Company Car Game - 10 Iterations ===
+Job ID: 1754805, Node: jn118
+=== Environment Check ===
+CUDA: True, GPU: NVIDIA L40
+NVIDIA L40, 49140 MiB, 1 MiB
+=== Verifying Torch Scope Fix ===
+✅ Torch scope fix is present
+=== Running Company Car Game - 10 Iterations ===
+Game: Employee vs Manager company car negotiation
+
+=== Iteration 1/10 ===
+Mon Sep 29 04:58:42 PM CEST 2025: Starting company car negotiation iteration 1 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.57s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 29.73s (total since entry 30.31s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+4, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.52s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 12.91s (total since entry 13.43s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 1 completed successfully
+Mon Sep 29 04:59:42 PM CEST 2025: Completed iteration 1
+
+=== Iteration 2/10 ===
+Mon Sep 29 04:59:42 PM CEST 2025: Starting company car negotiation iteration 2 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.74s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.99s (total since entry 14.74s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.51s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.69s (total since entry 6.20s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 2 completed successfully
+Mon Sep 29 05:00:16 PM CEST 2025: Completed iteration 2
+
+=== Iteration 3/10 ===
+Mon Sep 29 05:00:16 PM CEST 2025: Starting company car negotiation iteration 3 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.51s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.10s (total since entry 13.62s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.49s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.37s (total since entry 5.86s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+16, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 3 completed successfully
+Mon Sep 29 05:00:48 PM CEST 2025: Completed iteration 3
+
+=== Iteration 4/10 ===
+Mon Sep 29 05:00:48 PM CEST 2025: Starting company car negotiation iteration 4 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.52s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.13s (total since entry 13.66s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.49s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.36s (total since entry 5.85s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+12, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 4 completed successfully
+Mon Sep 29 05:01:20 PM CEST 2025: Completed iteration 4
+
+=== Iteration 5/10 ===
+Mon Sep 29 05:01:20 PM CEST 2025: Starting company car negotiation iteration 5 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.51s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.12s (total since entry 13.64s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+18, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.51s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.37s (total since entry 5.88s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 5 completed successfully
+Mon Sep 29 05:01:51 PM CEST 2025: Completed iteration 5
+
+=== Iteration 6/10 ===
+Mon Sep 29 05:01:51 PM CEST 2025: Starting company car negotiation iteration 6 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.54s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.17s (total since entry 13.71s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+16, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.48s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.37s (total since entry 5.86s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 6 completed successfully
+Mon Sep 29 05:02:23 PM CEST 2025: Completed iteration 6
+
+=== Iteration 7/10 ===
+Mon Sep 29 05:02:23 PM CEST 2025: Starting company car negotiation iteration 7 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.52s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.12s (total since entry 13.65s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.49s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.37s (total since entry 5.85s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 7 completed successfully
+Mon Sep 29 05:02:55 PM CEST 2025: Completed iteration 7
+
+=== Iteration 8/10 ===
+Mon Sep 29 05:02:55 PM CEST 2025: Starting company car negotiation iteration 8 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.51s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.14s (total since entry 13.66s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.50s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.37s (total since entry 5.87s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+22, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 8 completed successfully
+Mon Sep 29 05:03:27 PM CEST 2025: Completed iteration 8
+
+=== Iteration 9/10 ===
+Mon Sep 29 05:03:27 PM CEST 2025: Starting company car negotiation iteration 9 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.52s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.13s (total since entry 13.67s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+3, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.52s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.38s (total since entry 5.89s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 9 completed successfully
+Mon Sep 29 05:03:59 PM CEST 2025: Completed iteration 9
+
+=== Iteration 10/10 ===
+Mon Sep 29 05:03:59 PM CEST 2025: Starting company car negotiation iteration 10 on node jn118
+=== Negotiation Platform ===
+Available models: ['model_a', 'model_b', 'model_c']
+Using models: ['model_a', 'model_b', 'model_c']
+
+=== Running Single Company Car Negotiation ===
+[DEBUG] LLMManager received model_configs: {'model_a': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_b': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}, 'model_c': {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}}
+[DEBUG] Type of model_configs: <class 'dict'>
+[DEBUG] Keys in model_configs: ['model_a', 'model_b', 'model_c']
+[DEBUG] Attempting to register 3 models...
+[DEBUG] Processing model: model_a
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_a (new instance for meta-llama/Llama-3.1-8B-Instruct)
+[DEBUG] Processing model: model_b
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.2-3B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model: model_b (new instance for meta-llama/Llama-3.2-3B-Instruct)
+[DEBUG] Processing model: model_c
+[DEBUG] Model config: {'type': 'huggingface', 'model_name': 'meta-llama/Llama-3.1-8B-Instruct', 'config': {'device': 'cuda', 'device_map': 'auto', 'temperature': 0.0, 'max_length': 1024, 'do_sample': False, 'pad_token_id': 50256, 'trust_remote_code': True, 'load_in_8bit': False}}
+📝 Registered model alias: model_c -> meta-llama/Llama-3.1-8B-Instruct
+📊 Registered metric: utility_surplus - Utility Surplus
+📊 Registered metric: risk_minimization - Risk Minimization
+📊 Registered metric: deadline_sensitivity - Deadline Sensitivity
+📊 Registered metric: feasibility - Feasibility
+🔄 Models will be loaded on-demand: ['model_a', 'model_b', 'model_c']
+🔄 [DEBUG] Loading model: model_a
+🚀 Loading model: model_a (shared name: meta-llama/Llama-3.1-8B-Instruct)
+Loading meta-llama/Llama-3.1-8B-Instruct...
+🔧 TorchDynamo is ENABLED (consider TORCHDYNAMO_DISABLE=1 if hanging)
+🔧 DISABLING TorchDynamo to prevent potential hanging...
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.54s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.1-8B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-8B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 13.12s (total since entry 13.67s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+8, 17823
+✅ meta-llama/Llama-3.1-8B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_a]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loading model: model_b
+🚀 Loading model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Loading meta-llama/Llama-3.2-3B-Instruct...
+🔧 TorchDynamo is DISABLED via environment variable
+🔧 Environment: transformers=4.53.2, torch=2.7.1+cu126
+🔧 CUDA available: True, device_count: 1
+🔁 Starting tokenizer.from_pretrained()
+✅ Tokenizer loaded in 0.48s
+🔧 Building model kwargs...
+🔧 Using configured device_map: auto
+✅ Model kwargs built in 0.00s
+� Model kwargs keys: ['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map']
+🔧 device_map: auto
+🔧 torch_dtype: torch.float16
+🔧 low_cpu_mem_usage: True
+🔧 trust_remote_code: True
+�🔁 Starting AutoModelForCausalLM.from_pretrained() with model_name='meta-llama/Llama-3.2-3B-Instruct'
+🔧 About to call: AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct', **['token', 'torch_dtype', 'trust_remote_code', 'low_cpu_mem_usage', 'device_map'])
+🔧 Starting model load (optimized settings)...
+✅ Model loaded successfully in 5.38s (total since entry 5.87s)
+🔧 [INFO] First model parameter device after load: cuda:0
+🔧 [GPU] nvidia-smi output:
+0, 22697
+✅ meta-llama/Llama-3.2-3B-Instruct loaded successfully
+🔄 [DEBUG] Loaded model type: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Loaded model is None: False
+🔄 [DEBUG] stored in loaded_agents[model_b]: <class 'negotiation_platform.models.hf_model_wrapper.HuggingFaceModelWrapper'>
+🔄 [DEBUG] Final loaded_agents keys: ['model_a', 'model_b']
+🔄 [DEBUG] Players list: ['model_a', 'model_b']
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 40000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 40000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 40000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 40000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "offer", "price": 41000}'
+🔍 [DEBUG] Raw LLM response: '{"type": "offer", "price": 41000}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'offer', 'price': 41000}
+✅ [DEBUG] Pydantic validation successful: {'type': 'offer', 'price': 41000.0}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+🔧 [DEBUG] Model device: cuda:0
+🔧 [DEBUG] Moved inputs to device: cuda:0
+🧹 [DEBUG] Extracted JSON from start: '{"type": "accept"}'
+🔍 [DEBUG] Raw LLM response: '{"type": "accept"}'
+✅ [DEBUG] Successfully parsed JSON from start: {'type': 'accept'}
+✅ [DEBUG] Pydantic validation successful: {'type': 'accept'}
+✅ Calculated utility_surplus: {'model_a': 2120.0, 'model_b': 2390.0}
+✅ Calculated risk_minimization: {'model_a': 0.0, 'model_b': 0.0}
+✅ Calculated deadline_sensitivity: {'model_a': 100.0, 'model_b': 100.0}
+✅ Calculated feasibility: {'model_a': 1.0, 'model_b': 1.0}
+⚠️  Model model_a shares wrapper 'meta-llama/Llama-3.1-8B-Instruct' with aliases ['model_c']; skipping unload to avoid breaking aliases
+🗑️  meta-llama/Llama-3.2-3B-Instruct unloaded
+🗑️  Unloaded model: model_b (shared name: meta-llama/Llama-3.2-3B-Instruct)
+Agreement reached: True
+Agreement round: 2
+Final utilities: {'model_a': 2120.0, 'model_b': 2390.0}
+Metrics: {'utility_surplus': {'model_a': 2120.0, 'model_b': 2390.0}, 'risk_minimization': {'model_a': 0.0, 'model_b': 0.0}, 'deadline_sensitivity': {'model_a': 100.0, 'model_b': 100.0}, 'feasibility': {'model_a': 1.0, 'model_b': 1.0}}
+🔄 Keeping models loaded for potential reuse
+
+Platform completed successfully!
+✅ Iteration 10 completed successfully
+Mon Sep 29 05:04:31 PM CEST 2025: Completed iteration 10
+
+=== Company Car Game Batch Complete ===
+Successful iterations: 10/10
+✅ ALL ITERATIONS SUCCESSFUL: Platform working perfectly on node jn118
+=== Company Car Run Complete ===
