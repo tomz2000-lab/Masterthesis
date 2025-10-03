@@ -40,7 +40,7 @@ class SessionManager:
         game_engine: GameEngine,
         metrics_calculator: MetricsCalculator,
         *,
-        max_turn_retries: int = 2,
+        max_turn_retries: int = 3,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self.llm_manager = llm_manager
@@ -48,6 +48,41 @@ class SessionManager:
         self.metrics_calculator = metrics_calculator
         self.max_turn_retries = max_turn_retries
         self.logger = logger or logging.getLogger(self.__class__.__name__)
+
+    def _coerce_action_numeric_fields(self, action: Any, *, session_id: Optional[str] = None, player_name: Optional[str] = None) -> Any:
+        """
+        Coerce numeric fields that are floats but represent integers into ints.
+
+        For safety, coercion is limited to a whitelist of field names which are
+        expected to be integers in our games (e.g., gpu_hours, bandwidth, price,
+        quantity). The function walks dicts and lists recursively; when a dict
+        key matches the whitelist and its value is an integral float, it will be
+        converted to int. All other values are left unchanged.
+
+        If a coercion happens, a debug-level log entry is emitted including
+        optional session/player context.
+        """
+        # Whitelist keys that should be integer values
+        INT_WHITELIST = {"gpu_hours", "bandwidth", "price", "quantity"}
+
+        def _walk(obj: Any, key_name: Optional[str] = None) -> Any:
+            if isinstance(obj, dict):
+                new = {}
+                for k, v in obj.items():
+                    new[k] = _walk(v, key_name=k)
+                return new
+            if isinstance(obj, list):
+                return [_walk(v, key_name=key_name) for v in obj]
+            if isinstance(obj, float) and key_name in INT_WHITELIST:
+                if obj.is_integer():
+                    coerced = int(obj)
+                    ctx = f"session={session_id}, player={player_name}, field={key_name}"
+                    self.logger.debug(f"Coerced float->int: {obj} -> {coerced} ({ctx})")
+                    return coerced
+                return obj
+            return obj
+
+        return _walk(action)
 
     # ------------------------------------------------------------------ #
     # PUBLIC DRIVER                                                      #
@@ -130,41 +165,82 @@ class SessionManager:
             self.logger.debug(f"[{session_id}]  ─ Round {current_round} ─")
 
             round_actions: Dict[str, Dict[str, Any]] = {}
+            
+            # FIX: Randomize player order each round to eliminate first-move advantage
+            import random
+            round_players = players.copy()
+            random.shuffle(round_players)
+            self.logger.info(f"🎲 [TURN ORDER] Round {current_round}: {round_players}")
 
-            for p_name in players:
-                # Build prompt based on visible state
-                prompt = self._compose_prompt(p_name, game_state)
+            for p_name in round_players:
+                # Build prompt based on visible state. ONLY use the game's own prompt
+                # Fallback prompts are disabled - all games must implement get_game_prompt
+                if not hasattr(game_instance, 'get_game_prompt'):
+                    raise RuntimeError(f"Game instance {game_type} must implement get_game_prompt method")
+                
+                # Ensure the game instance has the latest game_state available
+                setattr(game_instance, 'game_data', game_state)
+                prompt = game_instance.get_game_prompt(p_name)
                 
                 # DEBUG: Log the actual prompt being sent (using info level to ensure it shows)
                 self.logger.info(f"🎯 [PROMPT DEBUG] Prompt for {p_name}:")
                 self.logger.info(f"📝 FULL PROMPT: {prompt}")
 
-                # Try up to N times to get a parseable action
-                for attempt in range(self.max_turn_retries + 1):
+                # Try up to N times to get a parseable and valid action.
+                parsed_action = None
+                for attempt in range(1, self.max_turn_retries + 1):
                     raw_reply = loaded_agents[p_name].generate_response(prompt, game_state=game_state)
 
                     try:
                         # Pass game_type for Pydantic validation
-                        parsed_action = loaded_agents[p_name].parse_action(raw_reply, game_type=game_type)
+                        parsed = loaded_agents[p_name].parse_action(raw_reply, game_type=game_type)
                     except Exception as exc:  # noqa: BLE001
                         self.logger.warning(
                             f"[{session_id}]  Parse failure by {p_name} (attempt {attempt}): {exc}"
                         )
                         if attempt >= self.max_turn_retries:
-                            # Force a pass / no-op action
                             parsed_action = {"type": "noop"}
+                            break
                         else:
-                            continue  # retry
+                            continue  # retry parse
+
+                    # Coerce numeric fields (e.g. 40.0 -> 40) to be tolerant
+                    parsed = self._coerce_action_numeric_fields(parsed, session_id=session_id, player_name=p_name)
+
+                    # Validate action; if invalid, allow retry up to cap
+                    if not game_instance.is_valid_action(p_name, parsed, game_state):
+                        self.logger.warning(
+                            f"[{session_id}]  Invalid action by {p_name} (attempt {attempt}): {parsed}"
+                        )
+                        if attempt >= self.max_turn_retries:
+                            parsed_action = {"type": "noop"}
+                            break
+                        else:
+                            # retry the prompt
+                            continue
+
+                    # Passed parsing and validation
+                    parsed_action = parsed
                     break
 
-                # Fallback validation
-                if not game_instance.is_valid_action(p_name, parsed_action, game_state):
-                    self.logger.warning(
-                        f"[{session_id}]  Invalid action by {p_name}: {parsed_action}"
-                    )
-                    parsed_action = {"type": "noop"}
-
                 round_actions[p_name] = parsed_action
+                
+                # CRITICAL BUG FIX: Check for acceptance immediately
+                # If this player just accepted an offer, don't ask the other player for action
+                # Handle both direct acceptance and structured response format
+                action_type = None
+                if parsed_action:
+                    if isinstance(parsed_action, dict):
+                        if "decision" in parsed_action:
+                            # Structured response format
+                            action_type = parsed_action["decision"].get("type")
+                        else:
+                            # Direct action format
+                            action_type = parsed_action.get("type")
+                    
+                if action_type == "accept":
+                    self.logger.info(f"🎯 [ACCEPTANCE DETECTED] Player {p_name} accepted - terminating round early")
+                    break
 
             # Append to history
             actions_history.append({"round": current_round, "actions": round_actions})
@@ -177,10 +253,22 @@ class SessionManager:
         # ------------------------------------------------------------------ #
         metric_results = self.metrics_calculator.calculate_all(game_state, actions_history)
 
+        # Create LLM model mapping for analysis
+        llm_model_mapping = {}
+        for player_name in players:
+            agent = loaded_agents[player_name]
+            if hasattr(agent, 'model_name'):
+                llm_model_mapping[player_name] = agent.model_name
+            elif hasattr(agent, 'config') and 'model_name' in agent.config:
+                llm_model_mapping[player_name] = agent.config['model_name']
+            else:
+                llm_model_mapping[player_name] = "unknown"
+
         enriched_result: Dict[str, Any] = {
             **game_state,
             "actions_history": actions_history,
             "metrics": metric_results,
+            "llm_model_mapping": llm_model_mapping,  # NEW: Track which LLM is which player
             "session_metadata": {
                 "session_id": session_id,
                 "game_type": game_type,
@@ -192,6 +280,21 @@ class SessionManager:
         self.logger.info(
             f"[{session_id}]  Finished – agreement={game_state.get('agreement_reached', False)}"
         )
+        
+        # Log LLM model performance for easy analysis
+        if game_state.get('agreement_reached', False):
+            final_utilities = game_state.get('final_utilities', {})
+            if final_utilities:
+                winner = max(final_utilities, key=final_utilities.get)
+                winner_llm = llm_model_mapping.get(winner, "unknown")
+                loser_llm = llm_model_mapping.get([p for p in players if p != winner][0], "unknown")
+                self.logger.info(f"🏆 [LLM WINNER] {winner_llm} beat {loser_llm} (player {winner} won)")
+                print(f"🏆 [LLM WINNER] {winner_llm} beat {loser_llm} (player {winner} won)")
+        
+        # Also log the model mapping for reference
+        model_info = ", ".join([f"{player}={llm_model_mapping[player].split('/')[-1]}" for player in players])
+        print(f"🤖 [MODEL MAPPING] {model_info}")
+        self.logger.info(f"🤖 [MODEL MAPPING] {model_info}")
 
         # ------------------------------------------------------------------ #
         # 5.   Resource clean-up                                            #
@@ -204,173 +307,4 @@ class SessionManager:
     # ------------------------------------------------------------------ #
     # HELPER METHODS                                                     #
     # ------------------------------------------------------------------ #
-    def _compose_prompt(self, player: str, game_state: Dict[str, Any]) -> str:
-        """
-        Ultra-simple prompts adapted for different game types.
-        """
-        current_round = game_state["current_round"]
-        deadline = game_state["rounds"]
-        private = game_state["private_info"][player]
-        
-        # Detect game type from game_state structure
-        if "role" in private and private["role"] in ["buyer", "seller"]:
-            # PRICE BARGAINING GAME
-            return self._price_bargaining_prompt(player, game_state)
-        elif "team" in private:
-            # RESOURCE ALLOCATION GAME
-            return self._resource_allocation_prompt(player, game_state)
-        elif "department" in private:
-            # INTEGRATIVE NEGOTIATION (COMPANY CAR) GAME
-            return self._integrative_negotiation_prompt(player, game_state)
-        else:
-            # FALLBACK - Generic simple prompt
-            return self._generic_simple_prompt(player, game_state)
-
-    def _price_bargaining_prompt(self, player: str, game_state: Dict[str, Any]) -> str:
-        """Ultra-simple prompt for price bargaining games"""
-        role = game_state["private_info"][player]["role"]
-        current_round = game_state["current_round"]
-        deadline = game_state["rounds"]
-        private = game_state["private_info"][player]
-        
-        # Get recent offers from other players
-        other_players = [p for p in game_state["private_info"].keys() if p != player]
-        
-        if role == "buyer":
-            limit = private['batna']  # €44,000
-            if any(f"{other_player}_last_offer" in game_state for other_player in other_players):
-                other_player = [p for p in other_players if f"{p}_last_offer" in game_state][0]
-                offer_price = game_state[f"{other_player}_last_offer"]
-                should_accept = "YES" if offer_price <= limit else "NO"
-                return f"""BUYER - Round {current_round}/{deadline}
-Your limit: €{limit:,}
-Seller offered: €{offer_price:,}
-Should accept? {should_accept} (because {offer_price:,} <= {limit:,})
-
-If YES: {{"type": "accept"}}
-If NO: {{"type": "offer", "price": 41000}}
-
-Response:"""
-            else:
-                return f"""BUYER - Round {current_round}/{deadline}
-Your limit: €{limit:,}
-No offers yet.
-
-Make offer: {{"type": "offer", "price": 41000}}
-
-Response:"""
-        else:  # seller
-            limit = private['batna']  # €39,000
-            if any(f"{other_player}_last_offer" in game_state for other_player in other_players):
-                other_player = [p for p in other_players if f"{p}_last_offer" in game_state][0]
-                offer_price = game_state[f"{other_player}_last_offer"]
-                should_accept = "YES" if offer_price >= limit else "NO"
-                return f"""SELLER - Round {current_round}/{deadline}
-Your minimum: €{limit:,}
-Buyer offered: €{offer_price:,}
-Should accept? {should_accept} (because {offer_price:,} >= {limit:,})
-
-If YES: {{"type": "accept"}}
-If NO: {{"type": "offer", "price": 42000}}
-
-Response:"""
-            else:
-                return f"""SELLER - Round {current_round}/{deadline}
-Your minimum: €{limit:,}
-No offers yet.
-
-Make offer: {{"type": "offer", "price": 42000}}
-
-Response:"""
-
-    def _resource_allocation_prompt(self, player: str, game_state: Dict[str, Any]) -> str:
-        """Ultra-simple prompt for resource allocation games with strict JSON format"""
-        current_round = game_state["current_round"]
-        deadline = game_state["rounds"]
-        private = game_state["private_info"][player]
-        team = private.get("team", player)
-        
-        # Check if there's a recent proposal to accept
-        recent_proposals = []
-        for key in game_state:
-            if "proposal" in key and key != f"{player}_proposal":
-                recent_proposals.append(key)
-        
-        if recent_proposals:
-            # Simple accept/reject logic
-            return f"""TEAM {team.upper()} - Round {current_round}/{deadline}
-Recent proposal found. 
-Should accept? YES (fair deal)
-
-ONLY respond with EXACTLY this JSON format:
-SUCCESS: {{"type": "accept"}}
-ALTERNATIVE: {{"type": "propose", "gpu_hours": 30, "bandwidth": 20}}
-
-CRITICAL: Use only "type": "accept" OR "type": "propose"
-NO other type names allowed!
-
-Response:"""
-        else:
-            # Make a simple proposal
-            if "development" in team.lower():
-                return f"""TEAM {team.upper()} - Round {current_round}/{deadline}
-No proposals yet. YOU MUST MAKE A PROPOSAL FIRST.
-
-YOU ARE PROPOSING (not accepting). YOUR ACTION: PROPOSE
-
-ONLY respond with EXACTLY this JSON format:
-{{"type": "propose", "gpu_hours": 35, "bandwidth": 25}}
-
-CRITICAL: Use "type": "propose" (NOT accept, NOT offer) - YOU ARE MAKING A PROPOSAL!
-
-Response:"""
-            else:  # marketing
-                return f"""TEAM {team.upper()} - Round {current_round}/{deadline}
-No proposals yet. YOU MUST MAKE A PROPOSAL FIRST.
-
-YOU ARE PROPOSING (not accepting). YOUR ACTION: PROPOSE
-
-ONLY respond with EXACTLY this JSON format:
-{{"type": "propose", "gpu_hours": 30, "bandwidth": 35}}
-
-CRITICAL: Use "type": "propose" (NOT accept, NOT offer) - YOU ARE MAKING A PROPOSAL!
-
-Response:"""
-
-    def _integrative_negotiation_prompt(self, player: str, game_state: Dict[str, Any]) -> str:
-        """Ultra-simple prompt for integrative negotiation (company car) games"""
-        current_round = game_state["current_round"]
-        deadline = game_state["rounds"]
-        private = game_state["private_info"][player]
-        dept = private.get("department", player)
-        
-        # Check for recent proposals
-        if "last_proposal" in game_state:
-            return f"""DEPT {dept.upper()} - Round {current_round}/{deadline}
-Recent proposal found.
-Should accept? YES (reasonable deal)
-
-If YES: {{"type": "accept"}}
-If NO: {{"type": "propose", "server_room": 100, "meeting_access": 4, "cleaning": "shared", "branding": "moderate"}}
-
-Response:"""
-        else:
-            # Make a balanced proposal
-            return f"""DEPT {dept.upper()} - Round {current_round}/{deadline}
-No proposals yet.
-
-Make proposal: {{"type": "propose", "server_room": 100, "meeting_access": 4, "cleaning": "shared", "branding": "moderate"}}
-
-Response:"""
-
-    def _generic_simple_prompt(self, player: str, game_state: Dict[str, Any]) -> str:
-        """Fallback simple prompt for unknown game types"""
-        current_round = game_state["current_round"]
-        deadline = game_state["rounds"]
-        
-        return f"""PLAYER {player.upper()} - Round {current_round}/{deadline}
-Simple action needed.
-
-Make move: {{"type": "offer", "value": 50}}
-
-Response:"""
+    # All fallback prompt methods removed - games must implement get_game_prompt()
