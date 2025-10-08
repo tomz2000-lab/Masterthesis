@@ -30,61 +30,71 @@ class CompanyCarGame(BaseGame):
         # Use configuration decay rates with balanced fallbacks
         self.batna_decay = config.get("batna_decay", {"buyer": 0.015, "seller": 0.015})
 
-    def parse_structured_response(self, response: str) -> Dict[str, Any]:
-        """Parse structured response with REASONING, DECISION, and MESSAGE tags."""
+    def validate_json_response(self, response: str) -> bool:
+        """Check if response is valid JSON with proper structure."""
         try:
-            # Extract reasoning
-            reasoning_match = re.search(r'<REASONING>(.*?)</REASONING>', response, re.DOTALL)
-            reasoning = reasoning_match.group(1).strip() if reasoning_match else ""
+            data = json.loads(response.strip())
+            return isinstance(data, dict) and "type" in data
+        except (json.JSONDecodeError, TypeError):
+            return False
+
+    def parse_json_response(self, response: str) -> Dict[str, Any]:
+        """Parse pure JSON response format similar to integrative negotiation game."""
+        try:
+            # Clean the response by removing common instruction patterns
+            cleaned_response = response.strip()
             
-            # Extract decision (JSON)
-            decision_match = re.search(r'<DECISION>(.*?)</DECISION>', response, re.DOTALL)
-            decision_text = decision_match.group(1).strip() if decision_match else ""
-            
-            # Extract message
-            message_match = re.search(r'<MESSAGE>(.*?)</MESSAGE>', response, re.DOTALL)
-            message = message_match.group(1).strip() if message_match else ""
-            
-            # Parse JSON decision
-            # Clean up the decision text and extract JSON
-            json_match = re.search(r'\{[^}]*\}', decision_text)
+            # Remove any surrounding text that isn't JSON
+            json_match = re.search(r'\{[^{}]*"type"[^{}]*\}', cleaned_response)
             if json_match:
                 json_str = json_match.group(0)
                 decision_data = json.loads(json_str)
+                
+                # Validate that decision has required type field
+                if not decision_data.get("type"):
+                    print(f"⚠️ Decision missing 'type' field: {decision_data}")
+                    decision_data = {"type": "reject"}
+                    
+                return {
+                    "decision": decision_data,
+                    "raw_response": response
+                }
             else:
-                # Fallback: try to parse the entire decision as JSON
-                decision_data = json.loads(decision_text)
+                # Try to parse the entire response as JSON
+                decision_data = json.loads(cleaned_response)
+                if not decision_data.get("type"):
+                    decision_data = {"type": "reject"}
+                    
+                return {
+                    "decision": decision_data,
+                    "raw_response": response
+                }
+                
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON decode error: {e}")
+            print(f"Raw response: {response[:200]}...")
             
+            # Try to extract type and price manually as fallback
+            type_match = re.search(r'"type":\s*"([^"]+)"', response)
+            price_match = re.search(r'"price":\s*(\d+)', response)
+            if type_match:
+                decision_data = {"type": type_match.group(1)}
+                if price_match:
+                    decision_data["price"] = int(price_match.group(1))
+                return {
+                    "decision": decision_data,
+                    "raw_response": response
+                }
+            
+            # Ultimate fallback
             return {
-                "reasoning": reasoning,
-                "decision": decision_data,
-                "message": message,
+                "decision": {"type": "reject"},
                 "raw_response": response
             }
-            
-        except (json.JSONDecodeError, AttributeError) as e:
-            print(f"⚠️ Failed to parse structured response: {e}")
-            print(f"Raw response: {response}")
-            
-            # Fallback: try to extract JSON from anywhere in the response
-            json_match = re.search(r'\{[^}]*"type"[^}]*\}', response)
-            if json_match:
-                try:
-                    fallback_decision = json.loads(json_match.group(0))
-                    return {
-                        "reasoning": "Failed to parse structured format",
-                        "decision": fallback_decision,
-                        "message": "",
-                        "raw_response": response
-                    }
-                except json.JSONDecodeError:
-                    pass
-            
-            # Ultimate fallback: return a rejection
+        except Exception as e:
+            print(f"⚠️ Failed to parse JSON response: {e}")
             return {
-                "reasoning": "Failed to parse response",
-                "decision": {"type": "reject"},
-                "message": "Could not parse response",
+                "decision": {"type": "reject"}, 
                 "raw_response": response
             }
 
@@ -144,6 +154,12 @@ class CompanyCarGame(BaseGame):
             action_data = action
             
         action_type = action_data.get("type", "")
+        
+        # Handle empty or invalid action types by treating as reject
+        if not action_type or action_type == "":
+            print(f"⚠️ Player {player} provided empty action type, treating as reject")
+            return True  # Allow but will be processed as reject
+            
         max_proposals = 3
         player_proposals = game_state.get(f"{player}_proposal_count", 0)
 
@@ -195,18 +211,13 @@ class CompanyCarGame(BaseGame):
             if f"{player}_proposal_count" not in game_state:
                 game_state[f"{player}_proposal_count"] = 0
 
-        # Process structured responses and extract decision data
+        # Process JSON responses and extract decision data
         processed_actions = {}
         for player, raw_action in actions.items():
             if isinstance(raw_action, str):
-                # If it's a string, try to parse it as structured response
-                parsed = self.parse_structured_response(raw_action)
+                # If it's a string, try to parse it as JSON response
+                parsed = self.parse_json_response(raw_action)
                 action_data = parsed["decision"]
-                # Store reasoning and message for logging
-                if parsed["reasoning"]:
-                    print(f"🧠 Player {player} reasoning: {parsed['reasoning'][:100]}...")
-                if parsed["message"]:
-                    print(f"💬 Player {player} message: {parsed['message']}")
             elif isinstance(raw_action, dict) and "decision" in raw_action:
                 # Already structured
                 action_data = raw_action["decision"]
@@ -216,11 +227,16 @@ class CompanyCarGame(BaseGame):
             
             processed_actions[player] = action_data
 
-        # Normalize action types - treat counter/counteroffer as offers
+        # Normalize action types - treat counter/counteroffer as offers, handle empty types
         normalized_actions = {}
         for player, action in processed_actions.items():
             action_type = action.get("type", "")
-            if action_type in ["counter", "counteroffer"]:
+            
+            # Handle empty or invalid action types
+            if not action_type or action_type == "":
+                print(f"⚠️ Player {player} provided empty action type, treating as reject")
+                normalized_actions[player] = {"type": "reject"}
+            elif action_type in ["counter", "counteroffer"]:
                 # Convert to offer
                 normalized_actions[player] = {"type": "offer", "price": action.get("price")}
             elif action_type in ["offer_accepted", "offer_response"]:
@@ -440,13 +456,6 @@ class CompanyCarGame(BaseGame):
         else:
             proposal_guidance = f"⚠️ You have used all {max_proposals} proposals. You can only ACCEPT or REJECT now."
 
-        # Build the offer option text based on proposal limits
-        offer_option = f'{{"type": "offer", "price": [amount]}}  // Make a new price offer'
-        if can_propose:
-            offer_option += " // Only if you have proposals left"
-        else:
-            offer_option += " // NOT ALLOWED - no proposals left"
-
         prompt = f"""=== CAR PRICE NEGOTIATION ===
 Round {current_round}/{self.max_rounds} | Role: {role.upper()}
 
@@ -457,40 +466,17 @@ Your BATNA (Best Alternative): €{batna:,.0f}
 CURRENT SITUATION:
 {offer_status}
 {acceptance_guidance}
-You must respond with a structured format that includes your reasoning and decision.
 
-RESPONSE FORMAT:
-```
-<REASONING>
-[Explain your strategic thinking: Why are you making this decision? How does it relate to your BATNA and goals?]
-</REASONING>
-
-<DECISION>
-[Choose exactly ONE of the following JSON responses:]
+RESPONSE FORMAT: Respond with ONLY valid JSON. No explanations.
+Valid responses:
 {{"type": "accept"}}  // Accept the opponent's last offer
-{offer_option}
+{{"type": "offer", "price": [amount]}}  // Make a new price offer
 {{"type": "reject"}}  // Reject and end negotiation
-</DECISION>
 
-<MESSAGE>
-[Optional: Send a message to your opponent explaining your position or trying to persuade them]
-</MESSAGE>
-```
-
-EXAMPLE RESPONSE:
-```
-<REASONING>
-The opponent's offer of €39,000 is within my BATNA of €44,000, meaning I would save €5,000 compared to my alternative. This is a good deal that achieves my goal of buying below my BATNA.
-</REASONING>
-
-<DECISION>
-{{"type": "accept"}}
-</DECISION>
-
-<MESSAGE>
-I accept your offer of €39,000. This works well for both of us!
-</MESSAGE>
-```
+EXAMPLE OFFERS:
+{{"type": "offer", "price": 38000}}
+{{"type": "offer", "price": 42000}}
 
 Your response:"""
+
         return prompt
