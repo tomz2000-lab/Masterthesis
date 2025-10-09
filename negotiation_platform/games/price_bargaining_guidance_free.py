@@ -20,15 +20,21 @@ class CompanyCarGame(BaseGame):
     def __init__(self, config: Dict[str, Any]):
         # Initialize base class with dummy game_id - will be set by game engine
         super().__init__(game_id="company_car", config=config)
-        self.starting_price = config.get("starting_price", 45000)
-        self.buyer_budget = config.get("buyer_budget", 40000)
-        self.seller_cost = config.get("seller_cost", 38000)
-        # Use configuration values with balanced fallbacks
-        self.buyer_batna = config.get("buyer_batna", 42000)  # Balanced fallback
-        self.seller_batna = config.get("seller_batna", 40000)  # Balanced fallback
-        self.max_rounds = config.get("rounds", 5)
-        # Use configuration decay rates with balanced fallbacks
-        self.batna_decay = config.get("batna_decay", {"buyer": 0.015, "seller": 0.015})
+        # Require all parameters from config, raise error if missing
+        required_fields = [
+            "starting_price", "buyer_budget", "seller_cost",
+            "buyer_batna", "seller_batna", "rounds", "batna_decay"
+        ]
+        for field in required_fields:
+            if field not in config:
+                raise ValueError(f"Missing required config field: {field}")
+        self.starting_price = config["starting_price"]
+        self.buyer_budget = config["buyer_budget"]
+        self.seller_cost = config["seller_cost"]
+        self.buyer_batna = config["buyer_batna"]
+        self.seller_batna = config["seller_batna"]
+        self.max_rounds = config["rounds"]
+        self.batna_decay = config["batna_decay"]
 
     def validate_json_response(self, response: str) -> bool:
         """Check if response is valid JSON with proper structure."""
@@ -160,7 +166,7 @@ class CompanyCarGame(BaseGame):
             print(f"⚠️ Player {player} provided empty action type, treating as reject")
             return True  # Allow but will be processed as reject
             
-        max_proposals = 3
+        max_proposals = self.max_rounds
         player_proposals = game_state.get(f"{player}_proposal_count", 0)
 
         if action_type == "offer":
@@ -204,7 +210,7 @@ class CompanyCarGame(BaseGame):
     def process_actions(self, actions: Dict[str, Dict[str, Any]], game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Process player actions with proposal limits and enhanced validation."""
         current_round = game_state["current_round"]
-        max_proposals = 3
+        max_proposals = self.max_rounds  # Use rounds from YAML config
 
         # Initialize proposal counters if not present
         for player in [self.buyer, self.seller]:
@@ -251,16 +257,24 @@ class CompanyCarGame(BaseGame):
         responses = {player: action for player, action in normalized_actions.items()
                      if action.get("type") in ["accept", "reject"]}
 
+        # Process rejections - only end if proposal limit reached
+        for player, action in responses.items():
+            if action.get("type") == "reject":
+                player_proposals = game_state.get(f"{player}_proposal_count", 0)
+                if player_proposals >= max_proposals:
+                    print(f"❌ Player {player} rejected after reaching proposal limit ({player_proposals}/{max_proposals})")
+                    return self._create_no_agreement(game_state)
+                else:
+                    print(f"⚠️ Player {player} rejected but still has proposals remaining ({player_proposals}/{max_proposals}). Continuing negotiation.")
+
         # Process offers with proposal limit validation
         for player, action in offers.items():
             player_proposals = game_state.get(f"{player}_proposal_count", 0)
             
             # Check proposal limit
             if player_proposals >= max_proposals:
-                print(f"⚠️ Player {player} exceeded proposal limit ({player_proposals}/{max_proposals}). Treating as reject.")
-                # Convert to reject if they've exceeded proposals
-                if player not in responses:
-                    responses[player] = {"type": "reject"}
+                print(f"⚠️ Player {player} exceeded proposal limit ({player_proposals}/{max_proposals}). Ignoring additional offers.")
+                # Don't process this offer, but don't end negotiation unless they also rejected
                 continue
             
             # Valid offer - process it
@@ -269,7 +283,7 @@ class CompanyCarGame(BaseGame):
             game_state[f"{player}_proposal_count"] = player_proposals + 1
             print(f"💡 Player {player} made offer €{price:,.0f} (proposal {player_proposals + 1}/{max_proposals})")
 
-        # Process acceptances and rejections
+        # Process acceptances (rejections already handled above)
         for player, action in responses.items():
             if action.get("type") == "accept":
                 # Find the offer being accepted
@@ -286,24 +300,16 @@ class CompanyCarGame(BaseGame):
                     return self._create_agreement(agreed_price, current_round, game_state)
                 else:
                     print(f"⚠️ Player {player} tried to accept but no offer exists")
-            
-            elif action.get("type") == "reject":
-                print(f"❌ Player {player} rejected the negotiation")
-                return self._create_no_agreement(game_state)
-
-        # Check if both players have exhausted proposals
-        buyer_proposals = game_state.get(f"{self.buyer}_proposal_count", 0)
-        seller_proposals = game_state.get(f"{self.seller}_proposal_count", 0)
-        
-        if buyer_proposals >= max_proposals and seller_proposals >= max_proposals:
-            print(f"⏰ Both players exhausted proposals ({buyer_proposals}/{max_proposals}, {seller_proposals}/{max_proposals}). Ending negotiation.")
-            return self._create_no_agreement(game_state)
 
         # Update round
         game_state["current_round"] += 1
 
-        # Check if deadline reached
-        if game_state["current_round"] > self.max_rounds:
+        # Check if deadline reached - but allow extra rounds for final responses
+        # Players should have a chance to accept/reject final proposals
+        grace_rounds = 1  # Allow 1 extra round for final responses after proposal exhaustion
+        max_total_rounds = self.max_rounds + grace_rounds
+        
+        if game_state["current_round"] > max_total_rounds:
             return self._create_no_agreement(game_state)
 
         return game_state
@@ -315,9 +321,17 @@ class CompanyCarGame(BaseGame):
 
         buyer_utility = buyer_batna - price  # Saved money vs BATNA
         seller_utility = price - seller_batna  # Profit over BATNA
+        
+        # DEBUG: Log the exact calculation values
+        print(f"🔍 [BATNA DEBUG] Round {round_num}: price={price}")
+        print(f"🔍 [BATNA DEBUG] Config BATNAs: buyer={self.buyer_batna}, seller={self.seller_batna}")
+        print(f"🔍 [BATNA DEBUG] Decay rate: {self.batna_decay}")
+        print(f"🔍 [BATNA DEBUG] Calculated BATNAs: buyer={buyer_batna:.2f}, seller={seller_batna:.2f}")
+        print(f"🔍 [BATNA DEBUG] Utilities: buyer={buyer_utility:.2f}, seller={seller_utility:.2f}")
 
         game_state.update({
             "agreement_reached": True,
+            "game_ended": True,  # Explicitly mark game as ended
             "agreed_price": price,
             "agreement_round": round_num,
             "final_utilities": {
@@ -336,6 +350,7 @@ class CompanyCarGame(BaseGame):
         """Create no agreement result."""
         game_state.update({
             "agreement_reached": False,
+            "game_ended": True,  # Explicitly mark game as ended
             "final_utilities": {
                 self.buyer: 0,  # No deal utility
                 self.seller: 0
@@ -347,6 +362,7 @@ class CompanyCarGame(BaseGame):
     def is_game_over(self, game_state: Dict[str, Any]) -> bool:
         """Check if game is finished."""
         return (game_state.get("agreement_reached", False) or
+                game_state.get("game_ended", False) or
                 game_state.get("current_round", 1) > self.max_rounds)
 
     def get_winner(self, game_state: Dict[str, Any]) -> Optional[str]:
@@ -411,7 +427,7 @@ class CompanyCarGame(BaseGame):
         
         # Track proposals made by this player
         player_proposals = self.game_data.get(f"{player_id}_proposal_count", 0)
-        max_proposals = 3  # Limit proposals to force decision making
+        max_proposals = self.max_rounds  # Use rounds from YAML config
         
         role = "buyer" if player_id == self.buyer else "seller"
         goal = f"Buy car for less than €{batna:,.0f}" if role == "buyer" else f"Sell car for more than €{batna:,.0f}"
@@ -435,33 +451,51 @@ class CompanyCarGame(BaseGame):
             if is_within_batna:
                 acceptance_guidance = (
                     f"🎯 STRATEGIC ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is WITHIN your BATNA (€{batna:,.0f}). "
-                    f"This is a GOOD DEAL for you! Consider accepting to secure a beneficial agreement.\n"
+                    f"This is a GOOD DEAL for you! Consider accepting to secure a beneficial agreement, but also try to maximize your gain.\n"
                 )
             else:
                 if can_propose:
                     acceptance_guidance = (
                         f"⚠️ STRATEGIC ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is OUTSIDE your BATNA (€{batna:,.0f}). "
-                        f"You should negotiate for a better price.\n"
+                        f"You should negotiate for a better price, try to maximize your payoff.\n"
                     )
                 else:
                     acceptance_guidance = (
                         f"🚨 FINAL DECISION: You've used all {max_proposals} proposals. The opponent's offer is outside your BATNA. "
-                        f"You must now ACCEPT (if acceptable) or REJECT and end the negotiation.\n"
+                        f"You can ACCEPT (even if not ideal) or REJECT (which will END the negotiation).\n"
                     )
 
         # Proposal limit guidance
         proposal_guidance = ""
+        grace_rounds = 1  # Same as in process_actions
+        max_total_rounds = self.max_rounds + grace_rounds
+        
         if can_propose:
             proposal_guidance = f"You have {max_proposals - player_proposals} proposals remaining."
         else:
-            proposal_guidance = f"⚠️ You have used all {max_proposals} proposals. You can only ACCEPT or REJECT now."
+            if current_round <= self.max_rounds:
+                proposal_guidance = f"⚠️ You have used all {max_proposals} proposals. You can only ACCEPT or REJECT now. Note: Rejecting will END the negotiation."
+            else:
+                proposal_guidance = f"🕒 FINAL RESPONSE PHASE: You can only ACCEPT or REJECT. Negotiation ends in {max_total_rounds - current_round + 1} rounds."
+
+        # Update round display to show proposal vs response phases
+        if current_round <= self.max_rounds:
+            round_display = f"Round {current_round}/{self.max_rounds} (Proposal Phase)"
+        else:
+            round_display = f"Round {current_round}/{max_total_rounds} (Final Response Phase)"
 
         prompt = f"""=== CAR PRICE NEGOTIATION ===
-Round {current_round}/{self.max_rounds} | Role: {role.upper()}
+{round_display} | Role: {role.upper()}
 
 GOAL: {goal}
 Your BATNA (Best Alternative): €{batna:,.0f}
 {proposal_guidance}
+
+NEGOTIATION STRATEGY:
+• Start with ambitious offers but be ready to compromise
+• Accept any offer BETTER than your current BATNA, but also try to maximize your surplus
+• Use early rounds to explore, later rounds to close the deal
+• Don't be afraid to make bold moves if the situation calls for it
 
 CURRENT SITUATION:
 {offer_status}
@@ -474,8 +508,8 @@ Valid responses:
 {{"type": "reject"}}  // Reject and end negotiation
 
 EXAMPLE OFFERS:
-{{"type": "offer", "price": 38000}}
-{{"type": "offer", "price": 42000}}
+{{"type": "offer", "price": 38500}}
+{{"type": "offer", "price": 42758}}
 
 Your response:"""
 
