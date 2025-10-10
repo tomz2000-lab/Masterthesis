@@ -283,6 +283,14 @@ class CompanyCarGame(BaseGame):
             game_state[f"{player}_proposal_count"] = player_proposals + 1
             print(f"💡 Player {player} made offer €{price:,.0f} (proposal {player_proposals + 1}/{max_proposals})")
 
+        # Check for convergence: if both players made identical offers, create agreement
+        if len(offers) == 2:  # Both players made offers this round
+            offer_prices = [action.get("price") for action in offers.values()]
+            if len(set(offer_prices)) == 1 and offer_prices[0] is not None:  # All offers are identical and valid
+                agreed_price = offer_prices[0]
+                print(f"🎉 CONVERGENCE! Both players offered €{agreed_price:,.0f} - Creating automatic agreement!")
+                return self._create_agreement(agreed_price, current_round, game_state)
+
         # Process acceptances (rejections already handled above)
         for player, action in responses.items():
             if action.get("type") == "accept":
@@ -439,9 +447,10 @@ class CompanyCarGame(BaseGame):
             offer_history.append(f"- Opponent's last offer: €{other_offer:,.0f}")
         offer_status = "\n".join(offer_history) if offer_history else "No offers made yet."
 
-        # Enhanced acceptance guidance
+        # Enhanced acceptance guidance with round awareness
         acceptance_guidance = ""
         can_propose = player_proposals < max_proposals
+        rounds_remaining = max_proposals - (1+player_proposals)
         
         if other_offer is not None:
             percent_diff = calculate_percentage_difference(other_offer, batna)
@@ -449,20 +458,32 @@ class CompanyCarGame(BaseGame):
                               (player_id == self.seller and other_offer >= batna))
             
             if is_within_batna:
-                acceptance_guidance = (
-                    f"🎯 STRATEGIC ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is WITHIN your BATNA (€{batna:,.0f}). "
-                    f"This is a GOOD DEAL for you! Consider accepting to secure a beneficial agreement, but also try to maximize your gain.\n"
-                )
-            else:
-                if can_propose:
+                if rounds_remaining == 0:  # No proposals left - encourage acceptance
                     acceptance_guidance = (
-                        f"⚠️ STRATEGIC ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is OUTSIDE your BATNA (€{batna:,.0f}). "
-                        f"You should negotiate for a better price, try to maximize your payoff.\n"
+                        f"🎯 FINAL ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is within your BATNA (€{batna:,.0f}). "
+                        f"You have no proposals left - ACCEPT to secure this beneficial deal!\n"
+                    )
+                elif rounds_remaining == 1:  # Last proposal - be more encouraging
+                    acceptance_guidance = (
+                        f"🎯 ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is within your BATNA (€{batna:,.0f}). "
+                        f"With only 1 proposal left, consider accepting or making the last counter offer.\n"
+                    )
+                else:  # Multiple proposals left - encourage exploration
+                    acceptance_guidance = (
+                        f"💡 ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is within your BATNA (€{batna:,.0f}), "
+                        f"but you have {rounds_remaining} proposals left. You might negotiate for an even better deal.\n"
+                    )
+            else:
+                gap = abs(other_offer - batna)
+                if rounds_remaining == 0:  # No proposals left - suggest accepting to avoid no-deal
+                    acceptance_guidance = (
+                        f"🚨 FINAL DECISION: The opponent's offer (€{other_offer:,.0f}) is €{gap:,.0f} outside your BATNA (€{batna:,.0f}). "
+                        f"You have no proposals left. ACCEPT to avoid no-deal or REJECT to end negotiation.\n"
                     )
                 else:
                     acceptance_guidance = (
-                        f"🚨 FINAL DECISION: You've used all {max_proposals} proposals. The opponent's offer is outside your BATNA. "
-                        f"You can ACCEPT (even if not ideal) or REJECT (which will END the negotiation).\n"
+                        f"⚠️ ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is €{gap:,.0f} outside your BATNA (€{batna:,.0f}). "
+                        f"You should negotiate for a better price.\n"
                     )
 
         # Proposal limit guidance
@@ -491,25 +512,18 @@ GOAL: {goal}
 Your BATNA (Best Alternative): €{batna:,.0f}
 {proposal_guidance}
 
-NEGOTIATION STRATEGY:
-• Start with ambitious offers but be ready to compromise
-• Accept any offer BETTER than your current BATNA, but also try to maximize your surplus
-• Use early rounds to explore, later rounds to close the deal
-• Don't be afraid to make bold moves if the situation calls for it
-
 CURRENT SITUATION:
 {offer_status}
 {acceptance_guidance}
 
-RESPONSE FORMAT: Respond with ONLY valid JSON. No explanations.
+RESPONSE FORMAT: Respond with ONLY valid JSON.
 Valid responses:
 {{"type": "accept"}}  // Accept the opponent's last offer
 {{"type": "offer", "price": [amount]}}  // Make a new price offer
 {{"type": "reject"}}  // Reject and end negotiation
 
 EXAMPLE OFFERS:
-{{"type": "offer", "price": 38500}}
-{{"type": "offer", "price": 42758}}
+{{"type": "offer", "price": 38500}} 
 
 Your response:"""
 
