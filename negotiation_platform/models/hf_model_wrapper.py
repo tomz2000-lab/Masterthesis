@@ -287,37 +287,63 @@ class HuggingFaceModelWrapper(BaseLLMModel):
             print(f"Error generating response: {str(e)}")
             return f"Error: Could not generate response from {self.model_name}"
 
-    def parse_action(self, response: str, game_type: str = None) -> Dict[str, Any]:
+    def _preprocess_json_response(self, response: str) -> str:
+        """Fix common model JSON formatting issues before parsing"""
+        import re
+        
+        # Fix array notation for large numbers: [39,000] -> 39000
+        # This handles cases where models think [39,000] means thirty-nine thousand
+        response = re.sub(r'\[(\d+),(\d+)\]', r'\1\2', response)
+        
+        # Fix array notation for regular numbers: [100] -> 100 (for single numbers)
+        # But preserve actual arrays like ["Outsourced"] 
+        response = re.sub(r':\s*\[(\d+)\]', r': \1', response)
+        
+        # Fix potential comma-in-quotes issues: "39,000" -> 39000
+        response = re.sub(r'"(\d+),(\d+)"', r'\1\2', response)
+        
+        return response
+
+    def parse_action(self, response: str, game_type: str = None, player_name: str = None) -> Dict[str, Any]:
         """Parse LLM response into a structured action with Pydantic validation"""
         import json
         import re
         
-        print(f"🔍 [DEBUG] Raw LLM response: {repr(response)}")
+        # Add player identification to logging
+        player_id = f" [{player_name}]" if player_name else ""
+        print(f"🔍 [DEBUG]{player_id} Raw LLM response: {repr(response)}")
         
         try:
+            # Preprocess the response to fix common JSON issues
+            response_preprocessed = self._preprocess_json_response(response)
+            if response_preprocessed != response:
+                print(f"🧹 [DEBUG]{player_id} Preprocessed response: {repr(response_preprocessed)}")
+            
             # Clean up the response
-            response_clean = response.strip()
+            response_clean = response_preprocessed.strip()
             
             # First priority: Look for JSON at the start of the response
             json_at_start = re.match(r'^(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})', response_clean)
             if json_at_start:
+                json_text = json_at_start.group(1)
+                print(f"🧹 [DEBUG]{player_id} Extracted JSON from start: {repr(json_text)}")
                 try:
-                    parsed = json.loads(json_at_start.group(1))
-                    print(f"✅ [DEBUG] Successfully parsed JSON from start: {parsed}")
+                    parsed = json.loads(json_text)
+                    print(f"✅ [DEBUG]{player_id} Successfully parsed JSON from start: {parsed}")
                     
                     # Apply Pydantic validation if game_type is provided
                     if game_type:
                         from .action_schemas import validate_and_constrain_action
                         try:
-                            validated = validate_and_constrain_action(json_at_start.group(1), game_type)
-                            print(f"✅ [DEBUG] Pydantic validation successful: {validated}")
+                            validated = validate_and_constrain_action(json_text, game_type)
+                            print(f"✅ [DEBUG]{player_id} Pydantic validation successful: {validated}")
                             return validated
                         except ValueError as e:
-                            print(f"⚠️ [DEBUG] Pydantic validation failed, using original: {e}")
+                            print(f"⚠️ [DEBUG]{player_id} Pydantic validation failed, using original: {e}")
                     
                     return parsed
                 except json.JSONDecodeError as e:
-                    print(f"⚠️ [DEBUG] JSON decode error for start match: {e}")
+                    print(f"⚠️ [DEBUG]{player_id} JSON decode error for start match: {e}")
             
             # Try to find JSON in the response using various patterns
             json_patterns = [
@@ -335,21 +361,21 @@ class HuggingFaceModelWrapper(BaseLLMModel):
                             # Clean the match
                             match_clean = match.strip()
                             parsed = json.loads(match_clean)
-                            print(f"✅ [DEBUG] Successfully parsed JSON: {parsed}")
+                            print(f"✅ [DEBUG]{player_id} Successfully parsed JSON: {parsed}")
                             
                             # Apply Pydantic validation if game_type is provided
                             if game_type:
                                 from .action_schemas import validate_and_constrain_action
                                 try:
                                     validated = validate_and_constrain_action(match_clean, game_type)
-                                    print(f"✅ [DEBUG] Pydantic validation successful: {validated}")
+                                    print(f"✅ [DEBUG]{player_id} Pydantic validation successful: {validated}")
                                     return validated
                                 except ValueError as e:
-                                    print(f"⚠️ [DEBUG] Pydantic validation failed, using original: {e}")
+                                    print(f"⚠️ [DEBUG]{player_id} Pydantic validation failed, using original: {e}")
                             
                             return parsed
                         except json.JSONDecodeError as e:
-                            print(f"⚠️ [DEBUG] JSON decode error for '{match[:50]}...': {e}")
+                            print(f"⚠️ [DEBUG]{player_id} JSON decode error for '{match[:50]}...': {e}")
                             continue
             
             # Try to parse the entire response as JSON
@@ -370,23 +396,23 @@ class HuggingFaceModelWrapper(BaseLLMModel):
                     json_candidate = response_clean[:end_idx]
                     try:
                         parsed = json.loads(json_candidate)
-                        print(f"✅ [DEBUG] Successfully parsed extracted JSON: {parsed}")
+                        print(f"✅ [DEBUG]{player_id} Successfully parsed extracted JSON: {parsed}")
                         return parsed
                     except json.JSONDecodeError as e:
-                        print(f"⚠️ [DEBUG] Extracted JSON decode error: {e}")
+                        print(f"⚠️ [DEBUG]{player_id} Extracted JSON decode error: {e}")
             
             # Try to extract key-value pairs manually if JSON parsing fails
             action_dict = self._extract_action_manually(response_clean)
             if action_dict:
-                print(f"✅ [DEBUG] Manually extracted action: {action_dict}")
+                print(f"✅ [DEBUG]{player_id} Manually extracted action: {action_dict}")
                 return action_dict
             
             # Fallback: return a no-op action
-            print(f"❌ [DEBUG] Could not parse action from response: {response}")
+            print(f"❌ [DEBUG]{player_id} Could not parse action from response: {response}")
             return {"type": "noop", "reason": "failed_to_parse"}
             
         except Exception as e:
-            print(f"❌ [DEBUG] Error parsing action: {str(e)}")
+            print(f"❌ [DEBUG]{player_id} Error parsing action: {str(e)}")
             return {"type": "noop", "reason": "parse_error"}
     
     def _extract_action_manually(self, response: str) -> Dict[str, Any]:

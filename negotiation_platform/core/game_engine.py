@@ -1,9 +1,9 @@
 from typing import Dict, Type, Any, Optional
 import logging
 from negotiation_platform.games.base_game import BaseGame
-from negotiation_platform.games.price_bargaining import CompanyCarGame
-from negotiation_platform.games.resource_exchange import ResourceAllocationGame
-from negotiation_platform.games.integrative_negotiation import IntegrativeNegotiationsGame
+from negotiation_platform.games.price_bargaining_guidance_free import CompanyCarGame
+from negotiation_platform.games.resource_exchange_car_structure_guidance_free import ResourceAllocationGame
+from negotiation_platform.games.integrative_negotiation_guidance_free import IntegrativeNegotiationsGame
 
 
 class GameEngine:
