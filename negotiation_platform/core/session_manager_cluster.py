@@ -144,7 +144,7 @@ class SessionManager:
                     raw_reply = loaded_agents[p_name].generate_response(prompt, game_state=game_state)
 
                     try:
-                        parsed_action = loaded_agents[p_name].parse_action(raw_reply)
+                        parsed_action = loaded_agents[p_name].parse_action(raw_reply, player_name=p_name)
                     except Exception as exc:  # noqa: BLE001
                         self.logger.warning(
                             f"[{session_id}]  Parse failure by {p_name} (attempt {attempt}): {exc}"
@@ -209,7 +209,13 @@ class SessionManager:
         """
         # Use the game instance's prompt method instead of built-in templates
         if game_instance and hasattr(game_instance, 'get_game_prompt'):
-            return game_instance.get_game_prompt(player)
+            # Check if get_game_prompt accepts game_state parameter
+            import inspect
+            sig = inspect.signature(game_instance.get_game_prompt)
+            if len(sig.parameters) > 1:  # More than just player_id
+                return game_instance.get_game_prompt(player, game_state)
+            else:
+                return game_instance.get_game_prompt(player)
         
         # Fallback to built-in templates if game instance doesn't have prompt method
         current_round = game_state["current_round"]
@@ -225,6 +231,9 @@ class SessionManager:
             return self._resource_allocation_prompt(player, game_state)
         elif "department" in private:
             # INTEGRATIVE NEGOTIATION (COMPANY CAR) GAME
+            return self._integrative_negotiation_prompt(player, game_state)
+        elif "role" in private and private["role"] in ["IT", "Marketing"]:
+            # INTEGRATIVE NEGOTIATION (OFFICE SPACE) GAME
             return self._integrative_negotiation_prompt(player, game_state)
         else:
             # FALLBACK - Generic simple prompt
@@ -338,28 +347,34 @@ CRITICAL: Use ONLY "type": "propose_trade" - NO other names!
 Response:"""
 
     def _integrative_negotiation_prompt(self, player: str, game_state: Dict[str, Any]) -> str:
-        """Ultra-simple prompt for integrative negotiation (company car) games"""
+        """Ultra-simple prompt for integrative negotiation games"""
         current_round = game_state["current_round"]
         deadline = game_state["rounds"]
         private = game_state["private_info"][player]
-        dept = private.get("department", player)
+        role = private.get("role", private.get("department", player))
         
         # Check for recent proposals
-        if "last_proposal" in game_state:
-            return f"""DEPT {dept.upper()} - Round {current_round}/{deadline}
-Recent proposal found.
-Should accept? YES (reasonable deal)
+        if "current_proposal" in game_state and game_state["current_proposal"]:
+            proposal = game_state["current_proposal"]["proposal"]
+            return f"""ROLE {role.upper()} - Round {current_round}/{deadline}
+Current proposal: {proposal}
+Should accept?
 
-If YES: {{"type": "accept"}}
-If NO: {{"type": "propose", "server_room": 100, "meeting_access": 4, "cleaning": "shared", "branding": "moderate"}}
+If ACCEPT: {{"type": "accept"}}
+If REJECT/NEW: {{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
 
 Response:"""
         else:
-            # Make a balanced proposal
-            return f"""DEPT {dept.upper()} - Round {current_round}/{deadline}
-No proposals yet.
+            # Make a balanced opening proposal
+            if role == "IT":
+                proposal = '{"server_room": 150, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}'
+            else:  # Marketing
+                proposal = '{"server_room": 100, "meeting_access": 7, "cleaning": "IT", "branding": "Prominent"}'
+                
+            return f"""ROLE {role.upper()} - Round {current_round}/{deadline}
+Make opening proposal.
 
-Make proposal: {{"type": "propose", "server_room": 100, "meeting_access": 4, "cleaning": "shared", "branding": "moderate"}}
+Propose: {{"type": "propose", "proposal": {proposal}}}
 
 Response:"""
 
