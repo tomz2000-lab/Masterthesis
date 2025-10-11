@@ -18,8 +18,14 @@ class RiskMinimizationMetric(BaseMetric):
         """Calculate risk minimization percentage for each player"""
         results = {}
 
+        # DEBUG: Print actions_history to understand structure
+        print(f"🔍 [RISK DEBUG] Total actions: {len(actions_history)}")
+        for i, action in enumerate(actions_history[:5]):  # Show first 5 actions
+            print(f"🔍 [RISK DEBUG] Action {i}: type={getattr(action, 'action_type', 'N/A')}, player={getattr(action, 'player_id', 'N/A')}, data={getattr(action, 'action_data', 'N/A')}")
+
         # Check game type to determine risk calculation logic
         game_type = game_result.game_data.get('game_type', 'unknown')
+        print(f"🔍 [RISK DEBUG] Game type: {game_type}")
         
         if game_type == 'resource_allocation':
             # For resource allocation: check proposals against BATNA
@@ -29,19 +35,38 @@ class RiskMinimizationMetric(BaseMetric):
             # For integrative negotiations: check proposals against BATNA
             return self._calculate_integrative_risk(game_result, actions_history)
         
-        # Original price bargaining logic
+        # Original price bargaining logic with time-decayed BATNAs
         # For price bargaining: analyze offers made by each player
         player_offers = {}
+        offer_rounds = {}  # Track which round each offer was made
+        
         for action in actions_history:
-            if action.action_type == "offer":
-                player_id = action.player_id
-                price = action.action_data.get('price', 0)
-                if player_id not in player_offers:
+            if hasattr(action, 'action_type') and action.action_type == "offer":
+                player_id = getattr(action, 'player_id', None)
+                action_data = getattr(action, 'action_data', {})
+                price = action_data.get('price', 0)
+                
+                # Use the actual round number from the action
+                action_round = getattr(action, 'round_number', 1)
+                
+                if player_id and player_id not in player_offers:
                     player_offers[player_id] = []
-                player_offers[player_id].append(price)
+                    offer_rounds[player_id] = []
+                    
+                if player_id:
+                    player_offers[player_id].append(price)
+                    offer_rounds[player_id].append(action_round)
 
-        # Get BATNA values from private_info
+        print(f"🔍 [RISK DEBUG] Player offers: {player_offers}")
+        print(f"🔍 [RISK DEBUG] Offer rounds: {offer_rounds}")
+
+        # Get BATNA values and decay rates for time-adjusted calculation
         private_info = game_result.game_data.get('private_info', {})
+        game_config = game_result.game_data.get('game_config', {})
+        
+        # Try to get decay rates from game config
+        batna_decay = game_config.get('batna_decay', {'buyer': 0.015, 'seller': 0.015})
+        print(f"🔍 [RISK DEBUG] BATNA decay: {batna_decay}")
 
         for player_id in game_result.players:
             if player_id not in private_info:
@@ -49,11 +74,14 @@ class RiskMinimizationMetric(BaseMetric):
                 continue
 
             player_info = private_info[player_id]
-            player_batna = player_info.get('batna', 0.0)
+            base_batna = player_info.get('batna', 0.0)
             role = player_info.get('role', '')
             
             # Get offers made by this player
             offers = player_offers.get(player_id, [])
+            rounds = offer_rounds.get(player_id, [])
+            
+            print(f"🔍 [RISK DEBUG] Player {player_id} ({role}): base_batna={base_batna}, offers={offers}")
             
             if not offers:
                 results[player_id] = 0.0
@@ -62,20 +90,36 @@ class RiskMinimizationMetric(BaseMetric):
             risky_offers = 0
             total_offers = len(offers)
 
-            for offer_price in offers:
-                # Check if offer is risky (worse than BATNA for this player)
+            for i, offer_price in enumerate(offers):
+                round_num = rounds[i] if i < len(rounds) else 1
+                
+                # Calculate time-decayed BATNA for this round
+                decay_rate = batna_decay.get(role, 0.015)
+                current_batna = base_batna * ((1 - decay_rate) ** (round_num - 1))
+                
+                print(f"🔍 [RISK DEBUG] Round {round_num}: offer={offer_price}, current_batna={current_batna:.2f}")
+                
+                # Check if offer is risky (worse than current BATNA for this player)
+                is_risky = False
                 if role == "buyer":
                     # For buyer: risky if offering more than BATNA
-                    if offer_price > player_batna:
+                    if offer_price > current_batna:
                         risky_offers += 1
+                        is_risky = True
                 else:  # seller
                     # For seller: risky if offering less than BATNA
-                    if offer_price < player_batna:
+                    if offer_price < current_batna:
                         risky_offers += 1
+                        is_risky = True
+                
+                print(f"🔍 [RISK DEBUG] Offer {offer_price} is {'RISKY' if is_risky else 'SAFE'} for {role}")
 
             # Calculate risk percentage (lower is better)
             risk_percentage = (risky_offers / total_offers) * 100 if total_offers > 0 else 0.0
             results[player_id] = risk_percentage
+            print(f"🔍 [RISK DEBUG] Player {player_id} final risk: {risk_percentage}% ({risky_offers}/{total_offers})")
+
+        return results
 
         return results
 
