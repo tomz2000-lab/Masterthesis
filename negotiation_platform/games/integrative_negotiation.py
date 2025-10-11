@@ -230,8 +230,28 @@ class IntegrativeNegotiationsGame(BaseGame):
 
         # Check for mutual acceptance
         if len(acceptances) >= 1:  # At least one player accepts
-            if game_state.get("current_proposal"):
+            # Find the correct proposal that was accepted by looking at what the accepting player was evaluating
+            accepting_player = list(acceptances.keys())[0]
+            
+            # In simultaneous games, the accepting player is evaluating the opponent's proposal from the previous round
+            final_proposal = None
+            if current_round > 1:
+                previous_round_key = f"round_{current_round - 1}"
+                if previous_round_key in game_state.get("round_proposals", {}):
+                    previous_round_data = game_state["round_proposals"][previous_round_key]
+                    # Find the opponent's proposal from the previous round
+                    for other_player, proposal_data in previous_round_data.items():
+                        if other_player != accepting_player:  # It's from the opponent
+                            final_proposal = proposal_data["proposal"]
+                            print(f"🎯 [DEBUG] Player {accepting_player} accepted opponent's proposal: {final_proposal}")
+                            break
+            
+            # Fallback to current_proposal if we can't find the correct one
+            if final_proposal is None and game_state.get("current_proposal"):
                 final_proposal = game_state["current_proposal"]["proposal"]
+                print(f"⚠️ [DEBUG] Fallback to current_proposal: {final_proposal}")
+            
+            if final_proposal:
                 return self._create_agreement(final_proposal, current_round, game_state)
 
         # Update round

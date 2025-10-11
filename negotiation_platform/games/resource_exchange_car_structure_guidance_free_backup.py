@@ -12,8 +12,8 @@ class ResourceAllocationGame(BaseGame):
     Resource allocation negotiation game between Development and Marketing teams.
     - Development Team needs GPU hours (x) and bandwidth (y) - utility: 12x + 3y + ε  
     - Marketing Team needs GPU hours (x) and bandwidth (y) - utility: 3x + 12y + i
-    - Constraints: x + y ≤ 100, 4x + 4y ≤ 300, x ≥ 5, y ≥ 5
-    - BATNAs: Development 160 (external provider), Marketing 160 (alternative SaaS)
+    - Constraints: x + y ≤ 100, 3x + 4y ≤ 300, x ≥ 5, y ≥ 5
+    - BATNAs: Development 300 (external provider), Marketing 360 (alternative SaaS)
     - 5 rounds with time-adjusted BATNA decay
     """
 
@@ -22,15 +22,18 @@ class ResourceAllocationGame(BaseGame):
         super().__init__(game_id="resource_allocation", config=config)
         self.total_resources = config.get("total_resources", 100)
         self.constraints = config.get("constraints", {
-            "gpu_bandwidth": 300,  # 4x + 4y <= 300
-            "min_gpu": 5,          # x >= 5
-            "min_bandwidth": 5     # y >= 5
+            "gpu_bandwidth": 300,  # 3x + 4y <= 300 (relaxed to allow more solutions)
+            "min_gpu": 5,          # x >= 5 (reduced to be more flexible)
+            "min_bandwidth": 5     # y >= 5 (reduced to be more flexible)
         })
+        
+        print(f"🔧 CONSTRAINT INIT: total_resources={self.total_resources}, constraints={self.constraints}")
         
         # BATNA configuration - same pattern as car game
         batnas = config.get("batnas", {})
-        self.development_batna = batnas.get("development", 160)
-        self.marketing_batna = batnas.get("marketing", 160)
+        self.development_batna = batnas.get("development", 300)
+        self.marketing_batna = batnas.get("marketing", 360)
+        print(f"🎯 [BATNA CONFIG] Development={self.development_batna}, Marketing={self.marketing_batna}")
         self.max_rounds = config.get("rounds", 5)
         self.batna_decay = config.get("batna_decay", {"development": 0.025, "marketing": 0.025})
 
@@ -106,6 +109,8 @@ class ResourceAllocationGame(BaseGame):
         self.development = shuffled_players[0]  # First player is development
         self.marketing = shuffled_players[1]    # Second player is marketing
         self.state = self.state.__class__.ACTIVE  # Set to active state
+        
+        print(f"🎲 [FIRST MOVER] Randomized player order: Development={self.development}, Marketing={self.marketing}")
 
         self.game_data = {
             "game_type": "resource_allocation",
@@ -155,128 +160,148 @@ class ResourceAllocationGame(BaseGame):
             base_utility = 12 * x + 3 * y
             return base_utility + epsilon
         else:
-            # Marketing: 3x + 12y + i (stochastic impact)
-            i = random.gauss(0, 1)  # Reduced and balanced variance
+            # Marketing: 3x + 12y + ε (same additive noise for fairness)  
+            epsilon = random.gauss(0, 1)  # Same noise pattern as development
             base_utility = 3 * x + 12 * y
-            return base_utility + i
+            return base_utility + epsilon
 
-    def is_valid_allocation(self, gpu_hours: float, bandwidth: float) -> bool:
-        """Check if allocation satisfies all constraints."""
-        # Total resource constraint
-        if gpu_hours + bandwidth > self.total_resources:
-            return False
+    def is_valid_allocation(self, x: float, y: float) -> bool:
+        """Check if allocation satisfies constraints."""
+        # Force explicit constraint values in case config loading failed
+        total_resources = getattr(self, 'total_resources', 100)
+        gpu_bandwidth_limit = self.constraints.get("gpu_bandwidth", 300)  # Default to 300
+        min_gpu = self.constraints.get("min_gpu", 5)  # Default to 5
+        min_bandwidth = self.constraints.get("min_bandwidth", 5)  # Default to 5
         
-        # GPU-bandwidth limit constraint
-        if 4 * gpu_hours + 4 * bandwidth > self.constraints["gpu_bandwidth"]:
-            return False
+        total_check = x + y <= total_resources
+        gpu_bandwidth_check = 4 * x + 4 * y <= gpu_bandwidth_limit  # BALANCED: 4x + 4y <= 300
+        min_gpu_check = x >= min_gpu
+        min_bandwidth_check = y >= min_bandwidth
+        positive_check = x >= 0 and y >= 0
         
-        # Minimum allocation constraints
-        if gpu_hours < self.constraints["min_gpu"] or bandwidth < self.constraints["min_bandwidth"]:
-            return False
+        is_valid = total_check and gpu_bandwidth_check and min_gpu_check and min_bandwidth_check and positive_check
         
-        return True
+        # Simplified constraint logging for cleaner output
+        import logging
+        logger = logging.getLogger(__name__)
+        if not is_valid:
+            logger.warning(f"🔍 CONSTRAINT VIOLATION for ({x},{y}):")
+            if not total_check:
+                logger.warning(f"  ❌ Total: {x}+{y}={x+y} > {total_resources}")
+            if not gpu_bandwidth_check:
+                logger.warning(f"  ❌ GPU-BW: 4×{x}+4×{y}={4*x + 4*y} > {gpu_bandwidth_limit}")
+            if not min_gpu_check:
+                logger.warning(f"  ❌ Min GPU: {x} < {min_gpu}")
+            if not min_bandwidth_check:
+                logger.warning(f"  ❌ Min BW: {y} < {min_bandwidth}")
+
+        logger.warning(f"🔍 CONSTRAINT CHECK for ({x},{y}): {is_valid}")
+        print(f"  Positive: {x}≥0 and {y}≥0 → {'✅' if positive_check else '❌'}")
+        print(f"  FINAL RESULT: {'VALID ✅' if is_valid else 'INVALID ❌'}")
+        
+        return is_valid
 
     def is_valid_action(self, player: str, action: Dict[str, Any], game_state: Dict[str, Any]) -> bool:
-        """Validate player action with enhanced structured format support."""
-        # Handle structured response format
-        if isinstance(action, dict) and "decision" in action:
-            action_data = action["decision"]
-        else:
-            action_data = action
-            
-        action_type = action_data.get("type", "")
-        max_proposals = 3
-        player_proposals = game_state.get(f"{player}_proposal_count", 0)
+        """Validate player action - same pattern as car game."""
+        action_type = action.get("type", "")
+
+        # Handle different type formats from models
+        if action_type == 1 or action_type == "1":
+            action["type"] = "offer"  # Modify the action in place
+            action_type = "offer"
+        elif action_type in ["propose", "suggestion"]:
+            action["type"] = "offer"  # Modify the action in place
+            action_type = "offer"
+
+        # Reduced validation logging for cleaner output
+        import logging
+        logger = logging.getLogger(__name__)
+        if action.get("type") == "noop":
+            logger.warning(f"⚠️ [PARSE ERROR] Player {player}: failed to parse response")
 
         if action_type == "offer":
             # Check proposal limit
+            player_proposals = game_state.get(f"{player}_proposal_count", 0)
+            max_proposals = 3
             if player_proposals >= max_proposals:
                 print(f"⚠️ Player {player} tried to make offer but exceeded proposal limit ({player_proposals}/{max_proposals})")
                 return False
                 
-            gpu_hours = action_data.get("gpu_hours", 0)
-            bandwidth = action_data.get("bandwidth", 0)
+            gpu_hours = action.get("gpu_hours", 0)
+            bandwidth = action.get("bandwidth", 0)
             
-            # Handle potential lists or other unexpected formats
+            # SANITIZE INPUT: Handle cases where LLM returns lists instead of single values
             if isinstance(gpu_hours, list):
+                print(f"🔧 [SANITIZE] GPU hours is list {gpu_hours}, taking first value")
                 gpu_hours = gpu_hours[0] if len(gpu_hours) > 0 else 0
+                action["gpu_hours"] = gpu_hours  # Update the action
+            
             if isinstance(bandwidth, list):
+                print(f"🔧 [SANITIZE] Bandwidth is list {bandwidth}, taking first value")
                 bandwidth = bandwidth[0] if len(bandwidth) > 0 else 0
-                
-            # Ensure numeric values and sanitize
+                action["bandwidth"] = bandwidth  # Update the action
+            
+            # Convert to float to handle any string inputs
             try:
                 gpu_hours = float(gpu_hours)
                 bandwidth = float(bandwidth)
-            except (ValueError, TypeError):
-                print(f"⚠️ Invalid numeric values: gpu_hours={gpu_hours}, bandwidth={bandwidth}")
+                action["gpu_hours"] = gpu_hours
+                action["bandwidth"] = bandwidth
+            except (ValueError, TypeError) as e:
+                print(f"⚠️ [INVALID] Cannot convert to numbers: gpu_hours={gpu_hours}, bandwidth={bandwidth}, error={e}")
                 return False
             
-            # Basic validation - must have positive values
+            # Handle empty offers - treat as invalid
             if gpu_hours <= 0 or bandwidth <= 0:
-                print(f"⚠️ Invalid offer: gpu_hours={gpu_hours}, bandwidth={bandwidth} (must be positive)")
+                print(f"⚠️ [INVALID] Empty offer: gpu_hours={gpu_hours}, bandwidth={bandwidth}")
                 return False
 
-            # Basic range validation - offers should be reasonable
-            if gpu_hours > 200 or bandwidth > 200:  # Sanity check
-                print(f"⚠️ Unreasonable values: gpu_hours={gpu_hours}, bandwidth={bandwidth}")
-                return False
-                
-            # Check physical constraints (more lenient during validation)
-            if not self.is_valid_allocation(gpu_hours, bandwidth):
-                print(f"⚠️ Constraint violation: gpu_hours={gpu_hours}, bandwidth={bandwidth}")
-                return False
-
-            return True
-
-        elif action_type in ["accept", "reject"]:
-            return True
-
-        elif action_type in ["counter", "counteroffer"]:
-            # Check proposal limit for counters too
-            if player_proposals >= max_proposals:
-                return False
-                
-            # Treat counter/counteroffer as regular offers
-            gpu_hours = action_data.get("gpu_hours", 0)
-            bandwidth = action_data.get("bandwidth", 0)
+            # Validate allocation constraints with detailed logging
+            print(f"🧮 [CALC] Checking (gpu_hours={gpu_hours}, bandwidth={bandwidth}):")
+            print(f"  - Total: {gpu_hours}+{bandwidth}={gpu_hours+bandwidth} ≤ {self.total_resources}?")
+            print(f"  - GPU-BW: 4×{gpu_hours}+4×{bandwidth}={4*gpu_hours + 4*bandwidth} ≤ {self.constraints.get('gpu_bandwidth', 'MISSING')}?")
+            print(f"  - Min GPU: {gpu_hours} ≥ {self.constraints.get('min_gpu', 'MISSING')}?")
+            print(f"  - Min BW: {bandwidth} ≥ {self.constraints.get('min_bandwidth', 'MISSING')}?")
             
-            # Basic validation for counter offers
-            try:
-                gpu_hours = float(gpu_hours) if gpu_hours else 0
-                bandwidth = float(bandwidth) if bandwidth else 0
-                return gpu_hours > 0 and bandwidth > 0 and self.is_valid_allocation(gpu_hours, bandwidth)
-            except (ValueError, TypeError):
+            # First check physical constraints
+            is_physically_valid = self.is_valid_allocation(gpu_hours, bandwidth)
+            
+            if not is_physically_valid:
+                print(f"🎯 [RESULT] Offer ({gpu_hours},{bandwidth}) → INVALID (violates physical constraints)")
                 return False
-
-        elif action_type in ["offer_accepted", "offer_response"]:
-            # Treat these as accept actions
+            
+            # Then check BATNA constraint - players cannot make offers worse than their own BATNA
+            current_round = game_state.get("current_round", 1)
+            player_utility = self.calculate_utility(player, gpu_hours, bandwidth, current_round)
+            player_batna = self.get_current_batna(player, current_round)
+            
+            print(f"  - BATNA Check: utility={player_utility:.1f} ≥ BATNA={player_batna:.1f}?")
+            
+            if player_utility < player_batna:
+                print(f"🎯 [RESULT] Offer ({gpu_hours},{bandwidth}) → INVALID (utility {player_utility:.1f} < BATNA {player_batna:.1f})")
+                print(f"⚠️ [RATIONAL] Players cannot make offers worse than their BATNA - this prevents irrational behavior")
+                return False
+            
+            print(f"🎯 [RESULT] Offer ({gpu_hours},{bandwidth}) → VALID (all constraints satisfied)")
             return True
 
-        elif action_type == "noop":
-            # Allow no-op actions as fallback
+        elif action_type in ["accept", "ACCEPT"]:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"✅ [ACCEPT] Player {player} accepts current offer")
+            return True
+
+        elif action_type in ["reject"]:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"❌ [REJECT] Player {player} rejects current offer")
             return True
             
-        elif action_type in ["propose"]:
-            # Handle the "propose" type that models are incorrectly using
-            # Treat as offer with same validation
-            if player_proposals >= max_proposals:
-                print(f"⚠️ Player {player} tried to propose but exceeded proposal limit ({player_proposals}/{max_proposals})")
-                return False
-                
-            gpu_hours = action_data.get("gpu_hours", 0)
-            bandwidth = action_data.get("bandwidth", 0)
-            
-            try:
-                gpu_hours = float(gpu_hours)
-                bandwidth = float(bandwidth)
-                if gpu_hours > 0 and bandwidth > 0 and self.is_valid_allocation(gpu_hours, bandwidth):
-                    # Convert propose to offer for processing
-                    action_data["type"] = "offer"
-                    return True
-            except (ValueError, TypeError):
-                pass
-            return False
+        elif action_type in ["reject", "REJECT"]:
+            print(f"❌ [REJECT] Player {player} rejects")
+            return True
 
+        print(f"⚠️ [UNKNOWN] Unknown action type '{action_type}' for {player}")
         return False
 
     def process_actions(self, actions: Dict[str, Dict[str, Any]], game_state: Dict[str, Any]) -> Dict[str, Any]:
@@ -310,11 +335,11 @@ class ResourceAllocationGame(BaseGame):
             
             processed_actions[player] = action_data
 
-        # Normalize action types - treat counter/counteroffer/propose as offers
+        # Normalize action types - treat counter/counteroffer as offers
         normalized_actions = {}
         for player, action in processed_actions.items():
             action_type = action.get("type", "")
-            if action_type in ["counter", "counteroffer", "propose"]:
+            if action_type in ["counter", "counteroffer"]:
                 # Convert to offer
                 normalized_actions[player] = {"type": "offer", "gpu_hours": action.get("gpu_hours"), "bandwidth": action.get("bandwidth")}
             elif action_type in ["offer_accepted", "offer_response"]:
@@ -341,26 +366,9 @@ class ResourceAllocationGame(BaseGame):
                     responses[player] = {"type": "reject"}
                 continue
             
-            # Valid offer - process it with error handling
+            # Valid offer - process it
             gpu_hours = action.get("gpu_hours")
             bandwidth = action.get("bandwidth")
-            
-            # Handle missing or invalid parameters
-            if gpu_hours is None or bandwidth is None:
-                print(f"⚠️ Player {player} made incomplete offer (gpu_hours={gpu_hours}, bandwidth={bandwidth}). Treating as reject.")
-                if player not in responses:
-                    responses[player] = {"type": "reject"}
-                continue
-            
-            try:
-                gpu_hours = float(gpu_hours)
-                bandwidth = float(bandwidth)
-            except (ValueError, TypeError):
-                print(f"⚠️ Player {player} made offer with invalid values (gpu_hours={gpu_hours}, bandwidth={bandwidth}). Treating as reject.")
-                if player not in responses:
-                    responses[player] = {"type": "reject"}
-                continue
-            
             game_state[f"{player}_last_offer"] = {"gpu_hours": gpu_hours, "bandwidth": bandwidth}
             game_state[f"{player}_proposal_count"] = player_proposals + 1
             print(f"💡 Player {player} made offer gpu_hours={gpu_hours}, bandwidth={bandwidth} (proposal {player_proposals + 1}/{max_proposals})")
@@ -467,10 +475,10 @@ class ResourceAllocationGame(BaseGame):
         max_proposals = 3  # Limit proposals to force decision making
         
         role = "development" if player_id == self.development else "marketing"
-        goal = f"Achieve a beneficial allocation of GPU hours and bandwidth that maximizes utility above your BATNA ({batna:.1f})."
         team_name = "Development Team" if role == "development" else "Marketing Team"
         utility_func = "12x + 3y + ε" if role == "development" else "3x + 12y + i"
         preference = "GPU hours" if role == "development" else "bandwidth"
+        goal = f"Maximize GPU hours allocation" if role == "development" else f"Maximize bandwidth allocation"
         
         offer_history = []
         if my_offer:
@@ -522,47 +530,174 @@ class ResourceAllocationGame(BaseGame):
 
         prompt = f"""=== RESOURCE ALLOCATION NEGOTIATION ===
 
-Round {current_round}/{self.max_rounds} | Role: {role.upper()}
+You are the **{team_name}** in a resource allocation negotiation.
 
-GOAL: {goal}
-Your BATNA (Best Alternative): €{batna:,.0f}
-{proposal_guidance}
+**ROUND {current_round}/{self.max_rounds} | TIME PRESSURE INCREASING**
 
-CURRENT SITUATION:
+**YOUR OBJECTIVES:**
+- Maximize your utility: {utility_func}
+- You strongly prefer {preference}
+- Your current BATNA: {batna:.1f} (decreases each round)
+
+**CONSTRAINTS & RULES:**
+- Total resources: x + y ≤ {self.total_resources}
+- GPU-Bandwidth limit: 4x + 4y ≤ {self.constraints['gpu_bandwidth']}
+- Minimum allocations: x ≥ {self.constraints['min_gpu']}, y ≥ {self.constraints['min_bandwidth']}
+
 {offer_status}
-{acceptance_guidance}
-You must respond with a structured format that includes your reasoning and decision.
 
-RESPONSE FORMAT:
+📊 You have **{max_proposals - player_proposals}** proposals remaining out of {max_proposals} total.
+
+{acceptance_guidance}{proposal_guidance}
+
+**RESPONSE FORMAT:**
 ```
 <REASONING>
-[Explain your strategic thinking: Why are you making this decision? How does it relate to your BATNA and goals?]
+[Analyze the current situation, your BATNA, the opponent's likely preferences, and explain your strategic thinking]
 </REASONING>
 
 <DECISION>
-[Choose exactly ONE of the following JSON responses:]
 {{"type": "accept"}}  // Accept the opponent's last offer
 {offer_option}
 {{"type": "reject"}}  // Reject and end negotiation
 </DECISION>
 
 <MESSAGE>
-[Optional: Send a message to your opponent explaining your position or trying to persuade them]
+[Optional: Communicate with the opponent to build rapport or explain your reasoning]
 </MESSAGE>
 ```
 
-EXAMPLE RESPONSE:
+Your response:"""
+        return prompt
+
+    # Abstract methods required by BaseGame interface
+    def process_action(self, action: PlayerAction) -> Dict[str, Any]:
+        """Process a single player action - required by BaseGame interface."""
+        # For compatibility with BaseGame interface, delegate to process_actions
+        actions_dict = {action.player_id: {"type": action.action_type, **action.action_data}}
+        return self.process_actions(actions_dict, self.game_data)
+
+    def check_end_conditions(self) -> bool:
+        """Check if the game should end - required by BaseGame interface."""
+        return self.is_game_over(self.game_data)
+
+    def calculate_scores(self) -> Dict[str, float]:
+        """Calculate final scores for all players - required by BaseGame interface."""
+        if self.game_data.get("agreement_reached", False):
+            return self.game_data.get("final_utilities", {})
+        else:
+            # Return BATNA values if no agreement
+            return {
+                self.development: self.development_batna,
+                self.marketing: self.marketing_batna
+            }
+
+    def get_game_prompt(self, player_id: str) -> str:
+        """Enhanced prompt with structured format, proposal limits, and strategic guidance."""
+        if not hasattr(self, 'development') or not hasattr(self, 'marketing'):
+            return "Game not initialized properly"
+
+        private_info = self.game_data.get("private_info", {}).get(player_id, {})
+        current_round = self.game_data.get("current_round", 1)
+        other_player = self.marketing if player_id == self.development else self.development
+        other_offer = self.game_data.get(f"{other_player}_last_offer", None)
+        my_offer = self.game_data.get(f"{player_id}_last_offer", None)
+        batna = self.get_current_batna(player_id, current_round)
+        
+        # Track proposals made by this player
+        player_proposals = self.game_data.get(f"{player_id}_proposal_count", 0)
+        max_proposals = 3  # Limit proposals to force decision making
+        
+        role = "development" if player_id == self.development else "marketing"
+        team_name = "Development Team" if role == "development" else "Marketing Team"
+        utility_func = "12x + 3y + ε" if role == "development" else "3x + 12y + i"
+        preference = "GPU hours" if role == "development" else "bandwidth"
+        goal = f"Maximize GPU hours allocation" if role == "development" else f"Maximize bandwidth allocation"
+        
+        offer_history = []
+        if my_offer:
+            offer_history.append(f"- Your last offer: GPU={my_offer['gpu_hours']}, Bandwidth={my_offer['bandwidth']}")
+        if other_offer:
+            offer_history.append(f"- Opponent's last offer: GPU={other_offer['gpu_hours']}, Bandwidth={other_offer['bandwidth']}")
+        offer_status = "\n".join(offer_history) if offer_history else "No offers made yet."
+
+        # Enhanced acceptance guidance
+        acceptance_guidance = ""
+        can_propose = player_proposals < max_proposals
+        
+        if other_offer is not None:
+            gpu_hours = other_offer['gpu_hours']
+            bandwidth = other_offer['bandwidth']
+            proposed_utility = self.calculate_utility(player_id, gpu_hours, bandwidth, current_round)
+            is_within_batna = proposed_utility >= batna
+            
+            if is_within_batna:
+                acceptance_guidance = (
+                    f"🎯 STRATEGIC ANALYSIS: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f} which is ABOVE your BATNA ({batna:.1f}). "
+                    f"This is a GOOD DEAL for you! Consider accepting to secure a beneficial agreement.\n"
+                )
+            else:
+                if can_propose:
+                    acceptance_guidance = (
+                        f"⚠️ STRATEGIC ANALYSIS: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f} which is BELOW your BATNA ({batna:.1f}). "
+                        f"You should negotiate for a better allocation.\n"
+                    )
+                else:
+                    acceptance_guidance = (
+                        f"🚨 FINAL DECISION: You've used all {max_proposals} proposals. The opponent's offer gives utility {proposed_utility:.1f} vs BATNA {batna:.1f}. "
+                        f"You must now ACCEPT (if acceptable) or REJECT and end the negotiation.\n"
+                    )
+
+        # Proposal limit guidance
+        proposal_guidance = ""
+        if can_propose:
+            proposal_guidance = f"You have {max_proposals - player_proposals} proposals remaining."
+        else:
+            proposal_guidance = f"⚠️ You have used all {max_proposals} proposals. You can only ACCEPT or REJECT now."
+
+        # Build the offer option text based on proposal limits
+        offer_option = f'{{"type": "offer", "gpu_hours": [X], "bandwidth": [Y]}}  // Make a new allocation offer'
+        if can_propose:
+            offer_option += " // Only if you have proposals left"
+        else:
+            offer_option += " // NOT ALLOWED - no proposals left"
+
+        prompt = f"""=== RESOURCE ALLOCATION NEGOTIATION ===
+
+You are the **{team_name}** in a resource allocation negotiation.
+
+**ROUND {current_round}/{self.max_rounds} | TIME PRESSURE INCREASING**
+
+**YOUR OBJECTIVES:**
+- Maximize your utility: {utility_func}
+- You strongly prefer {preference}
+- Your current BATNA: {batna:.1f} (decreases each round)
+
+**CONSTRAINTS & RULES:**
+- Total resources: x + y ≤ {self.total_resources}
+- GPU-Bandwidth limit: 4x + 4y ≤ {self.constraints['gpu_bandwidth']}
+- Minimum allocations: x ≥ {self.constraints['min_gpu']}, y ≥ {self.constraints['min_bandwidth']}
+
+{offer_status}
+
+📊 You have **{max_proposals - player_proposals}** proposals remaining out of {max_proposals} total.
+
+{acceptance_guidance}{proposal_guidance}
+
+**RESPONSE FORMAT:**
 ```
 <REASONING>
-The opponent's offer of GPU=50 and Bandwidth=30 is within my BATNA of 160 utility points, meaning I would achieve a surplus of 20 utility points compared to my alternative. This is a good deal that aligns with my goal of maximizing utility above my BATNA.
+[Analyze the current situation, your BATNA, the opponent's likely preferences, and explain your strategic thinking]
 </REASONING>
 
 <DECISION>
-{{"type": "accept"}}
+{{"type": "accept"}}  // Accept the opponent's last offer
+{offer_option}
+{{"type": "reject"}}  // Reject and end negotiation
 </DECISION>
 
 <MESSAGE>
-I accept your offer of GPU=50 and Bandwidth=30. This allocation works well for both of us!
+[Optional: Communicate with the opponent to build rapport or explain your reasoning]
 </MESSAGE>
 ```
 

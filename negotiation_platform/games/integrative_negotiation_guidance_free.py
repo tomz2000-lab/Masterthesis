@@ -393,6 +393,7 @@ class IntegrativeNegotiationsGame(BaseGame):
             proposal = action.get("proposal", {})
             if self.is_valid_proposal(proposal):
                 game_state[f"{player}_last_proposal"] = proposal
+                game_state[f"{player}_last_proposal_round"] = current_round  # Track when proposal was made
                 game_state[f"{player}_proposal_count"] = player_proposals + 1
                 print(f"💡 Player {player} made proposal (#{player_proposals + 1}/{max_proposals}): {proposal}")
                 
@@ -414,8 +415,10 @@ class IntegrativeNegotiationsGame(BaseGame):
                 other_player = self.marketing_team if player == self.it_team else self.it_team
                 if f"{other_player}_last_proposal" in game_state:
                     accepted_proposal = game_state[f"{other_player}_last_proposal"]
-                    print(f"✅ Player {player} accepted proposal: {accepted_proposal}")
-                    return self._create_agreement(accepted_proposal, current_round, game_state)
+                    # Get the round when the accepted proposal was made
+                    proposal_round = game_state.get(f"{other_player}_last_proposal_round", current_round)
+                    print(f"✅ Player {player} accepted proposal: {accepted_proposal} (made in round {proposal_round})")
+                    return self._create_agreement(accepted_proposal, proposal_round, game_state)
                 else:
                     print(f"⚠️ Player {player} tried to accept but no proposal exists")
 

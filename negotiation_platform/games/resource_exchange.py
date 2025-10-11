@@ -372,14 +372,12 @@ Current Situation (Round {current_round}/{self.max_rounds}):
 
 Reasoning: {action_reason}
 
-TASK: Respond with ONLY valid JSON (no explanations or additional text):"""
+TASK: Respond with ONLY valid JSON. No explanations.
+Valid responses:
+{{"type": "propose", "gpu_hours": 20, "bandwidth": 60}}
+{{"type": "accept"}}
+{{"type": "reject"}}
 
-        # Add specific JSON format based on decision
-        if "MAKE INITIAL PROPOSAL" in decision_guidance or "COUNTER-OFFER" in decision_guidance:
-            prompt += '\n{"type": "propose", "gpu_hours": X, "bandwidth": Y}'
-        elif "ACCEPT IT" in decision_guidance:
-            prompt += '\n{"type": "accept"}'
-        else:
-            prompt += '\n{"type": "noop"}'
+Your response:"""
             
         return prompt
