@@ -1,10 +1,8 @@
 import random
 import re
 import json
-from typing import Dict, List, Any, Optional, Tuple
-
+from typing import Dict, List, Any, Optional
 from .base_game import BaseGame, PlayerAction
-from .negotiation_tools import calculate_percentage_difference, is_offer_above_batna, is_offer_below_batna, suggest_next_offer
 
 
 class CompanyCarGame(BaseGame):
@@ -105,13 +103,22 @@ class CompanyCarGame(BaseGame):
             }
 
     def initialize_game(self, players: List[str]) -> Dict[str, Any]:
-        """Initialize bilateral car negotiation."""
+        """Initialize bilateral car negotiation with randomized role assignment."""
         if len(players) != 2:
             raise ValueError("Company car game requires exactly 2 players")
 
         self.players = players
-        self.buyer = players[0]  # First player is buyer
-        self.seller = players[1]  # Second player is seller
+        
+        # Randomly assign buyer and seller roles to eliminate role-based bias
+        if random.choice([True, False]):
+            self.buyer = players[0]
+            self.seller = players[1]
+            print(f"🎲 [ROLE ASSIGNMENT] {players[0]} = BUYER, {players[1]} = SELLER")
+        else:
+            self.buyer = players[1] 
+            self.seller = players[0]
+            print(f"🎲 [ROLE ASSIGNMENT] {players[1]} = BUYER, {players[0]} = SELLER")
+            
         self.state = self.state.__class__.ACTIVE  # Set to active state
 
         self.game_data = {
@@ -119,6 +126,10 @@ class CompanyCarGame(BaseGame):
             "players": self.players,
             "rounds": self.max_rounds,
             "current_round": 1,
+            "role_assignments": {
+                "buyer": self.buyer,
+                "seller": self.seller
+            },
             "private_info": {
                 self.buyer: {
                     "role": "buyer",
@@ -149,7 +160,7 @@ class CompanyCarGame(BaseGame):
             decay_rate = self.batna_decay["seller"]
             base_batna = self.seller_batna
 
-        return base_batna * ((1 - decay_rate) ** (round_num - 1))
+        return base_batna * ((1 - decay_rate) ** (round_num-1))
 
     def is_valid_action(self, player: str, action: Dict[str, Any], game_state: Dict[str, Any]) -> bool:
         """Validate player action with enhanced structured format support."""
@@ -166,7 +177,7 @@ class CompanyCarGame(BaseGame):
             print(f"⚠️ Player {player} provided empty action type, treating as reject")
             return True  # Allow but will be processed as reject
             
-        max_proposals = self.max_rounds
+        max_proposals = self.max_rounds-1
         player_proposals = game_state.get(f"{player}_proposal_count", 0)
 
         if action_type == "offer":
@@ -210,7 +221,7 @@ class CompanyCarGame(BaseGame):
     def process_actions(self, actions: Dict[str, Dict[str, Any]], game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Process player actions with proposal limits and enhanced validation."""
         current_round = game_state["current_round"]
-        max_proposals = self.max_rounds  # Use rounds from YAML config
+        max_proposals = self.max_rounds-1  # Use rounds from YAML config
 
         # Initialize proposal counters if not present
         for player in [self.buyer, self.seller]:
@@ -280,6 +291,7 @@ class CompanyCarGame(BaseGame):
             # Valid offer - process it
             price = action.get("price")
             game_state[f"{player}_last_offer"] = price
+            game_state[f"{player}_last_offer_round"] = current_round  # Track when offer was made
             game_state[f"{player}_proposal_count"] = player_proposals + 1
             print(f"💡 Player {player} made offer €{price:,.0f} (proposal {player_proposals + 1}/{max_proposals})")
 
@@ -298,14 +310,12 @@ class CompanyCarGame(BaseGame):
                 other_player = self.seller if player == self.buyer else self.buyer
                 if f"{other_player}_last_offer" in game_state:
                     agreed_price = game_state[f"{other_player}_last_offer"]
-                    print(f"✅ Player {player} accepted offer of €{agreed_price:,.0f}")
+                    # Get the round when the accepted offer was made
+                    offer_round = game_state.get(f"{other_player}_last_offer_round", current_round)
+                    print(f"✅ Player {player} accepted offer of €{agreed_price:,.0f} (made in round {offer_round})")
 
-                    # Validate agreement against BATNAs (more lenient for acceptance)
-                    buyer_batna = self.get_current_batna(self.buyer, current_round)
-                    seller_batna = self.get_current_batna(self.seller, current_round)
-
-                    # Accept the agreement even if slightly outside BATNA to encourage deals
-                    return self._create_agreement(agreed_price, current_round, game_state)
+                    # Use the BATNA from when the offer was made, not current round
+                    return self._create_agreement(agreed_price, offer_round, game_state)
                 else:
                     print(f"⚠️ Player {player} tried to accept but no offer exists")
 
@@ -314,34 +324,40 @@ class CompanyCarGame(BaseGame):
 
         # Check if deadline reached - but allow extra rounds for final responses
         # Players should have a chance to accept/reject final proposals
-        grace_rounds = 1  # Allow 1 extra round for final responses after proposal exhaustion
-        max_total_rounds = self.max_rounds + grace_rounds
+        max_total_rounds = self.max_rounds
         
         if game_state["current_round"] > max_total_rounds:
             return self._create_no_agreement(game_state)
 
         return game_state
 
-    def _create_agreement(self, price: float, round_num: int, game_state: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_agreement(self, price: float, current_round: int, game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Create agreement result."""
-        buyer_batna = self.get_current_batna(self.buyer, round_num)
-        seller_batna = self.get_current_batna(self.seller, round_num)
+        buyer_batna = self.get_current_batna(self.buyer, current_round)
+        seller_batna = self.get_current_batna(self.seller, current_round)
 
         buyer_utility = buyer_batna - price  # Saved money vs BATNA
         seller_utility = price - seller_batna  # Profit over BATNA
         
         # DEBUG: Log the exact calculation values
-        print(f"🔍 [BATNA DEBUG] Round {round_num}: price={price}")
+        
+        print(f"🔍 [BATNA DEBUG] Round {current_round}: price={price}")
         print(f"🔍 [BATNA DEBUG] Config BATNAs: buyer={self.buyer_batna}, seller={self.seller_batna}")
         print(f"🔍 [BATNA DEBUG] Decay rate: {self.batna_decay}")
         print(f"🔍 [BATNA DEBUG] Calculated BATNAs: buyer={buyer_batna:.2f}, seller={seller_batna:.2f}")
         print(f"🔍 [BATNA DEBUG] Utilities: buyer={buyer_utility:.2f}, seller={seller_utility:.2f}")
+        print(f"🎲 [ROLE DEBUG] Buyer={self.buyer}, Seller={self.seller}")
+        print(f"🎲 [ROLE DEBUG] {self.buyer} utility={buyer_utility:.2f}, {self.seller} utility={seller_utility:.2f}")
 
         game_state.update({
             "agreement_reached": True,
             "game_ended": True,  # Explicitly mark game as ended
             "agreed_price": price,
-            "agreement_round": round_num,
+            "agreement_round": current_round,
+            "role_assignments": {
+                "buyer": self.buyer,
+                "seller": self.seller
+            },
             "final_utilities": {
                 self.buyer: buyer_utility,
                 self.seller: seller_utility
@@ -356,9 +372,16 @@ class CompanyCarGame(BaseGame):
 
     def _create_no_agreement(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Create no agreement result."""
+        print(f"🎲 [ROLE DEBUG] No Agreement - Buyer={self.buyer}, Seller={self.seller}")
+        print(f"🎲 [ROLE DEBUG] {self.buyer} utility=0, {self.seller} utility=0")
+        
         game_state.update({
             "agreement_reached": False,
             "game_ended": True,  # Explicitly mark game as ended
+            "role_assignments": {
+                "buyer": self.buyer,
+                "seller": self.seller
+            },
             "final_utilities": {
                 self.buyer: 0,  # No deal utility
                 self.seller: 0
@@ -435,7 +458,7 @@ class CompanyCarGame(BaseGame):
         
         # Track proposals made by this player
         player_proposals = self.game_data.get(f"{player_id}_proposal_count", 0)
-        max_proposals = self.max_rounds  # Use rounds from YAML config
+        max_proposals = self.max_rounds-1  # Use rounds from YAML config = 4
         
         role = "buyer" if player_id == self.buyer else "seller"
         goal = f"Buy car for less than €{batna:,.0f}" if role == "buyer" else f"Sell car for more than €{batna:,.0f}"
@@ -450,10 +473,9 @@ class CompanyCarGame(BaseGame):
         # Enhanced acceptance guidance with round awareness
         acceptance_guidance = ""
         can_propose = player_proposals < max_proposals
-        rounds_remaining = max_proposals - (1+player_proposals)
+        rounds_remaining = max_proposals - player_proposals
         
         if other_offer is not None:
-            percent_diff = calculate_percentage_difference(other_offer, batna)
             is_within_batna = ((player_id == self.buyer and other_offer < batna) or 
                               (player_id == self.seller and other_offer >= batna))
             
@@ -478,7 +500,12 @@ class CompanyCarGame(BaseGame):
                 if rounds_remaining == 0:  # No proposals left - suggest accepting to avoid no-deal
                     acceptance_guidance = (
                         f"🚨 FINAL DECISION: The opponent's offer (€{other_offer:,.0f}) is €{gap:,.0f} outside your BATNA (€{batna:,.0f}). "
-                        f"You have no proposals left. ACCEPT to avoid no-deal or REJECT to end negotiation.\n"
+                        f"You have no proposals left. ACCEPT to avoid no-deal or REJECT (€{other_offer:,.0f}).\n"
+                    )
+                elif rounds_remaining == 1:  # Last proposal - be more encouraging
+                    acceptance_guidance = (
+                        f"🎯 ANALYSIS: The opponent's offer (€{other_offer:,.0f}) is €{gap:,.0f} outside your BATNA (€{batna:,.0f}). "
+                        f"With only 1 proposal left, consider accepting or making the last counter offer.\n"
                     )
                 else:
                     acceptance_guidance = (
@@ -488,8 +515,7 @@ class CompanyCarGame(BaseGame):
 
         # Proposal limit guidance
         proposal_guidance = ""
-        grace_rounds = 1  # Same as in process_actions
-        max_total_rounds = self.max_rounds + grace_rounds
+        max_total_rounds = self.max_rounds
         
         if can_propose:
             proposal_guidance = f"You have {max_proposals - player_proposals} proposals remaining."
