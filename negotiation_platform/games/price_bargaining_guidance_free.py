@@ -461,7 +461,7 @@ class CompanyCarGame(BaseGame):
         max_proposals = self.max_rounds-1  # Use rounds from YAML config = 4
         
         role = "buyer" if player_id == self.buyer else "seller"
-        goal = f"Buy car for less than €{batna:,.0f}" if role == "buyer" else f"Sell car for more than €{batna:,.0f}"
+        goal = f"Buy car for €{batna:,.0f} or less" if role == "buyer" else f"Sell car for €{batna:,.0f} or more"
         
         offer_history = []
         if my_offer:
@@ -476,7 +476,7 @@ class CompanyCarGame(BaseGame):
         rounds_remaining = max_proposals - player_proposals
         
         if other_offer is not None:
-            is_within_batna = ((player_id == self.buyer and other_offer < batna) or 
+            is_within_batna = ((player_id == self.buyer and other_offer <= batna) or 
                               (player_id == self.seller and other_offer >= batna))
             
             if is_within_batna:
