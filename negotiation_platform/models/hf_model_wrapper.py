@@ -290,18 +290,21 @@ class HuggingFaceModelWrapper(BaseLLMModel):
     def _preprocess_json_response(self, response: str) -> str:
         """Fix common model JSON formatting issues before parsing"""
         import re
-        
+
         # Fix array notation for large numbers: [39,000] -> 39000
-        # This handles cases where models think [39,000] means thirty-nine thousand
-        response = re.sub(r'\[(\d+),(\d+)\]', r'\1\2', response)
-        
+        response = re.sub(r'\[(\d+),(\d+)]', r'\1\2', response)
+
         # Fix array notation for regular numbers: [100] -> 100 (for single numbers)
-        # But preserve actual arrays like ["Outsourced"] 
-        response = re.sub(r':\s*\[(\d+)\]', r': \1', response)
-        
+        # But preserve actual arrays like ["Outsourced"]
+        response = re.sub(r':\s*\[(\d+)]', r': \1', response)
+
         # Fix potential comma-in-quotes issues: "39,000" -> 39000
         response = re.sub(r'"(\d+),(\d+)"', r'\1\2', response)
-        
+
+        # Add double quotes around property names if missing
+        # Matches property names without quotes and adds them
+        response = re.sub(r'(?<!["{,\s])([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*:)', r'"\1"', response)
+
         return response
 
     def parse_action(self, response: str, game_type: str = None, player_name: str = None) -> Dict[str, Any]:
