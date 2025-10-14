@@ -518,7 +518,7 @@ class CompanyCarGame(BaseGame):
         max_total_rounds = self.max_rounds
         
         if can_propose:
-            proposal_guidance = f"You have {max_proposals - player_proposals} proposals remaining."
+            proposal_guidance = f"You have {max_proposals - current_round + 1} proposals remaining."
         else:
             if current_round <= self.max_rounds:
                 proposal_guidance = f"⚠️ You have used all {max_proposals} proposals. You can only ACCEPT or REJECT now. Note: Rejecting will END the negotiation."
@@ -545,7 +545,7 @@ CURRENT SITUATION:
 RESPONSE FORMAT: Respond with ONLY valid JSON.
 Valid responses:
 {{"type": "accept"}}  // Accept the opponent's last offer
-{{"type": "offer", "price": [amount]}}  // Make a new price offer
+{{"type": "offer", "price": 38500}}  // Make a new price offer
 {{"type": "reject"}}  // Reject and end negotiation
 
 EXAMPLE OFFERS:
