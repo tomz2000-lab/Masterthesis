@@ -792,11 +792,11 @@ RESPONSE FORMAT: Respond with ONLY valid JSON with four fields: "type", "proposa
 with the appropriate options from YOUR OPTIONS. No explanations.
 Valid responses:
 {{"type": "accept"}}  // Accept the opponent's last proposal
-{{"type": "propose", "proposal": {{"server_room": option, "meeting_access": option, "cleaning": option, "branding": option}}}}  // Make a new proposal
+{{"type": "propose", "server_room": option, "meeting_access": option, "cleaning": option, "branding": option}}  // Make a new proposal
 {{"type": "reject"}}  // Reject and end negotiation
 
 EXAMPLE PROPOSAL:
-{{"type": "propose", "proposal": {{"server_room": 150, "meeting_access": 2, "cleaning": "Shared", "branding": "Minimal"}}}}
+{{"type": "propose", "server_room": 150, "meeting_access": 2, "cleaning": "Shared", "branding": "Minimal"}}
 
 Your response:"""
         
