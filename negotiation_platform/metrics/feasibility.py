@@ -31,38 +31,74 @@ class FeasibilityMetric(BaseMetric):
         game_type = game_result.game_data.get('game_type', 'unknown')
         
         if game_type == 'resource_allocation':
-            # For resource allocation: if agreement reached, it's feasible
-            # (the game engine already validated constraints)
+            # For resource allocation: use decaying BATNAs to determine feasibility
+            decay_rate = game_result.game_data.get('batna_decay_rate', 0.015)
+            current_round = game_result.game_data.get('current_round', 1)
+
             for player_id in game_result.players:
-                results[player_id] = 1.0
-            return results
-        
+                if player_id in private_info:
+                    player_info = private_info[player_id]
+                    raw_batna = player_info.get('batna', 0.0)
+
+                    # Apply decay to the BATNA
+                    decayed_batna = raw_batna * (1 - decay_rate) ** (current_round - 1)
+
+                    # Feasibility is determined by whether the agreement meets the decayed BATNA
+                    feasible = agreed_price >= decayed_batna
+                    results[player_id] = 1.0 if feasible else 0.0
+                else:
+                    results[player_id] = 0.0
+
         elif game_type == 'integrative_negotiations':
-            # For integrative negotiations: if agreement reached, it's feasible
-            # (the game engine validated the proposal format and constraints)
+            # For integrative negotiations: check decaying BATNAs and game constraints
+            decay_rate = game_result.game_data.get('batna_decay_rate', 0.015)
+            current_round = game_result.game_data.get('current_round', 1)
+
             for player_id in game_result.players:
-                results[player_id] = 1.0
-            return results
+                if player_id in private_info:
+                    player_info = private_info[player_id]
+                    raw_batna = player_info.get('batna', 0.0)
+
+                    # Apply decay to the BATNA
+                    decayed_batna = raw_batna * (1 - decay_rate) ** (current_round - 1)
+
+                    # Check if the agreement meets the decayed BATNA
+                    feasible_batna = agreed_price >= decayed_batna
+
+                    # Check additional constraints from the game logic
+                    constraints_met = game_result.game_data.get('constraints_met', True)
+
+                    # Feasibility is true only if both BATNA and constraints are satisfied
+                    results[player_id] = 1.0 if feasible_batna and constraints_met else 0.0
+                else:
+                    results[player_id] = 0.0
 
         # For price bargaining (company_car), if agreement was reached, it's feasible for both parties
         # (the game logic already validated it against BATNAs)
         agreed_price = game_result.game_data.get('agreed_price', 0)
         private_info = game_result.game_data.get('private_info', {})
 
+        # Calculate decaying BATNAs based on the round number
+        decay_rate = game_result.game_data.get('batna_decay_rate', 0.015)  # Default decay rate
+        current_round = game_result.game_data.get('current_round', 1)
+
         for player_id in game_result.players:
             if player_id in private_info:
                 player_info = private_info[player_id]
-                batna = player_info.get('batna', 0.0)
+                raw_batna = player_info.get('batna', 0.0)
                 role = player_info.get('role', '')
-                
+
+                # Apply decay to the BATNA
+                decayed_batna = raw_batna * (1 - decay_rate) ** (current_round - 1)
+
                 # Check if the agreed price meets this player's constraints
                 if role == "buyer":
-                    # Feasible if buyer paid <= their BATNA
-                    feasible = agreed_price <= batna
+                    # Feasible if buyer paid <= their decayed BATNA
+                    feasible = agreed_price <= decayed_batna
                 else:  # seller
-                    # Feasible if seller received >= their BATNA
-                    feasible = agreed_price >= batna
-                
+                    # Feasible if seller received >= their decayed BATNA
+                    feasible = agreed_price >= decayed_batna
+
                 results[player_id] = 1.0 if feasible else 0.0
             else:
                 results[player_id] = 0.0
