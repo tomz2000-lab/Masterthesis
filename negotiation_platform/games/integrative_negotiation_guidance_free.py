@@ -311,8 +311,22 @@ class IntegrativeNegotiationsGame(BaseGame):
             if player_proposals >= max_proposals:
                 print(f"⚠️ Player {player} tried to make proposal but exceeded limit ({player_proposals}/{max_proposals})")
                 return False
+            
+            # Handle both nested and flat proposal formats
+            if "proposal" in action_data:
+                # Nested format: {"type": "propose", "proposal": {...}}
+                proposal = action_data["proposal"]
+            else:
+                # Flat format from Pydantic: {"type": "propose", "server_room": 150, ...}
+                proposal = {}
+                for field in ["server_room", "meeting_access", "cleaning", "branding"]:
+                    if field in action_data:
+                        proposal[field] = action_data[field]
                 
-            proposal = action_data.get("proposal", {})
+                if not proposal:
+                    print(f"⚠️ Player {player} made propose action but no proposal fields found in {action_data}")
+                    return False
+            
             return self.is_valid_proposal(proposal)
 
         elif action_type in ["accept", "reject"]:
@@ -322,9 +336,21 @@ class IntegrativeNegotiationsGame(BaseGame):
             # Check proposal limit for counters too
             if player_proposals >= max_proposals:
                 return False
+            
+            # Handle both nested and flat proposal formats
+            if "proposal" in action_data:
+                # Nested format
+                proposal = action_data["proposal"]
+            else:
+                # Flat format from Pydantic
+                proposal = {}
+                for field in ["server_room", "meeting_access", "cleaning", "branding"]:
+                    if field in action_data:
+                        proposal[field] = action_data[field]
                 
-            # Treat counter/counter-offer as regular proposals
-            proposal = action_data.get("proposal", {})
+                if not proposal:
+                    return False
+            
             return self.is_valid_proposal(proposal)
 
         elif action_type == "noop":
@@ -351,6 +377,11 @@ class IntegrativeNegotiationsGame(BaseGame):
         current_round = game_state["current_round"]
         max_proposals = self.max_rounds - 1  # Like price bargaining
 
+        print(f"\n{'='*80}")
+        print(f"🔍 [PROCESS_ACTIONS] Round {current_round}: Processing actions")
+        print(f"🔍 [PROCESS_ACTIONS] Raw actions received: {actions}")
+        print(f"{'='*80}\n")
+
         # Initialize proposal counters if not present
         for player in [self.it_team, self.marketing_team]:
             if f"{player}_proposal_count" not in game_state:
@@ -359,23 +390,31 @@ class IntegrativeNegotiationsGame(BaseGame):
         # Process JSON responses and extract decision data
         processed_actions = {}
         for player, raw_action in actions.items():
+            print(f"🔍 [{player}] Raw action type: {type(raw_action)}")
+            print(f"🔍 [{player}] Raw action: {raw_action}")
+            
             if isinstance(raw_action, str):
                 # If it's a string, try to parse it as JSON response
                 parsed = self.parse_json_response(raw_action)
                 action_data = parsed["decision"]
+                print(f"🔍 [{player}] Parsed from string, extracted decision: {action_data}")
             elif isinstance(raw_action, dict) and "decision" in raw_action:
                 # Already structured
                 action_data = raw_action["decision"]
+                print(f"🔍 [{player}] Dict with 'decision' key, extracted: {action_data}")
             else:
                 # Regular action format
                 action_data = raw_action
+                print(f"🔍 [{player}] Regular dict format: {action_data}")
             
             processed_actions[player] = action_data
+            print(f"🔍 [{player}] Processed action: {action_data}\n")
 
         # Normalize action types - treat counter/counter-offer as proposals, handle empty types
         normalized_actions = {}
         for player, action in processed_actions.items():
             action_type = action.get("type", "")
+            print(f"🔍 [{player}] Normalizing action type: '{action_type}'")
             
             # Handle empty or invalid action types
             if not action_type or action_type == "":
@@ -384,14 +423,41 @@ class IntegrativeNegotiationsGame(BaseGame):
             elif action_type in ["counter", "counter-offer"]:
                 # Convert to propose
                 normalized_actions[player] = {"type": "propose", "proposal": action.get("proposal", {})}
+                print(f"🔧 [{player}] Converted counter to propose: {normalized_actions[player]}")
+            elif action_type == "propose":
+                # Handle both nested and flat proposal formats
+                if "proposal" in action:
+                    # Already in nested format
+                    normalized_actions[player] = action
+                    print(f"✅ [{player}] Already in nested format: {action}")
+                else:
+                    # Flat format - extract proposal fields and nest them
+                    proposal_fields = {}
+                    for field in ["server_room", "meeting_access", "cleaning", "branding"]:
+                        if field in action:
+                            proposal_fields[field] = action[field]
+                    
+                    if proposal_fields:
+                        print(f"🔧 [FORMAT FIX] Converting flat proposal to nested format for {player}: {proposal_fields}")
+                        normalized_actions[player] = {"type": "propose", "proposal": proposal_fields}
+                    else:
+                        print(f"⚠️ Player {player} made propose action but no proposal fields found")
+                        print(f"⚠️ Action keys: {list(action.keys())}")
+                        normalized_actions[player] = {"type": "reject"}
             else:
                 normalized_actions[player] = action
+                print(f"✅ [{player}] Action accepted as-is: {action}")
+        
+        print(f"\n🔍 [NORMALIZATION COMPLETE] Normalized actions: {normalized_actions}\n")
 
         # Check for proposals and responses
         proposals = {player: action for player, action in normalized_actions.items()
                     if action.get("type") == "propose"}
         responses = {player: action for player, action in normalized_actions.items()
                     if action.get("type") in ["accept", "reject"]}
+        
+        print(f"🔍 [CATEGORIZATION] Proposals: {proposals}")
+        print(f"🔍 [CATEGORIZATION] Responses: {responses}\n")
 
         # Process rejections - only end if proposal limit reached
         for player, action in responses.items():
@@ -407,6 +473,9 @@ class IntegrativeNegotiationsGame(BaseGame):
         for player, action in proposals.items():
             player_proposals = game_state.get(f"{player}_proposal_count", 0)
             
+            print(f"🔍 [{player}] Processing proposal (count: {player_proposals}/{max_proposals})")
+            print(f"🔍 [{player}] Action: {action}")
+            
             # Check proposal limit
             if player_proposals >= max_proposals:
                 print(f"⚠️ Player {player} exceeded proposal limit ({player_proposals}/{max_proposals}). Ignoring additional proposals.")
@@ -415,11 +484,14 @@ class IntegrativeNegotiationsGame(BaseGame):
             
             # Valid proposal - process it
             proposal = action.get("proposal", {})
+            print(f"🔍 [{player}] Extracted proposal: {proposal}")
+            
             if self.is_valid_proposal(proposal):
                 game_state[f"{player}_last_proposal"] = proposal
                 game_state[f"{player}_last_proposal_round"] = current_round  # Track when proposal was made
                 game_state[f"{player}_proposal_count"] = player_proposals + 1
                 print(f"💡 Player {player} made proposal (#{player_proposals + 1}/{max_proposals}): {proposal}")
+                print(f"✅ [{player}] Stored in game_state as '{player}_last_proposal'")
                 
                 # Track in proposals history for compatibility
                 proposal_record = {
@@ -445,6 +517,10 @@ class IntegrativeNegotiationsGame(BaseGame):
             if action.get("type") == "accept":
                 # Find the proposal being accepted (from the other player)
                 other_player = self.marketing_team if player == self.it_team else self.it_team
+                print(f"🔍 [{player}] Trying to accept proposal from {other_player}")
+                print(f"🔍 [{player}] Looking for key: '{other_player}_last_proposal' in game_state")
+                print(f"🔍 [{player}] Game state keys: {list(game_state.keys())}")
+                
                 if f"{other_player}_last_proposal" in game_state:
                     accepted_proposal = game_state[f"{other_player}_last_proposal"]
                     # Get the round when the accepted proposal was made
@@ -452,7 +528,8 @@ class IntegrativeNegotiationsGame(BaseGame):
                     print(f"✅ Player {player} accepted proposal: {accepted_proposal} (made in round {proposal_round})")
                     return self._create_agreement(accepted_proposal, proposal_round, game_state)
                 else:
-                    print(f"⚠️ Player {player} tried to accept but no proposal exists")
+                    print(f"⚠️ Player {player} tried to accept but no proposal exists from {other_player}")
+                    print(f"⚠️ Available game_state keys: {[k for k in game_state.keys() if 'proposal' in k.lower()]}")
 
         # Update round
         game_state["current_round"] += 1
@@ -788,15 +865,21 @@ CURRENT SITUATION:
 {offer_status}
 {acceptance_guidance}
 
-RESPONSE FORMAT: Respond with ONLY valid JSON with four fields: "type", "proposal", "acceptance", "rejection" and fill them 
-with the appropriate options from YOUR OPTIONS. No explanations.
-Valid responses:
-{{"type": "accept"}}  // Accept the opponent's last proposal
-{{"type": "propose", "server_room": option, "meeting_access": option, "cleaning": option, "branding": option}}  // Make a new proposal
-{{"type": "reject"}}  // Reject and end negotiation
+RESPONSE FORMAT: Respond with ONLY a single valid JSON object. Choose ONE of these three formats:
 
-EXAMPLE PROPOSAL:
+1. To accept the opponent's proposal:
+{{"type": "accept"}}
+
+2. To make a new proposal:
 {{"type": "propose", "server_room": 150, "meeting_access": 2, "cleaning": "Shared", "branding": "Minimal"}}
+
+3. To reject and end negotiation:
+{{"type": "reject"}}
+
+IMPORTANT: 
+- Use exact values from YOUR OPTIONS above
+- Respond with ONLY the JSON, no explanations or additional text
+- For propose actions, include all four fields: server_room, meeting_access, cleaning, branding
 
 Your response:"""
         
