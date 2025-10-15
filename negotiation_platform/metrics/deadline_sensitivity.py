@@ -29,6 +29,10 @@ class DeadlineSensitivityMetric(BaseMetric):
             # For integrative negotiations: analyze deadline pressure effects
             return self._calculate_integrative_sensitivity(game_result, actions_history)
 
+        elif game_type == 'company_car':
+            # For company car game: analyze deadline sensitivity based on surplus changes
+            return self._calculate_company_car_sensitivity(game_result, actions_history)
+
         # Original price bargaining logic
         # Group actions by round
         actions_by_round = {}
@@ -145,6 +149,33 @@ class DeadlineSensitivityMetric(BaseMetric):
                 # No agreement or single round = no deadline sensitivity detected
                 results[player_id] = 0.0
                 
+        return results
+
+    def _calculate_company_car_sensitivity(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
+        """Calculate deadline sensitivity for the company car game"""
+        results = {}
+
+        # Group actions by round
+        actions_by_round = {}
+        for action in actions_history:
+            round_num = action.round_number
+            if round_num not in actions_by_round:
+                actions_by_round[round_num] = []
+            actions_by_round[round_num].append(action)
+
+        # Calculate surplus for each round
+        surplus_by_round = {}
+        for round_num, actions in actions_by_round.items():
+            total_surplus = sum(action.surplus for action in actions if hasattr(action, 'surplus'))
+            surplus_by_round[round_num] = total_surplus
+
+        # Compare surplus to the first round
+        first_round_surplus = surplus_by_round.get(1, 0)
+        for round_num, surplus in surplus_by_round.items():
+            if round_num == 1:
+                continue
+            results[f'round_{round_num}'] = (first_round_surplus - surplus) / first_round_surplus if first_round_surplus else 0
+
         return results
 
     def _simulate_deal_utility(self, player_id: str, deal: Dict[str, Any],

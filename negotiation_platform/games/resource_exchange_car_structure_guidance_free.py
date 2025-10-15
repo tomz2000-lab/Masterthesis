@@ -209,6 +209,40 @@ class ResourceAllocationGame(BaseGame):
             
         return True
 
+    def check_constraints_and_update(self, gpu_hours: float, bandwidth: float) -> None:
+        """Check constraints and update game data with the result."""
+        constraints_met = True
+        messages = []
+
+        # Check total resource constraint
+        if gpu_hours + bandwidth > self.total_resources:
+            constraints_met = False
+            messages.append(f"Total resources exceeded: {gpu_hours + bandwidth} > {self.total_resources}")
+
+        # Check GPU-Bandwidth constraint
+        if 4 * gpu_hours + 4 * bandwidth > self.constraints["gpu_bandwidth"]:
+            constraints_met = False
+            messages.append(f"GPU-Bandwidth limit exceeded: {4 * gpu_hours + 4 * bandwidth} > {self.constraints['gpu_bandwidth']}")
+
+        # Check minimum allocation constraints
+        if gpu_hours < self.constraints["min_gpu"]:
+            constraints_met = False
+            messages.append(f"GPU hours below minimum: {gpu_hours} < {self.constraints['min_gpu']}")
+        if bandwidth < self.constraints["min_bandwidth"]:
+            constraints_met = False
+            messages.append(f"Bandwidth below minimum: {bandwidth} < {self.constraints['min_bandwidth']}")
+
+        # Update game data
+        self.game_data["constraints_met"] = constraints_met
+
+        # Print results
+        if constraints_met:
+            print("✅ All constraints are satisfied.")
+        else:
+            print("❌ Constraints violated:")
+            for message in messages:
+                print(f"   - {message}")
+
     def is_valid_action(self, player: str, action: Dict[str, Any], game_state: Dict[str, Any]) -> bool:
         """Validate player action with enhanced structured format support."""
         # Handle structured response format
