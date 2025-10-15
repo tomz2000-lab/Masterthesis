@@ -44,58 +44,66 @@ class ProposeTradeAction(BaseModel):
 class IntegrativeProposalAction(BaseModel):
     """Integrative negotiation proposal with constrained discrete values"""
     type: Literal["propose"] = Field(..., description="Must be exactly 'propose'")
-    proposal: Dict[str, Any] = Field(..., description="Proposal with server_room, meeting_access, cleaning, branding using exact values only")
+    server_room: Union[int, float] = Field(..., description="Server room size")
+    meeting_access: Union[int, float] = Field(..., description="Meeting access hours")
+    cleaning: str = Field(..., description="Cleaning responsibility")
+    branding: str = Field(..., description="Branding visibility level")
     
-    @field_validator('proposal')
+    @field_validator('server_room')
     @classmethod
-    def validate_proposal_values(cls, v):
-        """Ensure all proposal values are valid discrete options"""
-        # Load valid options from game config
-        config_path = os.path.join(os.path.dirname(__file__), '..', 'configs', 'game_configs.yaml')
-        try:
-            with open(config_path, 'r') as f:
-                config = yaml.safe_load(f)
-                integrative_config = config.get('integrative_negotiations', {}).get('issues', {})
-                
-                # Validate each issue
-                for issue, value in v.items():
-                    if issue in integrative_config:
-                        valid_options = integrative_config[issue]['options']
-                        if value not in valid_options:
-                            # Auto-correct to nearest valid option
-                            if issue == 'server_room':
-                                if value <= 75:
-                                    v[issue] = 50
-                                elif value <= 125:
-                                    v[issue] = 100
-                                else:
-                                    v[issue] = 150
-                            elif issue == 'meeting_access':
-                                if value <= 3:
-                                    v[issue] = 2
-                                elif value <= 5:
-                                    v[issue] = 4
-                                else:
-                                    v[issue] = 7
-                            elif issue == 'cleaning':
-                                if str(value).lower() in ['it']:
-                                    v[issue] = "IT"
-                                elif str(value).lower() in ['shared']:
-                                    v[issue] = "Shared"
-                                else:
-                                    v[issue] = "Outsourced"
-                            elif issue == 'branding':
-                                if str(value).lower() in ['minimal']:
-                                    v[issue] = "Minimal"
-                                elif str(value).lower() in ['moderate']:
-                                    v[issue] = "Moderate"
-                                else:
-                                    v[issue] = "Prominent"
-        except Exception as e:
-            # If config loading fails, use hardcoded fallback
-            pass
-            
-        return v
+    def validate_server_room(cls, v):
+        """Validate server room size"""
+        if v <= 75:
+            print(f"⚠️ [VALIDATION] server_room corrected from {v} to 50")
+            return 50
+        elif v <= 125:
+            print(f"⚠️ [VALIDATION] server_room corrected from {v} to 100")
+            return 100
+        else:
+            print(f"⚠️ [VALIDATION] server_room corrected from {v} to 150")
+            return 150
+    
+    @field_validator('meeting_access')
+    @classmethod
+    def validate_meeting_access(cls, v):
+        """Validate meeting access hours"""
+        if v <= 3:
+            print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 2")
+            return 2
+        elif v <= 5:
+            print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 4")
+            return 4
+        else:
+            print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 7")
+            return 7
+    
+    @field_validator('cleaning')
+    @classmethod
+    def validate_cleaning(cls, v):
+        """Validate cleaning responsibility"""
+        if str(v).lower() in ['it']:
+            print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'IT'")
+            return "IT"
+        elif str(v).lower() in ['shared']:
+            print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'Shared'")
+            return "Shared"
+        else:
+            print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'Outsourced'")
+            return "Outsourced"
+    
+    @field_validator('branding')
+    @classmethod
+    def validate_branding(cls, v):
+        """Validate branding visibility"""
+        if str(v).lower() in ['minimal']:
+            print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Minimal'")
+            return "Minimal"
+        elif str(v).lower() in ['moderate']:
+            print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Moderate'")
+            return "Moderate"
+        else:
+            print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Prominent'")
+            return "Prominent"
 
 # Union of all possible actions
 GameAction = Union[
@@ -122,10 +130,20 @@ def validate_and_constrain_action(raw_response: str, game_type: str) -> Dict[str
     Raises:
         ValueError: If response cannot be validated/constrained
     """
+    import json
+
     try:
         # Parse JSON
         parsed = json.loads(raw_response.strip())
-        
+
+        # Debug: Log the parsed JSON
+        print(f"[DEBUG] Parsed JSON: {parsed}")
+
+        # Pre-validation check for 'type' field
+        action_type = parsed.get("type", None)
+        if not action_type:
+            raise ValueError("Missing 'type' field in action")
+
         # Validate based on game type and action type
         action_type = parsed.get("type", "")
         
@@ -155,6 +173,9 @@ def validate_and_constrain_action(raw_response: str, game_type: str) -> Dict[str
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON: {e}")
     except Exception as e:
+        # Debug: Log the error and the raw response
+        print(f"[DEBUG] Validation error: {e}")
+        print(f"[DEBUG] Raw response: {raw_response}")
         raise ValueError(f"Action validation failed: {e}")
 
 def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict[str, Any]]:
@@ -201,7 +222,7 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
         if offer and request:
             return {"type": "propose_trade", "offer": offer, "request": request}
     
-            # Auto-correct integrative negotiations variations
+            # Auto-correct integrative negotiations variations -> not necessary
             if game_type == "integrative_negotiations" and any(word in action_type for word in ["propose", "offer"]):
                 # Load valid options from game config
                 config_path = os.path.join(os.path.dirname(__file__), '..', 'configs', 'game_configs.yaml')
@@ -224,10 +245,13 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
                         valid_options = integrative_config.get('server_room', {}).get('options', [50, 100, 150])
                         if server_room not in valid_options:
                             if server_room <= 75:
+                                print(f"⚠️ [VALIDATION] server_room corrected from {server_room} to 50")
                                 corrected_proposal["server_room"] = 50
                             elif server_room <= 125:
+                                print(f"⚠️ [VALIDATION] server_room corrected from {server_room} to 100")
                                 corrected_proposal["server_room"] = 100
                             else:
+                                print(f"⚠️ [VALIDATION] server_room corrected from {server_room} to 150")
                                 corrected_proposal["server_room"] = 150
                         else:
                             corrected_proposal["server_room"] = server_room
@@ -238,10 +262,13 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
                         valid_options = integrative_config.get('meeting_access', {}).get('options', [2, 4, 7])
                         if meeting_access not in valid_options:
                             if meeting_access <= 3:
+                                print(f"⚠️ [VALIDATION] meeting_access corrected from {meeting_access} to 2")
                                 corrected_proposal["meeting_access"] = 2
                             elif meeting_access <= 5:
+                                print(f"⚠️ [VALIDATION] meeting_access corrected from {meeting_access} to 4")
                                 corrected_proposal["meeting_access"] = 4
                             else:
+                                print(f"⚠️ [VALIDATION] meeting_access corrected from {meeting_access} to 7")
                                 corrected_proposal["meeting_access"] = 7
                         else:
                             corrected_proposal["meeting_access"] = meeting_access
@@ -253,10 +280,13 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
                         if cleaning not in valid_options:
                             cleaning_lower = cleaning.lower()
                             if "it" in cleaning_lower:
+                                print(f"⚠️ [VALIDATION] cleaning corrected from {cleaning} to 'IT'")
                                 corrected_proposal["cleaning"] = "IT"
                             elif "shared" in cleaning_lower:
+                                print(f"⚠️ [VALIDATION] cleaning corrected from {cleaning} to 'Shared'")
                                 corrected_proposal["cleaning"] = "Shared"
                             else:
+                                print(f"⚠️ [VALIDATION] cleaning corrected from {cleaning} to 'Outsourced'")
                                 corrected_proposal["cleaning"] = "Outsourced"
                         else:
                             corrected_proposal["cleaning"] = cleaning
@@ -268,10 +298,13 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
                         if branding not in valid_options:
                             branding_lower = branding.lower()
                             if "minimal" in branding_lower:
+                                print(f"⚠️ [VALIDATION] branding corrected from {branding} to 'Minimal'")
                                 corrected_proposal["branding"] = "Minimal"
                             elif "moderate" in branding_lower:
+                                print(f"⚠️ [VALIDATION] branding corrected from {branding} to 'Moderate'")
                                 corrected_proposal["branding"] = "Moderate"
                             else:
+                                print(f"⚠️ [VALIDATION] branding corrected from {branding} to 'Prominent'")
                                 corrected_proposal["branding"] = "Prominent"
                         else:
                             corrected_proposal["branding"] = branding
@@ -297,10 +330,12 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
                     corrected_server_room = server_room
                     if server_room not in server_options:
                         corrected_server_room = 50 if server_room <= 75 else (100 if server_room <= 125 else 150)
+                        print(f"⚠️ [VALIDATION] server_room corrected from {server_room} to {corrected_server_room}")
                     
                     corrected_meeting_access = meeting_access
                     if meeting_access not in meeting_options:
                         corrected_meeting_access = 2 if meeting_access <= 3 else (4 if meeting_access <= 5 else 7)
+                        print(f"⚠️ [VALIDATION] meeting_access corrected from {meeting_access} to {corrected_meeting_access}")
                     
                     return {"type": "propose", "proposal": {
                         "server_room": corrected_server_room,
