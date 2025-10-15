@@ -377,10 +377,10 @@ class IntegrativeNegotiationsGame(BaseGame):
         current_round = game_state["current_round"]
         max_proposals = self.max_rounds - 1  # Like price bargaining
 
-        print(f"\n{'='*80}")
-        print(f"🔍 [PROCESS_ACTIONS] Round {current_round}: Processing actions")
-        print(f"🔍 [PROCESS_ACTIONS] Raw actions received: {actions}")
-        print(f"{'='*80}\n")
+        #print(f"\n{'='*80}")
+        #print(f"🔍 [PROCESS_ACTIONS] Round {current_round}: Processing actions")
+        #print(f"🔍 [PROCESS_ACTIONS] Raw actions received: {actions}")
+        #print(f"{'='*80}\n")
 
         # Initialize proposal counters if not present
         for player in [self.it_team, self.marketing_team]:
@@ -390,31 +390,31 @@ class IntegrativeNegotiationsGame(BaseGame):
         # Process JSON responses and extract decision data
         processed_actions = {}
         for player, raw_action in actions.items():
-            print(f"🔍 [{player}] Raw action type: {type(raw_action)}")
-            print(f"🔍 [{player}] Raw action: {raw_action}")
+            #print(f"🔍 [{player}] Raw action type: {type(raw_action)}")
+            #print(f"🔍 [{player}] Raw action: {raw_action}")
             
             if isinstance(raw_action, str):
                 # If it's a string, try to parse it as JSON response
                 parsed = self.parse_json_response(raw_action)
                 action_data = parsed["decision"]
-                print(f"🔍 [{player}] Parsed from string, extracted decision: {action_data}")
+                #print(f"🔍 [{player}] Parsed from string, extracted decision: {action_data}")
             elif isinstance(raw_action, dict) and "decision" in raw_action:
                 # Already structured
                 action_data = raw_action["decision"]
-                print(f"🔍 [{player}] Dict with 'decision' key, extracted: {action_data}")
+                #print(f"🔍 [{player}] Dict with 'decision' key, extracted: {action_data}")
             else:
                 # Regular action format
                 action_data = raw_action
-                print(f"🔍 [{player}] Regular dict format: {action_data}")
+                #print(f"🔍 [{player}] Regular dict format: {action_data}")
             
             processed_actions[player] = action_data
-            print(f"🔍 [{player}] Processed action: {action_data}\n")
+            #print(f"🔍 [{player}] Processed action: {action_data}\n")
 
         # Normalize action types - treat counter/counter-offer as proposals, handle empty types
         normalized_actions = {}
         for player, action in processed_actions.items():
             action_type = action.get("type", "")
-            print(f"🔍 [{player}] Normalizing action type: '{action_type}'")
+            #print(f"🔍 [{player}] Normalizing action type: '{action_type}'")
             
             # Handle empty or invalid action types
             if not action_type or action_type == "":
@@ -448,7 +448,7 @@ class IntegrativeNegotiationsGame(BaseGame):
                 normalized_actions[player] = action
                 print(f"✅ [{player}] Action accepted as-is: {action}")
         
-        print(f"\n🔍 [NORMALIZATION COMPLETE] Normalized actions: {normalized_actions}\n")
+        #print(f"\n🔍 [NORMALIZATION COMPLETE] Normalized actions: {normalized_actions}\n")
 
         # Check for proposals and responses
         proposals = {player: action for player, action in normalized_actions.items()
@@ -456,8 +456,8 @@ class IntegrativeNegotiationsGame(BaseGame):
         responses = {player: action for player, action in normalized_actions.items()
                     if action.get("type") in ["accept", "reject"]}
         
-        print(f"🔍 [CATEGORIZATION] Proposals: {proposals}")
-        print(f"🔍 [CATEGORIZATION] Responses: {responses}\n")
+        #print(f"🔍 [CATEGORIZATION] Proposals: {proposals}")
+        #print(f"🔍 [CATEGORIZATION] Responses: {responses}\n")
 
         # Process rejections - only end if proposal limit reached
         for player, action in responses.items():
@@ -473,8 +473,8 @@ class IntegrativeNegotiationsGame(BaseGame):
         for player, action in proposals.items():
             player_proposals = game_state.get(f"{player}_proposal_count", 0)
             
-            print(f"🔍 [{player}] Processing proposal (count: {player_proposals}/{max_proposals})")
-            print(f"🔍 [{player}] Action: {action}")
+            #print(f"🔍 [{player}] Processing proposal (count: {player_proposals}/{max_proposals})")
+            #print(f"🔍 [{player}] Action: {action}")
             
             # Check proposal limit
             if player_proposals >= max_proposals:
@@ -484,7 +484,7 @@ class IntegrativeNegotiationsGame(BaseGame):
             
             # Valid proposal - process it
             proposal = action.get("proposal", {})
-            print(f"🔍 [{player}] Extracted proposal: {proposal}")
+            #print(f"🔍 [{player}] Extracted proposal: {proposal}")
             
             if self.is_valid_proposal(proposal):
                 game_state[f"{player}_last_proposal"] = proposal
@@ -865,21 +865,17 @@ CURRENT SITUATION:
 {offer_status}
 {acceptance_guidance}
 
-RESPONSE FORMAT: Respond with ONLY a single valid JSON object. Choose ONE of these three formats:
+RESPONSE FORMAT: Respond with ONLY valid JSON. No explanations.
+Valid responses:
 
-1. To accept the opponent's proposal:
-{{"type": "accept"}}
+{{"type": "accept"}}  // Accept the opponent's last offer
+{{"type": "propose", "server_room": 150, "meeting_access": 2, "cleaning": "Shared", "branding": "Minimal"}} // // Propose new allocation
+{{"type": "reject"}}  // Reject and end negotiation
 
-2. To make a new proposal:
+EXAMPLE OFFERS:
 {{"type": "propose", "server_room": 150, "meeting_access": 2, "cleaning": "Shared", "branding": "Minimal"}}
 
-3. To reject and end negotiation:
-{{"type": "reject"}}
-
-IMPORTANT: 
-- Use exact values from YOUR OPTIONS above
-- Respond with ONLY the JSON, no explanations or additional text
-- For propose actions, include all four fields: server_room, meeting_access, cleaning, branding
+Do NOT repeat any of the rules or instructions in your response. Focus on negotiation.
 
 Your response:"""
         
