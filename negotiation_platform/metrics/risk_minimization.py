@@ -126,53 +126,47 @@ class RiskMinimizationMetric(BaseMetric):
     def _calculate_integrative_risk(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
         """Calculate risk for integrative negotiation games"""
         results = {}
-        
+
         # Use time-decayed BATNA values from agreement, not static private_info values
         batnas_at_agreement = game_result.game_data.get('batnas_at_agreement', {})
-        
+
         # For integrative negotiations, check if final utility is better than BATNA
         final_utilities = game_result.final_scores
-        
+
         for player_id in game_result.players:
             if player_id not in batnas_at_agreement or player_id not in final_utilities:
                 results[player_id] = 0.0
                 continue
-                
+
             current_batna = batnas_at_agreement[player_id]
             final_utility = final_utilities[player_id]
-            
-            # Risk: 0% if final utility >= BATNA, 100% if final utility < BATNA
-            if final_utility >= current_batna:
-                results[player_id] = 0.0  # No risk - beat BATNA
-            else:
-                results[player_id] = 100.0  # Full risk - worse than BATNA
-                
+
+            # Risk: 100% if all deals >= BATNA, 0% if all deals < BATNA
+            results[player_id] = 100.0 if final_utility >= current_batna else 0.0
+
         return results
 
     def _calculate_resource_allocation_risk(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
         """Calculate risk for resource allocation games"""
         results = {}
-        
+
         # Use time-decayed BATNA values from agreement, not static private_info values
         batnas_at_agreement = game_result.game_data.get('batnas_at_agreement', {})
-        
+
         # For resource allocation, check if final allocation is better than BATNA
         final_utilities = game_result.final_scores
-        
+
         for player_id in game_result.players:
             if player_id not in batnas_at_agreement or player_id not in final_utilities:
                 results[player_id] = 0.0
                 continue
-                
+
             current_batna = batnas_at_agreement[player_id]
             final_utility = final_utilities[player_id]
-            
-            # Risk: 0% if final utility >= BATNA, 100% if final utility < BATNA
-            if final_utility >= current_batna:
-                results[player_id] = 0.0  # No risk - beat BATNA
-            else:
-                results[player_id] = 100.0  # Full risk - worse than BATNA
-                
+
+            # Risk: 100% if all deals >= BATNA, 0% if all deals < BATNA
+            results[player_id] = 100.0 if final_utility >= current_batna else 0.0
+
         return results
 
     def _simulate_deal_utility(self, player_id: str, deal: Dict[str, Any],
