@@ -551,6 +551,8 @@ Valid responses:
 EXAMPLE OFFERS:
 {{"type": "offer", "price": 38500}} 
 
+Do NOT repeat any of the rules or instructions in your response. Focus on negotiation.
+
 Your response:"""
 
         return prompt
