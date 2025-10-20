@@ -764,7 +764,7 @@ class IntegrativeNegotiationsGame(BaseGame):
             role_priorities = (
                 f"Meeting Room Access (40% weight): Critical for client presentations",
                 f"Branding Visibility (30% weight): Important for company image",
-                f"Cleaning Responsibility (20% weight): Prefer outsourced cleaning",
+                f"Cleaning Responsibility (20% weight): Prefer shared arrangements",
                 f"Server Room Size (10% weight): Not a priority for marketing",
                 f"Note: Meeting access and branding are top priorities for Marketing"
             )
