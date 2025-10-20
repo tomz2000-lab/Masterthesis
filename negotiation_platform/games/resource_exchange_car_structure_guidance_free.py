@@ -13,7 +13,7 @@ class ResourceAllocationGame(BaseGame):
     ADAPTED FROM INTEGRATIVE NEGOTIATIONS: Uses similar structure to integrative negotiation
     and price bargaining games but focuses on resource allocation:
     - Two resources: GPU hours and Bandwidth 
-    - Utility functions: Development (12x + 3y), Marketing (3x + 12y)
+    - Utility functions: Development (9x + 6y), Marketing (6x + 9y)
     - Constraints: total resources, GPU-bandwidth limit, minimum allocations
     - 5 rounds with time-adjusted BATNA decay
     - Enhanced with structured prompts, proposal limits, and strategic guidance
@@ -145,14 +145,14 @@ class ResourceAllocationGame(BaseGame):
                 self.development: {
                     "role": "development",
                     "team": "development",
-                    "utility_function": "12x + 3y + ε",
+                    "utility_function": "9x + 6y + ε",
                     "batna": self.development_batna,
                     "constraints": self.constraints
                 },
                 self.marketing: {
                     "role": "marketing", 
                     "team": "marketing",
-                    "utility_function": "3x + 12y + ι", 
+                    "utility_function": "6x + 9y + ι", 
                     "batna": self.marketing_batna,
                     "constraints": self.constraints
                 }
@@ -179,13 +179,13 @@ class ResourceAllocationGame(BaseGame):
     def calculate_utility(self, player: str, gpu_hours: float, bandwidth: float, round_num: int) -> float:
         """Calculate utility for a player given resource allocation."""
         if player == self.development:
-            # Development team utility: 12x + 3y + ε (epsilon for uncertainty)
+            # Development team utility: 9x + 6y + ε (epsilon for uncertainty)
             base_utility = 9 * gpu_hours + 6 * bandwidth
             # Add small random uncertainty factor
             epsilon = random.uniform(-2, 2)
             return base_utility + epsilon
         else:
-            # Marketing team utility: 3x + 12y + i (iota for market volatility)
+            # Marketing team utility: 6x + 9y + i (iota for market volatility)
             base_utility = 6 * gpu_hours + 9 * bandwidth
             # Add small random uncertainty factor
             iota = random.uniform(-2, 2)
@@ -469,10 +469,10 @@ class ResourceAllocationGame(BaseGame):
         mkt_batna = self.get_current_batna(self.marketing, batna_round)
 
         # Calculate utility using the resource allocation utility functions
-        # Development: 12x + 3y, Marketing: 3x + 12y
-        dev_utility = 12 * gpu_hours + 3 * bandwidth
-        mkt_utility = 3 * gpu_hours + 12 * bandwidth
-        
+        # Development: 9x + 6y, Marketing: 6x + 9y
+        dev_utility = 9 * gpu_hours + 6 * bandwidth
+        mkt_utility = 6 * gpu_hours + 9 * bandwidth
+
         # Calculate utility surplus (utility - BATNA)
         dev_surplus = dev_utility - dev_batna
         mkt_surplus = mkt_utility - mkt_batna
