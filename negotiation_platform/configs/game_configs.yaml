@@ -1,13 +1,13 @@
 company_car:
   starting_price: 45000
-  buyer_budget: 40000
-  seller_cost: 38000
-  buyer_batna: 44000    # Alternative car costs more - creates negotiation space
-  seller_batna: 39000   # Minimum seller will accept
+  buyer_budget: 42000 #40000
+  seller_cost: 36000  #38000
+  buyer_batna: 41000    # ADJUSTED: Reduced from 41000 to create smaller utility surpluses
+  seller_batna: 39000   # ADJUSTED: Reduced from 39000 to create smaller utility surpluses
   rounds: 5
   batna_decay:
-    buyer: 0.02    # 2% per round
-    seller: 0.01   # 1% per round
+    buyer: 0.015    # BALANCED: Same decay rate for both players (0.015 removed to stabilize negotiations)
+    seller: 0.015   # BALANCED: Same decay rate for both players (0.015 removed to stabilize negotiations)
   # Training parameters to encourage acceptance
   acceptance_training:
     profit_threshold: 0.10    # Accept offers within 10% of BATNA
@@ -17,15 +17,15 @@ company_car:
 resource_allocation:
   total_resources: 100
   constraints:
-    gpu_bandwidth: 300  # 3x + 4y <= 300 (increased to allow more feasible solutions)
+    gpu_bandwidth: 300  # 4x + 4y <= 300 (BALANCED: Equal coefficients for fair negotiation)
     min_gpu: 5          # x >= 5 (reduced to be more flexible)
     min_bandwidth: 5    # y >= 5 (reduced to be more flexible)
   batnas:
-    development: 280    # Stronger first-mover advantage for better balance
-    marketing: 420      # Higher second-mover BATNA to level the playing field
+    development: 170    # BALANCED: Increased from 150 to reduce marketing advantage
+    marketing: 150      # BALANCED: Decreased from 170 to create fair negotiation zone
   batna_decay:
-    development: 0.03   # 3% per round
-    marketing: 0.02     # 2% per round
+    development: 0.015  # BALANCED: Same decay rate for both players (was 0.03)
+    marketing: 0.015    # BALANCED: Same decay rate for both players (was 0.02)
   rounds: 5
   uncertainty:
     stochastic_demand:
@@ -47,7 +47,7 @@ integrative_negotiations:
       points: [10, 30, 60]
     cleaning:
       options: ["IT", "Shared", "Outsourced"]
-      points: [30, 50, 10]
+      points: [10, 30, 60]
     branding:
       options: ["Minimal", "Moderate", "Prominent"]
       points: [10, 30, 60]
@@ -63,7 +63,7 @@ integrative_negotiations:
       cleaning: 0.2
       branding: 0.3
   batnas:
-    IT: 35        # Realistic BATNA (max achievable ~57, so this creates negotiation space)
+    IT: 32        # Realistic BATNA (max achievable ~57, so this creates negotiation space)
     Marketing: 30  # Realistic BATNA (max achievable ~58, so this creates negotiation space)
   rounds: 5
-  batna_decay: 0.02
+  batna_decay: 0.015
