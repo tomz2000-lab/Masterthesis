@@ -180,13 +180,13 @@ class ResourceAllocationGame(BaseGame):
         """Calculate utility for a player given resource allocation."""
         if player == self.development:
             # Development team utility: 12x + 3y + ε (epsilon for uncertainty)
-            base_utility = 12 * gpu_hours + 3 * bandwidth
+            base_utility = 9 * gpu_hours + 6 * bandwidth
             # Add small random uncertainty factor
             epsilon = random.uniform(-2, 2)
             return base_utility + epsilon
         else:
             # Marketing team utility: 3x + 12y + i (iota for market volatility)
-            base_utility = 3 * gpu_hours + 12 * bandwidth
+            base_utility = 6 * gpu_hours + 9 * bandwidth
             # Add small random uncertainty factor
             iota = random.uniform(-2, 2)
             return base_utility + iota
@@ -584,6 +584,18 @@ class ResourceAllocationGame(BaseGame):
             offer_history.append(f"- Opponent's offer: GPU={gpu}, Bandwidth={bw}")
         offer_status = "\n".join(offer_history) if offer_history else "No offers made yet."
 
+        # Role-specific configuration
+        role_priorities = ""
+        if role == "IT":
+            role_priorities = (
+                f"Your priority is to maximize GPU hours for development tasks (9xgpu_hours + 6xbandwidth).\n"
+            )
+
+        else:  # Marketing
+            role_priorities = (
+                f"Your priority is to maximize bandwidth for marketing tasks (6xgpu_hours + 9xbandwidth).\n"
+            )
+
         # Acceptance guidance
         acceptance_guidance = ""
         proposal_guidance = f"📊 You have **{max_proposals - player_proposals}** proposals remaining out of {max_proposals} total."
@@ -651,6 +663,7 @@ class ResourceAllocationGame(BaseGame):
         prompt = f"""=== RESOURCE ALLOCATION NEGOTIATION ===
 {round_display} | Role: {role.upper()}
 
+YOUR PRIORITIES: {role_priorities}
 GOAL: Maximize your utility: {utility_func}
 Your BATNA (Best Alternative): {batna:.1f}
 {proposal_guidance}
