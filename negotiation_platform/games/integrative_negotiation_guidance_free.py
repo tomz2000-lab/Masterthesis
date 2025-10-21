@@ -2,7 +2,6 @@ from typing import Dict, List, Any, Optional, Tuple
 import random
 import re
 import json
-
 from .base_game import BaseGame, PlayerAction
 from .negotiation_tools import calculate_percentage_difference, calculate_utility
 
@@ -753,19 +752,19 @@ class IntegrativeNegotiationsGame(BaseGame):
         role_priorities = ""
         if role == "IT":
             role_priorities = (
-                f"Server Room Size (40% weight): Need adequate space for technical infrastructure",
+                f"Server Room Size (40% weight): Prefer 150 sqm of room size",
                 f"Cleaning Responsibility (30% weight): Prefer shared arrangements",
                 f"Branding Visibility (20% weight): Moderate visibility acceptable", 
-                f"Meeting Room Access (10% weight): Basic access sufficient",
+                f"Meeting Room Access (10% weight): 2 days access sufficient",
                 f"Note: Server room size and cleaning are top priorities for IT"
             )
 
         else:  # Marketing
             role_priorities = (
-                f"Meeting Room Access (40% weight): Critical for client presentations",
-                f"Branding Visibility (30% weight): Important for company image",
-                f"Cleaning Responsibility (20% weight): Prefer shared arrangements",
-                f"Server Room Size (10% weight): Not a priority for marketing",
+                f"Meeting Room Access (40% weight): Prefer 7 days access to meeting room",
+                f"Branding Visibility (30% weight): Prefer Prominent branding",
+                f"Cleaning Responsibility (20% weight): Prefer IT to handle cleaning",
+                f"Server Room Size (10% weight): 50 sqm are sufficient",
                 f"Note: Meeting access and branding are top priorities for Marketing"
             )
 
@@ -855,7 +854,7 @@ Your BATNA (Best Alternative): {batna:.1f} points
 YOUR OPTIONS:
 - **Server Room Size:** 50 sqm (10 pts), 100 sqm (30 pts), or 150 sqm (60 pts)
 - **Meeting Room Access:** 2 days/week (10 pts), 4 days/week (30 pts), or 7 days/week (60 pts)
-- **Cleaning Responsibility:** "IT" (30 pts), "Shared" (50 pts), or "Outsourced" (10 pts)
+- **Cleaning Responsibility:** "IT" (10 pts), "Shared" (30 pts), or "Outsourced" (60 pts)
 - **Branding Visibility:** "Minimal" (10 pts), "Moderate" (30 pts), or "Prominent" (60 pts)
 
 YOUR PRIORITIES:
