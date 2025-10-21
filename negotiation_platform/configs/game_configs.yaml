@@ -21,8 +21,8 @@ resource_allocation:
     min_gpu: 5          # x >= 5 (reduced to be more flexible)
     min_bandwidth: 5    # y >= 5 (reduced to be more flexible)
   batnas:
-    development: 170    # BALANCED: Increased from 150 to reduce marketing advantage
-    marketing: 150      # BALANCED: Decreased from 170 to create fair negotiation zone
+    development: 380    # BALANCED: Increased from 160 to reduce marketing advantage
+    marketing: 370      # BALANCED: Decreased from 154 to create fair negotiation zone
   batna_decay:
     development: 0.015  # BALANCED: Same decay rate for both players (was 0.03)
     marketing: 0.015    # BALANCED: Same decay rate for both players (was 0.02)
@@ -63,7 +63,8 @@ integrative_negotiations:
       cleaning: 0.2
       branding: 0.3
   batnas:
-    IT: 32        # Realistic BATNA (max achievable ~57, so this creates negotiation space)
-    Marketing: 30  # Realistic BATNA (max achievable ~58, so this creates negotiation space)
+    IT: 32        # Realistic BATNA (max achievable ~57, so this creates negotiation space) -> from 32
+    Marketing: 31  # Realistic BATNA (max achievable ~58, so this creates negotiation space) -> from 31
   rounds: 5
   batna_decay: 0.015
+ 
