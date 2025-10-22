@@ -1,13 +1,14 @@
 import re
 import sys
 import pandas as pd
+import numpy as np
 import statsmodels.formula.api as smf
 from scipy.stats import chi2_contingency
 
 
-"""python compare_games.py integrative_negotiation_1922705.out
-    python compare_games.py company_car_1901974.out
-    python compare_games.py resource_allocation_19.out
+"""python compare_games_statistics.py integrative_negotiation_1922705.out
+    python compare_games_statistics.py company_car_1901974.out
+    python compare_games_statistics.py resource_allocation_19.out
 """
 
 
@@ -66,13 +67,37 @@ def parse_negotiation_log(file_path):
         if not block.strip():
             continue
 
-        role_a_match = re.search(role_a_pattern, block, re.IGNORECASE)
-        role_b_match = re.search(role_b_pattern, block, re.IGNORECASE)
+        # Find which model plays which role - handle multiple formats
+        model_role_mapping = {}
+        
+        # Format 1: 🎲 [ROLE ASSIGNMENT] model_b = DEVELOPMENT, model_a = MARKETING
+        role_assignment_match = re.search(r'🎲\s*\[ROLE ASSIGNMENT\]\s*(.*)', block, re.IGNORECASE)
+        if role_assignment_match:
+            assignment_text = role_assignment_match.group(1)
+            individual_assignments = re.findall(r'(model_[abc])\s*=\s*(\w+)', assignment_text, re.IGNORECASE)
+            for model, role in individual_assignments:
+                model_role_mapping[model] = role.upper()
+        else:
+            # Format 2: Look for pattern like "model_a = BUYER, model_b = SELLER" 
+            full_assignment = re.search(r'(model_[abc])\s*=\s*(\w+),?\s*(model_[abc])?\s*=?\s*(\w+)?', block, re.IGNORECASE)
+            if full_assignment:
+                model1, role1, model2, role2 = full_assignment.groups()
+                model_role_mapping[model1] = role1.upper()
+                if model2 and role2:
+                    model_role_mapping[model2] = role2.upper()
+            else:
+                # Format 3: Try to find individual assignments
+                individual_assignments = re.findall(r'(model_[abc])\s*=\s*(\w+)', block, re.IGNORECASE)
+                for model, role in individual_assignments:
+                    model_role_mapping[model] = role.upper()
 
-        if not role_a_match:
+        if len(model_role_mapping) < 2:
+            print(f"⚠️  Warning: Could not find both model role assignments for iteration {iteration_num}")
+            print(f"    Available mappings: {model_role_mapping}")
             continue
 
-        role_a = role_a_match.group(1)
+        # Store all model-role pairs (no need to determine which is "model_a" vs "model_b")
+        model_roles = list(model_role_mapping.items())
 
         first_proposal_match = re.search(r'Player\s+(model_[abc])\s+made\s+proposal\s+\(#1', block, re.IGNORECASE)
         if first_proposal_match:
@@ -111,17 +136,20 @@ def parse_negotiation_log(file_path):
                 print(f"⚠️  Warning: Could not determine winner for iteration {iteration_num}")
                 continue
 
-        data.append({
-            'Iteration': iteration_num,
-            role_a_name: role_a,
-            'First_mover': first_mover,
-            'Winner': winner,
-            'Game_type': game_type
-        })
+        # Store both models with their respective roles
+        for model_id, role in model_roles:
+            data.append({
+                'Iteration': iteration_num,
+                'Model_ID': model_id,
+                'Role': role,
+                'First_mover': first_mover,
+                'Winner': winner,
+                'Game_type': game_type
+            })
 
     df = pd.DataFrame(data)
-    print(f"✅ Parsed {len(df)} iterations")
-    return df, role_a_name, game_type
+    print(f"✅ Parsed {len(df)} model-role combinations from {len(df)//2} iterations")
+    return df, 'Role', game_type
 
 
 def analyze_bias(df, factor_col, factor_name):
@@ -131,9 +159,21 @@ def analyze_bias(df, factor_col, factor_name):
     if len(df_filtered) == 0:
         return None, None, "No data available (all ties)"
 
-    contingency = pd.crosstab(df_filtered[factor_col], df_filtered['Winner'], margins=True)
-    contingency_pct = pd.crosstab(df_filtered[factor_col], df_filtered['Winner'], normalize='index') * 100
-    contingency_test = pd.crosstab(df_filtered[factor_col], df_filtered['Winner'])
+    # Create binary outcome for each model-role combination
+    df_filtered['model_won'] = (df_filtered['Model_ID'] == df_filtered['Winner']).astype(int)
+    
+    if factor_col == 'Role':
+        # For role bias, we want to see win rates by role
+        contingency = pd.crosstab(df_filtered[factor_col], df_filtered['model_won'], margins=True)
+        contingency.columns = ['Lost', 'Won', 'Total']
+        contingency_pct = pd.crosstab(df_filtered[factor_col], df_filtered['model_won'], normalize='index') * 100
+        contingency_pct.columns = ['Lost %', 'Won %']
+        contingency_test = pd.crosstab(df_filtered[factor_col], df_filtered['model_won'])
+    else:
+        # For first mover bias, analyze differently
+        contingency = pd.crosstab(df_filtered[factor_col], df_filtered['Winner'], margins=True)
+        contingency_pct = pd.crosstab(df_filtered[factor_col], df_filtered['Winner'], normalize='index') * 100
+        contingency_test = pd.crosstab(df_filtered[factor_col], df_filtered['Winner'])
 
     if contingency_test.shape[0] < 2 or contingency_test.shape[1] < 2:
         return contingency, contingency_pct, "Insufficient data for chi-square test"
@@ -143,22 +183,22 @@ def analyze_bias(df, factor_col, factor_name):
     interpretation = f"χ²({dof}) = {chi2:.2f}, p = {p_value:.4f} → {significance}"
 
     if p_value < 0.05:
-        if 'role' in factor_col.lower():
-            role_a_wins = sum(contingency_test.loc[model, model] for model in contingency_test.index if model in contingency_test.columns)
-            role_b_wins = sum(contingency_test.loc[model, other] for model in contingency_test.index for other in contingency_test.columns if model != other)
-            if role_a_wins > role_b_wins:
-                interpretation += f" (Role bias detected: models tend to win when playing as {factor_name.replace('_role', '')})"
-            else:
-                interpretation += f" (Role bias detected: models tend to lose when playing as {factor_name.replace('_role', '')})"
+        if factor_col == 'Role':
+            # Compare win rates between roles
+            role_win_rates = df_filtered.groupby('Role')['model_won'].mean()
+            best_role = role_win_rates.idxmax()
+            worst_role = role_win_rates.idxmin()
+            interpretation += f" (Role bias detected: {best_role} has advantage over {worst_role})"
         elif factor_col == 'First_mover':
-            first_wins = sum(contingency_test.loc[model, model] for model in contingency_test.index if model in contingency_test.columns)
-            second_wins = sum(contingency_test.loc[model, other] for model in contingency_test.index for other in contingency_test.columns if model != other)
-            if first_wins > second_wins:
-                interpretation += " (First-mover advantage detected)"
-            else:
-                interpretation += " (Second-mover advantage detected)"
+            # Analyze first mover advantage
+            first_mover_wins = contingency_test.sum(axis=1)
+            if 'model_a' in first_mover_wins.index and 'model_b' in first_mover_wins.index:
+                if first_mover_wins['model_a'] > first_mover_wins['model_b']:
+                    interpretation += " (First-mover advantage detected)"
+                else:
+                    interpretation += " (Second-mover advantage detected)"
     else:
-        if 'role' in factor_col.lower():
+        if factor_col == 'Role':
             interpretation += f" (No role bias detected)"
         else:
             interpretation += f" (No first-mover bias detected)"
@@ -177,23 +217,23 @@ def print_markdown_table(contingency, contingency_pct, title):
 
 def logistic_regression_adjustment(df, role_col_name):
     """
-    Perform logistic regression of model_a winning ~ role variable to adjust for role bias.
-    Outputs the fitted model, overall adjusted win probability for model_a, and predicted probabilities by role.
+    Perform logistic regression of model winning ~ role variable to adjust for role bias.
+    Outputs the fitted model, overall adjusted win probability, and predicted probabilities by role.
     """
-    # Filter out ties
-    df = df[df['Winner'] != 'tie'].copy()
-
-    # Binary outcome: 1 if model_a won, 0 otherwise (model_b assumed)
-    df['model_a_win'] = (df['Winner'] == 'model_a').astype(int)
+    # Filter out ties and create one row per model per iteration
+    df_filtered = df[df['Winner'] != 'tie'].copy()
+    
+    # Create binary outcome: 1 if this model won, 0 otherwise
+    df_filtered['model_won'] = (df_filtered['Model_ID'] == df_filtered['Winner']).astype(int)
 
     # Logistic regression formula with categorical role covariate
-    formula = f'model_a_win ~ C({role_col_name})'
+    formula = f'model_won ~ C({role_col_name})'
 
     # Fit logistic regression model
-    model = smf.logit(formula=formula, data=df).fit(disp=False)
+    model = smf.logit(formula=formula, data=df_filtered).fit(disp=False)
 
-    # Calculate predicted probabilities by role
-    roles = df[role_col_name].unique()
+    # Get predicted probabilities by role
+    roles = df_filtered[role_col_name].unique()
     pred_probs = {}
     for role in roles:
         pred_data = pd.DataFrame({role_col_name: [role]})
@@ -201,7 +241,7 @@ def logistic_regression_adjustment(df, role_col_name):
         pred_probs[role] = pred_prob
 
     # Calculate overall adjusted win probability weighted by role frequencies
-    role_freq = df[role_col_name].value_counts(normalize=True).to_dict()
+    role_freq = df_filtered[role_col_name].value_counts(normalize=True).to_dict()
     adjusted_prob = sum(pred_probs[r] * role_freq.get(r, 0) for r in roles)
 
     return model, adjusted_prob, pred_probs
@@ -214,6 +254,86 @@ def parse_model_names(log_text):
     model_name_pattern = r'📝 Registered model: (model_[abc]) \(new instance for ([^\)]+)\)'
     matches = re.findall(model_name_pattern, log_text)
     return {model: name for model, name in matches}
+
+
+def calculate_adjusted_model_performance(df, model_names):
+    """
+    Calculate model performance adjusted for role bias using logistic regression.
+    
+    This function performs a logistic regression where:
+    - Dependent variable: whether the model won (1) or lost (0)
+    - Independent variables: model identity + role
+    
+    The model coefficients represent the log-odds of winning, adjusted for role bias.
+    """
+    # Create binary outcome for each model
+    df['model_won'] = (df['Model_ID'] == df['Winner']).astype(int)
+    
+    # Fit logistic regression with both model and role effects
+    formula = 'model_won ~ C(Model_ID) + C(Role)'
+    
+    try:
+        model = smf.logit(formula=formula, data=df).fit(disp=False)
+        
+        print("### Logistic Regression: Model Performance Controlling for Role")
+        print(model.summary())
+        
+        # Extract model coefficients (adjusted win probabilities)
+        print("\n### Model Performance (Role-Adjusted):")
+        
+        # Get baseline probability (intercept + first model)
+        intercept = model.params['Intercept']
+        
+        # Calculate adjusted win probabilities for each model
+        print("NOTE: These probabilities represent each model's chance of winning")
+        print("against the 'average opponent' when controlling for role bias.")
+        print("They don't sum to 100% because they're not head-to-head probabilities.\n")
+        
+        for model_id in df['Model_ID'].unique():
+            if f'C(Model_ID)[T.{model_id}]' in model.params:
+                coef = model.params[f'C(Model_ID)[T.{model_id}]']
+                log_odds = intercept + coef
+            else:
+                # This is the reference model (coefficient = 0)
+                log_odds = intercept
+            
+            # Convert log-odds to probability
+            prob = 1 / (1 + np.exp(-log_odds))
+            
+            model_name = model_names.get(model_id, model_id)
+            raw_win_rate = (df[df['Model_ID'] == model_id]['model_won']).mean()
+            
+            print(f"- {model_name}:")
+            print(f"  Raw win rate: {raw_win_rate:.3f} ({raw_win_rate*100:.1f}%)")
+            print(f"  Role-adjusted win probability: {prob:.3f} ({prob*100:.1f}%)")
+            print(f"  (Probability of winning vs. average opponent, controlling for role)")
+            
+            # Calculate the difference
+            adjustment = prob - raw_win_rate
+            if abs(adjustment) > 0.01:  # Only show if adjustment is meaningful
+                direction = "higher" if adjustment > 0 else "lower"
+                print(f"  Adjustment: {adjustment:+.3f} ({direction} due to role bias)")
+        
+        # Calculate head-to-head probability
+        models = list(df['Model_ID'].unique())
+        if len(models) == 2:
+            model_a_id, model_b_id = models
+            if f'C(Model_ID)[T.{model_b_id}]' in model.params:
+                model_b_coef = model.params[f'C(Model_ID)[T.{model_b_id}]']
+                # Head-to-head log-odds difference
+                log_odds_diff = model_b_coef
+                # Convert to probability that model_b beats model_a
+                prob_b_wins = 1 / (1 + np.exp(-log_odds_diff))
+                prob_a_wins = 1 - prob_b_wins
+                
+                print(f"\n### Head-to-Head Probability (Role-Adjusted):")
+                print(f"- {model_names.get(model_a_id, model_a_id)} beats {model_names.get(model_b_id, model_b_id)}: {prob_a_wins:.1%}")
+                print(f"- {model_names.get(model_b_id, model_b_id)} beats {model_names.get(model_a_id, model_a_id)}: {prob_b_wins:.1%}")
+                print("(These DO sum to 100% - direct head-to-head comparison)")
+        
+    except Exception as e:
+        print(f"Could not calculate adjusted model performance: {e}")
+        print("This might happen if there's insufficient variation in the data.")
 
 
 def main():
@@ -243,13 +363,17 @@ def main():
     model_names = parse_model_names(log_text)
 
     print(f"\n# Negotiation Bias Analysis - {game_type.upper().replace('_', ' ')}")
-    print(f"\nTotal iterations parsed: {len(df)}")
-    print(f"Ties: {len(df[df['Winner'] == 'tie'])}")
-    print(f"Iterations with clear winner: {len(df[df['Winner'] != 'tie'])}")
+    print(f"\nTotal iterations parsed: {len(df)//2}")
+    print(f"Ties: {len(df[df['Winner'] == 'tie'])//2}")
+    print(f"Iterations with clear winner: {len(df[df['Winner'] != 'tie'])//2}")
 
     print(f"\n## Role Distribution")
     role_dist = df[role_col_name].value_counts()
     print(role_dist.to_markdown())
+    
+    print(f"\n## Model-Role Combinations")
+    model_role_dist = df.groupby(['Model_ID', 'Role']).size().reset_index(name='Count')
+    print(model_role_dist.to_markdown(index=False))
 
     print("\n" + "="*60)
     contingency_role, pct_role, interp_role = analyze_bias(df, role_col_name, role_col_name)
@@ -275,21 +399,32 @@ def main():
     # Logistic regression adjustment for role bias
     model, adjusted_prob, pred_probs = logistic_regression_adjustment(df, role_col_name)
 
-    print("\n## Logistic Regression Model Summary (model_a win ~ role)")
+    print("\n## Logistic Regression Model Summary (model win ~ role)")
     print(model.summary())
 
-    print(f"\n## Adjusted Win Probability for model_a Controlling for Role Bias: {adjusted_prob:.3f}")
-    print("## Predicted Win Probabilities for model_a by Role:")
+    print(f"\n## Overall Win Probability Adjusted for Role Bias: {adjusted_prob:.3f}")
+    print("## Predicted Win Probabilities by Role:")
     for role, prob in pred_probs.items():
         print(f"- {role}: {prob:.3f}")
 
     # Print raw wins for comparison
-    raw_wins = df[df['Winner'] != 'tie']['Winner'].value_counts()
+    df_no_ties = df[df['Winner'] != 'tie']
+    raw_wins = df_no_ties['Winner'].value_counts()
     print("\n## Raw Win Counts (excluding ties):")
-    for model_key in ['model_a', 'model_b']:
+    for model_key in raw_wins.index:
         model_label = model_names.get(model_key, model_key)
-        count = raw_wins.get(model_key, 0)
+        count = raw_wins[model_key]
         print(f"- {model_label}: {count}")
+    
+    # Show win rates by role
+    print("\n## Win Rates by Role:")
+    role_wins = df_no_ties.groupby('Role').apply(lambda x: (x['Model_ID'] == x['Winner']).mean()).sort_values(ascending=False)
+    for role, win_rate in role_wins.items():
+        print(f"- {role}: {win_rate:.3f} ({win_rate*100:.1f}%)")
+    
+    # Calculate model performance adjusted for role bias
+    print("\n## Model Performance Adjusted for Role Bias:")
+    calculate_adjusted_model_performance(df_no_ties, model_names)
 
     # Export detailed data
     output_csv = file_path.replace('.out', '_bias_analysis.csv')
