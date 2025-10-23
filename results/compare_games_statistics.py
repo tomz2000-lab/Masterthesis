@@ -266,7 +266,8 @@ def calculate_adjusted_model_performance(df, model_names):
     
     The model coefficients represent the log-odds of winning, adjusted for role bias.
     """
-    # Create binary outcome for each model
+    # Create binary outcome for each model (use copy to avoid SettingWithCopyWarning)
+    df = df.copy()
     df['model_won'] = (df['Model_ID'] == df['Winner']).astype(int)
     
     # Fit logistic regression with both model and role effects
@@ -418,7 +419,7 @@ def main():
     
     # Show win rates by role
     print("\n## Win Rates by Role:")
-    role_wins = df_no_ties.groupby('Role').apply(lambda x: (x['Model_ID'] == x['Winner']).mean()).sort_values(ascending=False)
+    role_wins = df_no_ties.groupby('Role')['Model_ID'].apply(lambda x: (x == df_no_ties.loc[x.index, 'Winner']).mean()).sort_values(ascending=False)
     for role, win_rate in role_wins.items():
         print(f"- {role}: {win_rate:.3f} ({win_rate*100:.1f}%)")
     
