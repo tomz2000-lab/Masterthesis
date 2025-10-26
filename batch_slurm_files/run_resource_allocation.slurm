@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=resource_allocation_game
 #SBATCH --partition=standard
-#SBATCH --nodelist=jn117,jn118,jn120  # Target known working nodes
 #SBATCH --gres=gpu:L40:1
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -58,7 +57,7 @@ echo "=== Running Resource Allocation Game - 10 Iterations ==="
 echo "Game: Development Team vs Marketing Team resource negotiation"
 echo "Utility Functions: Development=12x+3y+ε, Marketing=3x+12y+i"
 
-ITERATIONS=10
+ITERATIONS=100
 SUCCESS_COUNT=0
 
 for i in $(seq 1 $ITERATIONS); do
@@ -67,7 +66,7 @@ for i in $(seq 1 $ITERATIONS); do
     echo "$(date): Starting resource allocation negotiation iteration $i"
     
     echo "🔧 About to run Python command..."
-    python -m negotiation_platform.main --quick --game resource_allocation --log-level INFO 2>&1
+    python -m negotiation_platform.main --quick --game resource_allocation --log-level INFO
     EXIT_CODE=$?
     echo "🔧 Python command exit code: $EXIT_CODE"
     
