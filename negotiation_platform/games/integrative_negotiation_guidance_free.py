@@ -22,7 +22,7 @@ class IntegrativeNegotiationsGame(BaseGame):
     Four issues with point values (unchanged from original):
     - Server Room Size: 50 sqm (10), 100 sqm (30), 150 sqm (60)
     - Meeting Room Access: 2 days/week (10), 4 days/week (30), 7 days/week (60)
-    - Cleaning Responsibility: IT handles (30), Shared (50), Outsourced (10)
+    - Cleaning Responsibility: IT handles (10), Shared (30), Outsourced (60)
     - Branding Visibility: Minimal (10), Moderate (30), Prominent (60)
     """
 
@@ -43,48 +43,86 @@ class IntegrativeNegotiationsGame(BaseGame):
         self.max_rounds = config["rounds"]
         self.batna_decay = config["batna_decay"]
 
-        # Issue configurations from document
-        self.issues = {
-            "server_room": {
-                "options": [50, 100, 150],  # sqm
-                "points": [10, 30, 60],
-                "labels": ["50 sqm", "100 sqm", "150 sqm"]
-            },
-            "meeting_access": {
-                "options": [2, 4, 7],  # days per week
-                "points": [10, 30, 60],
-                "labels": ["2 days/week", "4 days/week", "7 days/week"]
-            },
-            "cleaning": {
-                "options": ["IT", "Shared", "Outsourced"],
-                "points": [30, 50, 10],
-                "labels": ["IT handles", "Shared responsibility", "Outsourced"]
-            },
-            "branding": {
-                "options": ["Minimal", "Moderate", "Prominent"],
-                "points": [10, 30, 60],
-                "labels": ["Minimal visibility", "Moderate visibility", "Prominent visibility"]
+        # Load issue configurations from config instead of hardcoding
+        if "issues" in config:
+            self.issues = {}
+            for issue_name, issue_config in config["issues"].items():
+                self.issues[issue_name] = {
+                    "options": issue_config["options"],
+                    "points": issue_config["points"],
+                    "labels": self._generate_labels(issue_name, issue_config["options"])
+                }
+        else:
+            # Fallback to hardcoded values if not in config (for backward compatibility)
+            self.issues = {
+                "server_room": {
+                    "options": [50, 100, 150],  # sqm
+                    "points": [10, 30, 60],
+                    "labels": ["50 sqm", "100 sqm", "150 sqm"]
+                },
+                "meeting_access": {
+                    "options": [2, 4, 7],  # days per week
+                    "points": [10, 30, 60],
+                    "labels": ["2 days/week", "4 days/week", "7 days/week"]
+                },
+                "cleaning": {
+                    "options": ["IT", "Shared", "Outsourced"],
+                    "points": [10, 30, 60],
+                    "labels": ["IT handles", "Shared responsibility", "Outsourced"]
+                },
+                "branding": {
+                    "options": ["Minimal", "Moderate", "Prominent"],
+                    "points": [10, 30, 60],
+                    "labels": ["Minimal visibility", "Moderate visibility", "Prominent visibility"]
+                }
             }
-        }
 
-        # Preference weights from original document specifications
-        self.weights = {
-            "IT": {
-                "server_room": 0.4,  # 40%
-                "meeting_access": 0.1,  # 10%
-                "cleaning": 0.3,  # 30%
-                "branding": 0.2  # 20%
-            },
-            "Marketing": {
-                "server_room": 0.1,  # 10%
-                "meeting_access": 0.4,  # 40%
-                "cleaning": 0.2,  # 20%
-                "branding": 0.3  # 30%
+        # Load preference weights from config instead of hardcoding
+        if "weights" in config:
+            self.weights = config["weights"]
+        else:
+            # Fallback to hardcoded values if not in config (for backward compatibility)
+            self.weights = {
+                "IT": {
+                    "server_room": 0.4,  # 40%
+                    "meeting_access": 0.1,  # 10%
+                    "cleaning": 0.3,  # 30%
+                    "branding": 0.2  # 20%
+                },
+                "Marketing": {
+                    "server_room": 0.1,  # 10%
+                    "meeting_access": 0.4,  # 40%
+                    "cleaning": 0.2,  # 20%
+                    "branding": 0.3  # 30%
+                }
             }
-        }
 
         # Base BATNA values - keeping original approach but with price bargaining decay
         self.base_batnas = config.get("batnas", {"IT": 35, "Marketing": 30})
+
+    def _generate_labels(self, issue_name: str, options: List[Any]) -> List[str]:
+        """Generate descriptive labels for issue options."""
+        if issue_name == "server_room":
+            return [f"{option} sqm" for option in options]
+        elif issue_name == "meeting_access":
+            return [f"{option} days/week" for option in options]
+        elif issue_name == "cleaning":
+            label_map = {
+                "IT": "IT handles",
+                "Shared": "Shared responsibility", 
+                "Outsourced": "Outsourced"
+            }
+            return [label_map.get(str(option), str(option)) for option in options]
+        elif issue_name == "branding":
+            label_map = {
+                "Minimal": "Minimal visibility",
+                "Moderate": "Moderate visibility",
+                "Prominent": "Prominent visibility"
+            }
+            return [label_map.get(str(option), str(option)) for option in options]
+        else:
+            # Generic labels for unknown issues
+            return [str(option) for option in options]
 
     def validate_json_response(self, response: str) -> bool:
         """Check if response is valid JSON with proper structure."""
@@ -187,12 +225,12 @@ class IntegrativeNegotiationsGame(BaseGame):
             "private_info": {
                 self.it_team: {
                     "role": "IT",
-                    "batnas": self.base_batnas["IT"],
+                    "batna": self.it_batna,
                     "preferences": "Prioritizes server room and cleaning costs"
                 },
                 self.marketing_team: {
                     "role": "Marketing", 
-                    "batnas": self.base_batnas["Marketing"],
+                    "batna": self.marketing_batna,
                     "preferences": "Prioritizes meeting access and branding costs"
                 }
             },
@@ -208,7 +246,15 @@ class IntegrativeNegotiationsGame(BaseGame):
             },
             "proposals_history": [],
             "current_proposal": None,
-            "round_proposals": {}  # Track proposals by round to prevent overwriting
+            "round_proposals": {},  # Track proposals by round to prevent overwriting
+            "game_config": {
+                "batna_decay": {
+                    "IT": self.batna_decay if isinstance(self.batna_decay, float) else self.batna_decay.get("IT", 0.015),
+                    "Marketing": self.batna_decay if isinstance(self.batna_decay, float) else self.batna_decay.get("Marketing", 0.015)
+                },
+                "issues": self.issues,
+                "weights": self.weights
+            }
         }
         
         return self.game_data
@@ -234,8 +280,16 @@ class IntegrativeNegotiationsGame(BaseGame):
 
     def calculate_utility(self, player: str, proposal: Dict[str, Any]) -> float:
         """Calculate weighted utility for a given proposal."""
-        # Determine player role
-        player_role = "IT" if (player == self.it_team or "IT" in player) else "Marketing"
+        # Determine player role based on exact team assignment
+        if player == self.it_team:
+            player_role = "IT"
+        elif player == self.marketing_team:
+            player_role = "Marketing"
+        else:
+            # Fallback: should not happen if game is properly initialized
+            print(f"⚠️ Warning: Unknown player {player}, defaulting to IT role")
+            player_role = "IT"
+            
         player_weights = self.weights[player_role]
 
         total_utility = 0.0
@@ -571,10 +625,23 @@ class IntegrativeNegotiationsGame(BaseGame):
 
         # DEBUG: Log the calculation like price bargaining
         print(f"🔍 [BATNA DEBUG] Round {round_num}: proposal={final_proposal}")
-        print(f"🔍 [BATNA DEBUG] Config BATNAs: IT={self.base_batnas['IT']}, Marketing={self.base_batnas['Marketing']}")
+        print(f"🔍 [BATNA DEBUG] Config BATNAs: IT={self.it_batna}, Marketing={self.marketing_batna}")
         print(f"🔍 [BATNA DEBUG] Decay rate: {self.batna_decay}")
         print(f"🔍 [BATNA DEBUG] Calculated BATNAs: IT={it_batna:.2f}, Marketing={marketing_batna:.2f}")
-        print(f"🔍 [BATNA DEBUG] Utilities: IT={it_utility:.2f}, Marketing={marketing_utility:.2f}")
+        
+        # DEBUG: Show detailed utility breakdown
+        it_breakdown = self._calculate_utility_breakdown(self.it_team, final_proposal)
+        marketing_breakdown = self._calculate_utility_breakdown(self.marketing_team, final_proposal)
+        
+        print(f"🔍 [UTILITY BREAKDOWN] IT Team:")
+        for issue, data in it_breakdown.items():
+            print(f"    {issue}: {data['selection']} = {data['raw_points']} * {data['weight']} = {data['weighted_utility']:.2f}")
+        print(f"🔍 [UTILITY BREAKDOWN] Marketing Team:")
+        for issue, data in marketing_breakdown.items():
+            print(f"    {issue}: {data['selection']} = {data['raw_points']} * {data['weight']} = {data['weighted_utility']:.2f}")
+            
+        print(f"🔍 [UTILITY DEBUG] Utilities: IT={it_utility:.2f}, Marketing={marketing_utility:.2f}")
+        print(f"🔍 [SURPLUS DEBUG] Surpluses: IT={it_utility - it_batna:.2f}, Marketing={marketing_utility - marketing_batna:.2f}")
         print(f"🎲 [ROLE DEBUG] IT={self.it_team}, Marketing={self.marketing_team}")
         print(f"🎲 [ROLE DEBUG] {self.it_team} utility={it_utility:.2f}, {self.marketing_team} utility={marketing_utility:.2f}")
 
@@ -618,7 +685,16 @@ class IntegrativeNegotiationsGame(BaseGame):
 
     def _calculate_utility_breakdown(self, player: str, proposal: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
         """Calculate detailed utility breakdown by issue."""
-        player_role = "IT" if (player == self.it_team or "IT" in player) else "Marketing"
+        # Use exact same logic as calculate_utility method
+        if player == self.it_team:
+            player_role = "IT"
+        elif player == self.marketing_team:
+            player_role = "Marketing"
+        else:
+            # Fallback: should not happen if game is properly initialized
+            print(f"⚠️ Warning: Unknown player {player}, defaulting to IT role")
+            player_role = "IT"
+            
         player_weights = self.weights[player_role]
 
         breakdown = {}
@@ -671,7 +747,18 @@ class IntegrativeNegotiationsGame(BaseGame):
             batna = batnas[player]
             surpluses[player] = utility - batna
 
-        return max(surpluses, key=surpluses.get)
+        # Only consider players with positive surplus
+        positive_surplus_players = {player: surplus for player, surplus in surpluses.items() if surplus > 0}
+        
+        if not positive_surplus_players:
+            # No player has positive surplus - no winner
+            return None
+        elif len(positive_surplus_players) == 1:
+            # Only one player has positive surplus - they win
+            return list(positive_surplus_players.keys())[0]
+        else:
+            # Multiple players with positive surplus - highest surplus wins
+            return max(positive_surplus_players, key=positive_surplus_players.get)
 
     def get_game_summary(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Get comprehensive game summary."""
@@ -904,7 +991,18 @@ Your response:"""
             batna = batnas[player]
             surpluses[player] = utility - batna
 
-        return max(surpluses, key=surpluses.get)
+        # Only consider players with positive surplus
+        positive_surplus_players = {player: surplus for player, surplus in surpluses.items() if surplus > 0}
+        
+        if not positive_surplus_players:
+            # No player has positive surplus - no winner
+            return None
+        elif len(positive_surplus_players) == 1:
+            # Only one player has positive surplus - they win
+            return list(positive_surplus_players.keys())[0]
+        else:
+            # Multiple players with positive surplus - highest surplus wins
+            return max(positive_surplus_players, key=positive_surplus_players.get)
 
     def get_game_summary(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Get comprehensive game summary."""
