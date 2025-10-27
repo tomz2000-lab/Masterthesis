@@ -18,14 +18,8 @@ class RiskMinimizationMetric(BaseMetric):
         """Calculate risk minimization percentage for each player"""
         results = {}
 
-        # DEBUG: Print actions_history to understand structure
-        print(f"🔍 [RISK DEBUG] Total actions: {len(actions_history)}")
-        for i, action in enumerate(actions_history[:5]):  # Show first 5 actions
-            print(f"🔍 [RISK DEBUG] Action {i}: type={getattr(action, 'action_type', 'N/A')}, player={getattr(action, 'player_id', 'N/A')}, data={getattr(action, 'action_data', 'N/A')}")
-
         # Check game type to determine risk calculation logic
         game_type = game_result.game_data.get('game_type', 'unknown')
-        print(f"🔍 [RISK DEBUG] Game type: {game_type}")
         
         if game_type == 'resource_allocation':
             # For resource allocation: check proposals against BATNA
@@ -57,16 +51,12 @@ class RiskMinimizationMetric(BaseMetric):
                     player_offers[player_id].append(price)
                     offer_rounds[player_id].append(action_round)
 
-        print(f"🔍 [RISK DEBUG] Player offers: {player_offers}")
-        print(f"🔍 [RISK DEBUG] Offer rounds: {offer_rounds}")
-
         # Get BATNA values and decay rates for time-adjusted calculation
         private_info = game_result.game_data.get('private_info', {})
         game_config = game_result.game_data.get('game_config', {})
         
         # Try to get decay rates from game config
         batna_decay = game_config.get('batna_decay', {'buyer': 0.015, 'seller': 0.015})
-        print(f"🔍 [RISK DEBUG] BATNA decay: {batna_decay}")
 
         for player_id in game_result.players:
             if player_id not in private_info:
@@ -80,8 +70,6 @@ class RiskMinimizationMetric(BaseMetric):
             # Get offers made by this player
             offers = player_offers.get(player_id, [])
             rounds = offer_rounds.get(player_id, [])
-            
-            print(f"🔍 [RISK DEBUG] Player {player_id} ({role}): base_batna={base_batna}, offers={offers}")
             
             if not offers:
                 results[player_id] = 0.0
@@ -97,8 +85,6 @@ class RiskMinimizationMetric(BaseMetric):
                 decay_rate = batna_decay.get(role, 0.015)
                 current_batna = base_batna * ((1 - decay_rate) ** (round_num - 1))
                 
-                print(f"🔍 [RISK DEBUG] Round {round_num}: offer={offer_price}, current_batna={current_batna:.2f}")
-                
                 # Check if offer is within BATNA (good risk management)
                 is_within_batna = False
                 if role == "buyer":
@@ -112,13 +98,10 @@ class RiskMinimizationMetric(BaseMetric):
                 
                 if is_within_batna:
                     risky_offers += 1
-                
-                print(f"🔍 [RISK DEBUG] Offer {offer_price} is {'WITHIN BATNA' if is_within_batna else 'OUTSIDE BATNA'} for {role}")
 
             # Calculate risk percentage: 100% if all offers within BATNA, 0% if all offers outside BATNA
             risk_percentage = (risky_offers / total_offers) * 100 if total_offers > 0 else 0.0
             results[player_id] = risk_percentage
-            print(f"🔍 [RISK DEBUG] Player {player_id} final risk: {risk_percentage}% ({risky_offers}/{total_offers} offers within BATNA)")
 
         return results
 
@@ -146,13 +129,16 @@ class RiskMinimizationMetric(BaseMetric):
                     player_proposals[player_id].append(action_data)
                     proposal_rounds[player_id].append(action_round)
 
-        print(f"🔍 [INTEGRATIVE RISK DEBUG] Player proposals: {len(player_proposals)} players")
-        print(f"🔍 [INTEGRATIVE RISK DEBUG] Proposal rounds: {proposal_rounds}")
-
         # Get BATNA values and decay rates
         private_info = game_result.game_data.get('private_info', {})
         game_config = game_result.game_data.get('game_config', {})
-        batna_decay = game_config.get('batna_decay', {'IT': 0.015, 'MARKETING': 0.015})
+        
+        # For integrative negotiations, use hardcoded config if game_config is missing
+        if not game_config:
+            # Default integrative negotiation configuration
+            batna_decay = {'IT': 0.015, 'Marketing': 0.015}
+        else:
+            batna_decay = game_config.get('batna_decay', {'IT': 0.015, 'Marketing': 0.015})
 
         for player_id in game_result.players:
             if player_id not in private_info:
@@ -163,10 +149,14 @@ class RiskMinimizationMetric(BaseMetric):
             base_batna = player_info.get('batna', 0.0)
             role = player_info.get('role', '')
             
+            # Fallback BATNA values if not found in player_info
+            if base_batna == 0.0:
+                # Use default integrative negotiation BATNA values
+                default_batnas = {'IT': 32.0, 'Marketing': 31.0}
+                base_batna = default_batnas.get(role, 32.0)
+            
             proposals = player_proposals.get(player_id, [])
             rounds = proposal_rounds.get(player_id, [])
-            
-            print(f"🔍 [INTEGRATIVE RISK DEBUG] Player {player_id} ({role}): base_batna={base_batna}, proposals={len(proposals)}")
             
             if not proposals:
                 results[player_id] = 0.0
@@ -179,25 +169,20 @@ class RiskMinimizationMetric(BaseMetric):
                 round_num = rounds[i] if i < len(rounds) else 1
                 
                 # Calculate time-decayed BATNA for this round
-                decay_rate = batna_decay.get(role, 0.015)
+                # Handle different capitalizations of role names
+                decay_rate = batna_decay.get(role, batna_decay.get(role.upper(), batna_decay.get(role.lower(), 0.015)))
                 current_batna = base_batna * ((1 - decay_rate) ** (round_num - 1))
                 
                 # Calculate utility for this proposal
                 proposal_utility = self._calculate_integrative_utility(player_id, proposal_data, game_result)
                 
-                print(f"🔍 [INTEGRATIVE RISK DEBUG] Round {round_num}: proposal_utility={proposal_utility:.2f}, current_batna={current_batna:.2f}")
-                
                 # Check if proposal is within BATNA (good risk management)
                 if proposal_utility >= current_batna:
                     within_batna_count += 1
-                
-                is_within = proposal_utility >= current_batna
-                print(f"🔍 [INTEGRATIVE RISK DEBUG] Proposal utility {proposal_utility:.2f} is {'WITHIN BATNA' if is_within else 'OUTSIDE BATNA'} for {role}")
 
             # Calculate percentage of proposals within BATNA
             risk_percentage = (within_batna_count / total_proposals) * 100 if total_proposals > 0 else 0.0
             results[player_id] = risk_percentage
-            print(f"🔍 [INTEGRATIVE RISK DEBUG] Player {player_id} final risk: {risk_percentage}% ({within_batna_count}/{total_proposals} proposals within BATNA)")
 
         return results
 
@@ -223,9 +208,6 @@ class RiskMinimizationMetric(BaseMetric):
                     player_proposals[player_id].append(action_data)
                     proposal_rounds[player_id].append(action_round)
 
-        print(f"🔍 [RESOURCE RISK DEBUG] Player proposals: {len(player_proposals)} players")
-        print(f"🔍 [RESOURCE RISK DEBUG] Proposal rounds: {proposal_rounds}")
-
         # Get BATNA values and decay rates
         private_info = game_result.game_data.get('private_info', {})
         game_config = game_result.game_data.get('game_config', {})
@@ -242,8 +224,6 @@ class RiskMinimizationMetric(BaseMetric):
             
             proposals = player_proposals.get(player_id, [])
             rounds = proposal_rounds.get(player_id, [])
-            
-            print(f"🔍 [RESOURCE RISK DEBUG] Player {player_id} ({role}): base_batna={base_batna}, proposals={len(proposals)}")
             
             if not proposals:
                 results[player_id] = 0.0
@@ -262,19 +242,13 @@ class RiskMinimizationMetric(BaseMetric):
                 # Calculate utility for this proposal
                 proposal_utility = self._simulate_deal_utility(player_id, proposal_data, game_result)
                 
-                print(f"🔍 [RESOURCE RISK DEBUG] Round {round_num}: proposal_utility={proposal_utility:.2f}, current_batna={current_batna:.2f}")
-                
                 # Check if proposal is within BATNA (good risk management)
                 if proposal_utility >= current_batna:
                     within_batna_count += 1
-                
-                is_within = proposal_utility >= current_batna
-                print(f"🔍 [RESOURCE RISK DEBUG] Proposal utility {proposal_utility:.2f} is {'WITHIN BATNA' if is_within else 'OUTSIDE BATNA'} for {role}")
 
             # Calculate percentage of proposals within BATNA
             risk_percentage = (within_batna_count / total_proposals) * 100 if total_proposals > 0 else 0.0
             results[player_id] = risk_percentage
-            print(f"🔍 [RESOURCE RISK DEBUG] Player {player_id} final risk: {risk_percentage}% ({within_batna_count}/{total_proposals} proposals within BATNA)")
 
         return results
 
@@ -351,32 +325,97 @@ class RiskMinimizationMetric(BaseMetric):
             return resources.get('X', 0) * 0.5 + resources.get('Y', 0) * 2.0
 
     def _calculate_integrative_utility(self, player_id: str, proposal_data: Dict[str, Any], game_result: GameResult) -> float:
-        """Calculate utility for integrative negotiation proposals"""
-        # Extract the proposal details - this will depend on your integrative game structure
-        # For now, using a generic approach that should work with most integrative games
+        """Calculate utility for integrative negotiation proposals using proper game logic"""
         
         # If the proposal contains direct utility values
         if 'utility' in proposal_data:
             return proposal_data['utility']
         
-        # If the proposal contains resource allocations or deal terms
-        if 'terms' in proposal_data:
-            terms = proposal_data['terms']
-            # Calculate utility based on the terms - this needs to match your integrative game logic
-            # This is a placeholder - you may need to adjust based on your actual game structure
-            return sum(terms.values()) if isinstance(terms, dict) else 0.0
+        # For integrative negotiations, use proper weighted utility calculation
+        game_config = game_result.game_data.get('game_config', {})
+        issues = game_config.get('issues', {})
+        weights = game_config.get('weights', {})
+        private_info = game_result.game_data.get('private_info', {})
         
-        # Fallback: try to extract any numeric values from the proposal
-        numeric_values = []
-        for key, value in proposal_data.items():
-            if isinstance(value, (int, float)):
-                numeric_values.append(value)
-            elif isinstance(value, dict):
-                for sub_key, sub_value in value.items():
-                    if isinstance(sub_value, (int, float)):
-                        numeric_values.append(sub_value)
+        # Fallback configuration if game_config is missing
+        if not weights:
+            # Default integrative negotiation configuration from YAML
+            issues = {
+                "server_room": {
+                    "options": [50, 100, 150],
+                    "points": [10, 30, 60]
+                },
+                "meeting_access": {
+                    "options": [2, 4, 7],
+                    "points": [10, 30, 60]
+                },
+                "cleaning": {
+                    "options": ["IT", "Shared", "Outsourced"],
+                    "points": [10, 30, 60]
+                },
+                "branding": {
+                    "options": ["Minimal", "Moderate", "Prominent"],
+                    "points": [10, 30, 60]
+                }
+            }
+            weights = {
+                "IT": {
+                    "server_room": 0.4,
+                    "meeting_access": 0.1,
+                    "cleaning": 0.3,
+                    "branding": 0.2
+                },
+                "Marketing": {
+                    "server_room": 0.1,
+                    "meeting_access": 0.4,
+                    "cleaning": 0.2,
+                    "branding": 0.3
+                }
+            }
+
         
-        return sum(numeric_values) if numeric_values else 0.0
+        # Get player role to determine weights
+        player_info = private_info.get(player_id, {})
+        player_role = player_info.get('role', 'IT')  # Default to IT if role not found
+        
+        if not weights or player_role not in weights:
+            # Final fallback if all else fails
+            numeric_values = []
+            for key, value in proposal_data.items():
+                if isinstance(value, (int, float)):
+                    numeric_values.append(value)
+            return sum(numeric_values) if numeric_values else 0.0
+        
+        # Extract the actual proposal (remove 'type' field if present)
+        proposal = {k: v for k, v in proposal_data.items() if k != 'type'}
+        
+        player_weights = weights[player_role]
+        total_utility = 0.0
+
+        for issue, selection in proposal.items():
+            if issue in issues:
+                issue_config = issues[issue]
+                try:
+                    # Find the index of the selected option
+                    if isinstance(selection, str):
+                        option_index = issue_config["options"].index(selection)
+                    else:
+                        option_index = issue_config["options"].index(selection)
+
+                    # Get points for this selection
+                    points = issue_config["points"][option_index]
+
+                    # Apply weight for this player
+                    weight = player_weights.get(issue, 0)
+                    weighted_points = points * weight
+
+                    total_utility += weighted_points
+
+                except (ValueError, IndexError):
+                    # Invalid selection, contribute 0 utility
+                    continue
+
+        return total_utility
 
     def get_description(self) -> str:
         return """
