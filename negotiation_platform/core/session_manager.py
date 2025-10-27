@@ -54,7 +54,7 @@ class SessionManager:
         Coerce numeric fields that are floats but represent integers into ints.
 
         For safety, coercion is limited to a whitelist of field names which are
-        expected to be integers in our games (e.g., gpu_hours, bandwidth, price,
+        expected to be integers in our games (e.g., gpu_hours, cpu_hours, price,
         quantity). The function walks dicts and lists recursively; when a dict
         key matches the whitelist and its value is an integral float, it will be
         converted to int. All other values are left unchanged.
@@ -63,7 +63,7 @@ class SessionManager:
         optional session/player context.
         """
         # Whitelist keys that should be integer values
-        INT_WHITELIST = {"gpu_hours", "bandwidth", "price", "quantity"}
+        INT_WHITELIST = {"gpu_hours", "cpu_hours", "price", "quantity"}
 
         def _walk(obj: Any, key_name: Optional[str] = None) -> Any:
             if isinstance(obj, dict):
@@ -173,8 +173,10 @@ class SessionManager:
             self.logger.info(f"🎲 [TURN ORDER] Round {current_round}: {round_players}")
 
             for p_name in round_players:
+                # Log which player is making the offer
+                self.logger.info(f"🔄 [PLAYER TURN] {p_name} is making an offer")
+
                 # Build prompt based on visible state. ONLY use the game's own prompt
-                # Fallback prompts are disabled - all games must implement get_game_prompt
                 if not hasattr(game_instance, 'get_game_prompt'):
                     raise RuntimeError(f"Game instance {game_type} must implement get_game_prompt method")
                 
@@ -192,8 +194,8 @@ class SessionManager:
                     raw_reply = loaded_agents[p_name].generate_response(prompt, game_state=game_state)
 
                     try:
-                        # Pass game_type for Pydantic validation
-                        parsed = loaded_agents[p_name].parse_action(raw_reply, game_type=game_type)
+                        # Pass game_type for Pydantic validation and player_name for logging
+                        parsed = loaded_agents[p_name].parse_action(raw_reply, game_type=game_type, player_name=p_name)
                     except Exception as exc:  # noqa: BLE001
                         self.logger.warning(
                             f"[{session_id}]  Parse failure by {p_name} (attempt {attempt}): {exc}"
@@ -283,8 +285,34 @@ class SessionManager:
         
         # Log LLM model performance for easy analysis
         if game_state.get('agreement_reached', False):
+            # Universal winner determination: only players with positive surplus over BATNA can win
             final_utilities = game_state.get('final_utilities', {})
-            if final_utilities:
+            batnas = game_state.get('batnas_at_agreement', {})
+            
+            if final_utilities and batnas:
+                # Calculate surplus for each player
+                surpluses = {}
+                for player in final_utilities.keys():
+                    utility = final_utilities[player]
+                    batna = batnas.get(player, 0.0)
+                    surpluses[player] = utility - batna
+                
+                # Only consider players with positive surplus
+                positive_surplus_players = {player: surplus for player, surplus in surpluses.items() if surplus > 0}
+                
+                if positive_surplus_players:
+                    # Winner is player with highest positive surplus
+                    winner = max(positive_surplus_players, key=positive_surplus_players.get)
+                    winner_llm = llm_model_mapping.get(winner, "unknown")
+                    loser_llm = llm_model_mapping.get([p for p in players if p != winner][0], "unknown")
+                    self.logger.info(f"🏆 [LLM WINNER] {winner_llm} beat {loser_llm} (player {winner} won)")
+                    print(f"🏆 [LLM WINNER] {winner_llm} beat {loser_llm} (player {winner} won)")
+                else:
+                    # No player has positive surplus - no winner
+                    self.logger.info(f"🤝 [NO WINNER] Agreement reached but both players have negative surplus")
+                    print(f"🤝 [NO WINNER] Agreement reached but both players have negative surplus")
+            elif final_utilities:
+                # Fallback if no BATNA data - use simple highest utility (for backward compatibility)
                 winner = max(final_utilities, key=final_utilities.get)
                 winner_llm = llm_model_mapping.get(winner, "unknown")
                 loser_llm = llm_model_mapping.get([p for p in players if p != winner][0], "unknown")
