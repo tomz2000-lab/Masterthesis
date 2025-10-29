@@ -12,7 +12,7 @@ class ResourceAllocationGame(BaseGame):
     
     ADAPTED FROM INTEGRATIVE NEGOTIATIONS: Uses similar structure to integrative negotiation
     and price bargaining games but focuses on resource allocation:
-    - Two resources: GPU hours and Bandwidth 
+    - Two resources: GPU hours and CPU hours 
     - Utility functions: Development (8x + 6y), Marketing (6x + 8y)
     - Constraints: total resources, GPU-bandwidth limit, minimum allocations
     - 5 rounds with time-adjusted BATNA decay
@@ -90,12 +90,12 @@ class ResourceAllocationGame(BaseGame):
             # Try to extract type and resource allocation manually as fallback
             type_match = re.search(r'"type":\s*"([^"]+)"', response)
             gpu_match = re.search(r'"gpu_hours":\s*(\d+(?:\.\d+)?)', response)
-            bandwidth_match = re.search(r'"bandwidth":\s*(\d+(?:\.\d+)?)', response)
+            cpu_match = re.search(r'"cpu_hours":\s*(\d+(?:\.\d+)?)', response)
             if type_match:
                 decision_data = {"type": type_match.group(1)}
-                if gpu_match and bandwidth_match:
+                if gpu_match and cpu_match:
                     decision_data["gpu_hours"] = float(gpu_match.group(1))
-                    decision_data["bandwidth"] = float(bandwidth_match.group(1))
+                    decision_data["cpu_hours"] = float(cpu_match.group(1))
                 return {
                     "decision": decision_data,
                     "raw_response": response
@@ -176,61 +176,61 @@ class ResourceAllocationGame(BaseGame):
 
         return base_batna * ((1 - decay_rate) ** (round_num-1))
 
-    def calculate_utility(self, player: str, gpu_hours: float, bandwidth: float, round_num: int) -> float:
+    def calculate_utility(self, player: str, gpu_hours: float, cpu_hours: float, round_num: int) -> float:
         """Calculate utility for a player given resource allocation."""
         if player == self.development:
             # Development team utility: 9x + 6y + ε (epsilon for uncertainty)
-            base_utility = 8 * gpu_hours + 6 * bandwidth
+            base_utility = 8 * gpu_hours + 6 * cpu_hours
             # Add small random uncertainty factor
             epsilon = random.uniform(-2, 2)
             return base_utility + epsilon
         else:
             # Marketing team utility: 6x + 9y + i (iota for market volatility)
-            base_utility = 6 * gpu_hours + 8 * bandwidth
+            base_utility = 6 * gpu_hours + 8 * cpu_hours
             # Add small random uncertainty factor
             iota = random.uniform(-2, 2)
             return base_utility + iota
 
-    def _validate_resource_constraints(self, gpu_hours: float, bandwidth: float) -> bool:
+    def _validate_resource_constraints(self, gpu_hours: float, cpu_hours: float) -> bool:
         """Validate resource allocation against constraints."""
         # Total resource constraint: x + y <= total_resources
-        if gpu_hours + bandwidth > self.total_resources:
+        if gpu_hours + cpu_hours > self.total_resources:
             return False
 
-        # GPU-Bandwidth constraint: 4x + 4y <= gpu_bandwidth
-        if 4 * gpu_hours + 4 * bandwidth > self.constraints["gpu_bandwidth"]:
+        # GPU-CPU constraint: 4x + 4y <= gpu_bandwidth
+        if 4 * gpu_hours + 4 * cpu_hours > self.constraints["gpu_bandwidth"]:
             return False
             
         # Minimum allocation constraints
         if gpu_hours < self.constraints["min_gpu"]:
             return False
-        if bandwidth < self.constraints["min_bandwidth"]:
+        if cpu_hours < self.constraints["min_cpu"]:
             return False
             
         return True
 
-    def check_constraints_and_update(self, gpu_hours: float, bandwidth: float) -> None:
+    def check_constraints_and_update(self, gpu_hours: float, cpu_hours: float) -> None:
         """Check constraints and update game data with the result."""
         constraints_met = True
         messages = []
 
         # Check total resource constraint
-        if gpu_hours + bandwidth > self.total_resources:
+        if gpu_hours + cpu_hours > self.total_resources:
             constraints_met = False
-            messages.append(f"Total resources exceeded: {gpu_hours + bandwidth} > {self.total_resources}")
+            messages.append(f"Total resources exceeded: {gpu_hours + cpu_hours} > {self.total_resources}")
 
-        # Check GPU-Bandwidth constraint
-        if 4 * gpu_hours + 4 * bandwidth > self.constraints["gpu_bandwidth"]:
+        # Check GPU-CPU constraint
+        if 4 * gpu_hours + 4 * cpu_hours > self.constraints["gpu_bandwidth"]:
             constraints_met = False
-            messages.append(f"GPU-Bandwidth limit exceeded: {4 * gpu_hours + 4 * bandwidth} > {self.constraints['gpu_bandwidth']}")
+            messages.append(f"GPU-Bandwidth limit exceeded: {4 * gpu_hours + 4 * cpu_hours} > {self.constraints['gpu_bandwidth']}")
 
         # Check minimum allocation constraints
         if gpu_hours < self.constraints["min_gpu"]:
             constraints_met = False
             messages.append(f"GPU hours below minimum: {gpu_hours} < {self.constraints['min_gpu']}")
-        if bandwidth < self.constraints["min_bandwidth"]:
+        if cpu_hours < self.constraints["min_cpu"]:
             constraints_met = False
-            messages.append(f"Bandwidth below minimum: {bandwidth} < {self.constraints['min_bandwidth']}")
+            messages.append(f"CPU hours below minimum: {cpu_hours} < {self.constraints['min_cpu']}")
 
         # Update game data
         self.game_data["constraints_met"] = constraints_met
@@ -268,14 +268,14 @@ class ResourceAllocationGame(BaseGame):
                 return False
                 
             gpu_hours = action_data.get("gpu_hours", 0)
-            bandwidth = action_data.get("bandwidth", 0)
-            
-            if gpu_hours <= 0 or bandwidth <= 0:
+            cpu_hours = action_data.get("cpu_hours", 0)
+
+            if gpu_hours <= 0 or cpu_hours <= 0:
                 return False
 
             # Validate constraints
-            if not self._validate_resource_constraints(gpu_hours, bandwidth):
-                print(f"⚠️ Player {player} offer violates constraints: GPU={gpu_hours}, Bandwidth={bandwidth}")
+            if not self._validate_resource_constraints(gpu_hours, cpu_hours):
+                print(f"⚠️ Player {player} offer violates constraints: GPU={gpu_hours}, CPU={cpu_hours}")
                 return False
 
             return True
@@ -290,9 +290,9 @@ class ResourceAllocationGame(BaseGame):
                 
             # Treat counter/counteroffer as regular offers
             gpu_hours = action_data.get("gpu_hours", 0)
-            bandwidth = action_data.get("bandwidth", 0)
-            return (gpu_hours > 0 and bandwidth > 0 and 
-                   self._validate_resource_constraints(gpu_hours, bandwidth))
+            cpu_hours = action_data.get("cpu_hours", 0)
+            return (gpu_hours > 0 and cpu_hours > 0 and
+                   self._validate_resource_constraints(gpu_hours, cpu_hours))
 
         elif action_type in ["offer_accepted", "offer_response"]:
             # Treat these as accept actions
@@ -346,14 +346,14 @@ class ResourceAllocationGame(BaseGame):
                 normalized_actions[player] = {
                     "type": "offer", 
                     "gpu_hours": action.get("gpu_hours"),
-                    "bandwidth": action.get("bandwidth")
+                    "cpu_hours": action.get("cpu_hours")
                 }
             elif action_type == "propose":
                 # Convert "propose" to "offer" for consistency
                 normalized_actions[player] = {
                     "type": "offer", 
                     "gpu_hours": action.get("gpu_hours"),
-                    "bandwidth": action.get("bandwidth")
+                    "cpu_hours": action.get("cpu_hours")
                 }
             elif action_type in ["offer_accepted", "offer_response"]:
                 # Convert to accept
@@ -385,7 +385,7 @@ class ResourceAllocationGame(BaseGame):
                 if f"{other_player}_last_offer" in game_state:
                     offer_data = game_state[f"{other_player}_last_offer"]
                     gpu_hours = offer_data["gpu_hours"]
-                    bandwidth = offer_data["bandwidth"]
+                    cpu_hours = offer_data["cpu_hours"]
                     # Get the round when the accepted offer was made
                     offer_round = game_state.get(f"{other_player}_last_offer_round", current_round)
                     
@@ -393,11 +393,11 @@ class ResourceAllocationGame(BaseGame):
                     if offer_round >= current_round:
                         print(f"⚠️ Player {player} tried to accept offer made in same round {offer_round}. Offers can only be accepted from previous rounds.")
                         continue  # Skip this acceptance, don't end the game
-                    
-                    print(f"✅ Player {player} accepted offer of GPU={gpu_hours}, Bandwidth={bandwidth} (made in round {offer_round})")
+
+                    print(f"✅ Player {player} accepted offer of GPU={gpu_hours}, CPU={cpu_hours} (made in round {offer_round})")
 
                     # Use the BATNA from when the offer was made, but record agreement as happening in current round
-                    return self._create_agreement(gpu_hours, bandwidth, current_round, game_state, offer_round_for_batna=offer_round)
+                    return self._create_agreement(gpu_hours, cpu_hours, current_round, game_state, offer_round_for_batna=offer_round)
                 else:
                     print(f"⚠️ Player {player} tried to accept but no offer exists")
 
@@ -413,23 +413,23 @@ class ResourceAllocationGame(BaseGame):
             
             # Valid offer - process it
             gpu_hours = action.get("gpu_hours")
-            bandwidth = action.get("bandwidth")
-            game_state[f"{player}_last_offer"] = {"gpu_hours": gpu_hours, "bandwidth": bandwidth}
+            cpu_hours = action.get("cpu_hours")
+            game_state[f"{player}_last_offer"] = {"gpu_hours": gpu_hours, "cpu_hours": cpu_hours}
             game_state[f"{player}_last_offer_round"] = current_round  # Track when offer was made
             game_state[f"{player}_proposal_count"] = player_proposals + 1
-            print(f"💡 Player {player} made offer GPU={gpu_hours}, Bandwidth={bandwidth} (proposal {player_proposals + 1}/{max_proposals})")
+            print(f"💡 Player {player} made offer GPU={gpu_hours}, CPU={cpu_hours} (proposal {player_proposals + 1}/{max_proposals})")
 
         # Check for convergence: if both players made identical offers, create agreement
         if len(offers) == 2:  # Both players made offers this round
             offer_data = [action for action in offers.values()]
             if (len(offer_data) == 2 and 
                 offer_data[0].get("gpu_hours") == offer_data[1].get("gpu_hours") and
-                offer_data[0].get("bandwidth") == offer_data[1].get("bandwidth") and
+                offer_data[0].get("cpu_hours") == offer_data[1].get("cpu_hours") and
                 offer_data[0].get("gpu_hours") is not None):  # All offers are identical and valid
                 gpu_hours = offer_data[0].get("gpu_hours")
-                bandwidth = offer_data[0].get("bandwidth")
-                print(f"🎉 CONVERGENCE! Both players offered GPU={gpu_hours}, Bandwidth={bandwidth} - Creating automatic agreement!")
-                return self._create_agreement(gpu_hours, bandwidth, current_round, game_state)
+                cpu_hours = offer_data[0].get("cpu_hours")
+                print(f"🎉 CONVERGENCE! Both players offered GPU={gpu_hours}, CPU={cpu_hours} - Creating automatic agreement!")
+                return self._create_agreement(gpu_hours, cpu_hours, current_round, game_state)
 
         # Update round
         game_state["current_round"] += 1
@@ -452,12 +452,12 @@ class ResourceAllocationGame(BaseGame):
 
         return game_state
 
-    def _create_agreement(self, gpu_hours: float, bandwidth: float, current_round: int, game_state: Dict[str, Any], offer_round_for_batna: int = None) -> Dict[str, Any]:
+    def _create_agreement(self, gpu_hours: float, cpu_hours: float, current_round: int, game_state: Dict[str, Any], offer_round_for_batna: int = None) -> Dict[str, Any]:
         """Create agreement result.
         
         Args:
             gpu_hours: GPU hours in the agreement
-            bandwidth: Bandwidth in the agreement  
+            cpu_hours: CPU hours in the agreement
             current_round: Round when agreement was reached (for recording)
             game_state: Current game state
             offer_round_for_batna: Round when the accepted offer was made (for BATNA calculation)
@@ -470,15 +470,15 @@ class ResourceAllocationGame(BaseGame):
 
         # Calculate utility using the resource allocation utility functions
         # Development: 8x + 6x, Marketing: 6x + 8x
-        dev_utility = 8 * gpu_hours + 6 * bandwidth
-        mkt_utility = 6 * gpu_hours + 8 * bandwidth
+        dev_utility = 8 * gpu_hours + 6 * cpu_hours
+        mkt_utility = 6 * gpu_hours + 8 * cpu_hours
 
         # Calculate utility surplus (utility - BATNA)
         dev_surplus = dev_utility - dev_batna
         mkt_surplus = mkt_utility - mkt_batna
         
         # DEBUG: Log the exact calculation values
-        print(f"🔍 [RESOURCE DEBUG] Agreement in round {current_round}: GPU={gpu_hours}, Bandwidth={bandwidth}")
+        print(f"🔍 [RESOURCE DEBUG] Agreement in round {current_round}: GPU={gpu_hours}, CPU={cpu_hours}")
         if offer_round_for_batna is not None and offer_round_for_batna != current_round:
             print(f"🔍 [BATNA DEBUG] Using BATNA from offer round {batna_round} (offer made), agreement in round {current_round}")
         else:
@@ -495,7 +495,7 @@ class ResourceAllocationGame(BaseGame):
             "game_ended": True,  # Explicitly mark game as ended
             "agreed_allocation": {
                 "gpu_hours": gpu_hours,
-                "bandwidth": bandwidth
+                "cpu_hours": cpu_hours
             },
             "agreement_round": current_round,
             "role_assignments": {
@@ -570,18 +570,18 @@ class ResourceAllocationGame(BaseGame):
         role = private_info.get("role", "unknown")
         team_name = "Development Team" if role == "development" else "Marketing Team"
         utility_func = private_info.get("utility_function", "unknown")
-        preference = "GPU-heavy tasks" if role == "development" else "bandwidth-intensive operations"
+        preference = "GPU-heavy tasks" if role == "development" else "CPU-intensive operations"
         
         # Offer status
         offer_history = []
         if my_offer:
             gpu = my_offer.get("gpu_hours", 0)
-            bw = my_offer.get("bandwidth", 0)
-            offer_history.append(f"- Your last offer: GPU={gpu}, Bandwidth={bw}")
+            cpu = my_offer.get("cpu_hours", 0)
+            offer_history.append(f"- Your last offer: GPU={gpu}, CPU={cpu}")
         if other_offer:
             gpu = other_offer.get("gpu_hours", 0)
-            bw = other_offer.get("bandwidth", 0)
-            offer_history.append(f"- Opponent's offer: GPU={gpu}, Bandwidth={bw}")
+            cpu = other_offer.get("cpu_hours", 0)
+            offer_history.append(f"- Opponent's offer: GPU={gpu}, CPU={cpu}")
         offer_status = "\n".join(offer_history) if offer_history else "No offers made yet."
 
         # Role-specific configuration
@@ -593,7 +593,7 @@ class ResourceAllocationGame(BaseGame):
 
         else:  # Marketing
             role_priorities = (
-                f"Your priority is to maximize bandwidth for marketing tasks.\n"
+                f"Your priority is to maximize CPU hours for marketing tasks.\n"
             )
 
         # Acceptance guidance
@@ -604,41 +604,41 @@ class ResourceAllocationGame(BaseGame):
         if other_offer is not None:
             # Calculate utility for the proposed offer
             gpu_hours = other_offer.get("gpu_hours", 0)
-            bandwidth = other_offer.get("bandwidth", 0)
-            proposed_utility = self.calculate_utility(player_id, gpu_hours, bandwidth, current_round)
+            cpu_hours = other_offer.get("cpu_hours", 0)
+            proposed_utility = self.calculate_utility(player_id, gpu_hours, cpu_hours, current_round)
             is_within_batna = proposed_utility >= batna
             
             if is_within_batna:
                 if rounds_remaining == 0:  # No proposals left - encourage acceptance
                     acceptance_guidance = (
-                        f"🎯 FINAL ANALYSIS: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f}, "
+                        f"🎯 FINAL ANALYSIS: The opponent's offer (GPU={gpu_hours}, CPU={cpu_hours}) gives you utility {proposed_utility:.1f}, "
                         f"which is better than your BATNA ({batna:.1f}). You have no proposals left - ACCEPT to secure this beneficial deal!\n"
                     )
                 elif rounds_remaining == 1:  # Last proposal - be more encouraging
                     acceptance_guidance = (
-                        f"🎯 ANALYSIS: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f}, "
+                        f"🎯 ANALYSIS: The opponent's offer (GPU={gpu_hours}, CPU={cpu_hours}) gives you utility {proposed_utility:.1f}, "
                         f"which is better than your BATNA ({batna:.1f}). With only 1 proposal left, consider accepting or making the last counter offer.\n"
                     )
                 else:  # Multiple proposals left - encourage exploration
                     acceptance_guidance = (
-                        f"💡 ANALYSIS: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f}, "
+                        f"💡 ANALYSIS: The opponent's offer (GPU={gpu_hours}, CPU={cpu_hours}) gives you utility {proposed_utility:.1f}, "
                         f"which is better than your BATNA ({batna:.1f}), but you have {rounds_remaining} proposals left. You might negotiate for an even better deal.\n"
                     )
             else:
                 utility_gap = batna - proposed_utility
                 if rounds_remaining == 0:  # No proposals left - suggest accepting to avoid no-deal
                     acceptance_guidance = (
-                        f"🚨 FINAL DECISION: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f}, "
+                        f"🚨 FINAL DECISION: The opponent's offer (GPU={gpu_hours}, CPU={cpu_hours}) gives you utility {proposed_utility:.1f}, "
                         f"which is {utility_gap:.1f} below your BATNA ({batna:.1f}). You have no proposals left. ACCEPT to avoid no-deal or REJECT.\n"
                     )
                 elif rounds_remaining == 1:  # Last proposal - be more encouraging
                     acceptance_guidance = (
-                        f"🎯 ANALYSIS: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f}, "
+                        f"🎯 ANALYSIS: The opponent's offer (GPU={gpu_hours}, CPU={cpu_hours}) gives you utility {proposed_utility:.1f}, "
                         f"which is {utility_gap:.1f} below your BATNA ({batna:.1f}). With only 1 proposal left, consider accepting or making the last counter offer.\n"
                     )
                 else:
                     acceptance_guidance = (
-                        f"⚠️ ANALYSIS: The opponent's offer (GPU={gpu_hours}, Bandwidth={bandwidth}) gives you utility {proposed_utility:.1f}, "
+                        f"⚠️ ANALYSIS: The opponent's offer (GPU={gpu_hours}, CPU={cpu_hours}) gives you utility {proposed_utility:.1f}, "
                         f"which is {utility_gap:.1f} below your BATNA ({batna:.1f}). You should negotiate for a better allocation.\n"
                     )
 
@@ -673,18 +673,20 @@ CURRENT SITUATION:
 {acceptance_guidance}
 
 CONSTRAINTS & RULES:
+- x is the total GPU hours in system
+- y is the total CPU hours in system
 - Total resources: x + y ≤ {self.total_resources}
 - GPU-Bandwidth limit: 4x + 4y ≤ {self.constraints['gpu_bandwidth']}
-- Minimum allocations: x ≥ {self.constraints['min_gpu']}, y ≥ {self.constraints['min_bandwidth']}
+- Minimum allocations: x ≥ {self.constraints['min_gpu']}, y ≥ {self.constraints['min_cpu']}
 
 RESPONSE FORMAT: Respond with ONLY valid JSON. No explanations.
 Valid responses:
 {{"type": "accept"}}  // Accept the opponent's last offer
-{{"type": "offer", "gpu_hours": 30, "bandwidth": 25}}  // Propose new allocation (if proposals remain)
+{{"type": "offer", "gpu_hours": 30, "cpu_hours": 25}}  // Propose new allocation (if proposals remain)
 {{"type": "reject"}}  // Reject and end negotiation
 
 EXAMPLE OFFERS:
-{{"type": "offer", "gpu_hours": 30, "bandwidth": 25}}
+{{"type": "offer", "gpu_hours": 30, "cpu_hours": 25}}
 
 Do NOT repeat any of the rules or instructions in your response. Focus on negotiation.
 
