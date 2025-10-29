@@ -215,19 +215,34 @@ def print_markdown_table(contingency, contingency_pct, title):
     print(contingency_pct.to_markdown(floatfmt=".1f"))
 
 
-def logistic_regression_adjustment(df, role_col_name):
+def logistic_regression_adjustment(df, role_col_name, include_first_mover=False):
     """
-    Perform logistic regression of model winning ~ role variable to adjust for role bias.
-    Outputs the fitted model, overall adjusted win probability, and predicted probabilities by role.
+    Perform logistic regression to adjust for biases in negotiation outcomes.
+    
+    Args:
+        df: DataFrame with negotiation results
+        role_col_name: Name of the role column
+        include_first_mover: If True, controls for BOTH role bias AND first-mover advantage
+                           If False, controls for role bias only
+    
+    Returns:
+        model: Fitted logistic regression model
+        adjusted_prob: Overall win probability adjusted for the specified biases
+        pred_probs: Predicted probabilities by role (and first-mover status if included)
     """
     # Filter out ties and create one row per model per iteration
     df_filtered = df[df['Winner'] != 'tie'].copy()
-    
+
     # Create binary outcome: 1 if this model won, 0 otherwise
     df_filtered['model_won'] = (df_filtered['Model_ID'] == df_filtered['Winner']).astype(int)
 
     # Logistic regression formula with categorical role covariate
-    formula = f'model_won ~ C({role_col_name})'
+    if include_first_mover:
+        formula = f'model_won ~ C({role_col_name}) + C(First_mover)'
+        print("🎯 Controlling for BOTH role bias AND first-mover advantage")
+    else:
+        formula = f'model_won ~ C({role_col_name})'
+        print("🎯 Controlling for role bias only")
 
     # Fit logistic regression model
     model = smf.logit(formula=formula, data=df_filtered).fit(disp=False)
@@ -236,13 +251,26 @@ def logistic_regression_adjustment(df, role_col_name):
     roles = df_filtered[role_col_name].unique()
     pred_probs = {}
     for role in roles:
-        pred_data = pd.DataFrame({role_col_name: [role]})
-        pred_prob = model.predict(pred_data)[0]
-        pred_probs[role] = pred_prob
+        pred_data = {role_col_name: [role]}
+        if include_first_mover:
+            # Include both first movers for prediction
+            pred_data['First_mover'] = ['model_a']
+            prob_a = model.predict(pd.DataFrame(pred_data))[0]
+            pred_data['First_mover'] = ['model_b']
+            prob_b = model.predict(pd.DataFrame(pred_data))[0]
+            pred_probs[role] = {'model_a_first': prob_a, 'model_b_first': prob_b}
+        else:
+            pred_probs[role] = model.predict(pd.DataFrame(pred_data))[0]
 
     # Calculate overall adjusted win probability weighted by role frequencies
     role_freq = df_filtered[role_col_name].value_counts(normalize=True).to_dict()
-    adjusted_prob = sum(pred_probs[r] * role_freq.get(r, 0) for r in roles)
+    if include_first_mover:
+        adjusted_prob = sum(
+            (pred_probs[r]['model_a_first'] + pred_probs[r]['model_b_first']) / 2 * role_freq.get(r, 0)
+            for r in roles
+        )
+    else:
+        adjusted_prob = sum(pred_probs[r] * role_freq.get(r, 0) for r in roles)
 
     return model, adjusted_prob, pred_probs
 
@@ -260,11 +288,12 @@ def calculate_adjusted_model_performance(df, model_names):
     """
     Calculate model performance adjusted for role bias using logistic regression.
     
-    This function performs a logistic regression where:
+    This function performs a DIFFERENT logistic regression where:
     - Dependent variable: whether the model won (1) or lost (0)
     - Independent variables: model identity + role
     
-    The model coefficients represent the log-odds of winning, adjusted for role bias.
+    This shows how well each individual model performs when controlling for role bias,
+    separate from the main analysis which shows overall win probabilities.
     """
     # Create binary outcome for each model (use copy to avoid SettingWithCopyWarning)
     df = df.copy()
@@ -276,11 +305,13 @@ def calculate_adjusted_model_performance(df, model_names):
     try:
         model = smf.logit(formula=formula, data=df).fit(disp=False)
         
-        print("### Logistic Regression: Model Performance Controlling for Role")
+        print("### Logistic Regression: Individual Model Performance vs Role")
+        print("Formula: model_won ~ model_identity + role")
+        print("This controls for role bias to show 'true' model performance differences.")
         print(model.summary())
         
         # Extract model coefficients (adjusted win probabilities)
-        print("\n### Model Performance (Role-Adjusted):")
+        print("\n### Individual Model Performance (Role-Adjusted):")
         
         # Get baseline probability (intercept + first model)
         intercept = model.params['Intercept']
@@ -377,54 +408,93 @@ def main():
     print(model_role_dist.to_markdown(index=False))
 
     print("\n" + "="*60)
+    print("## 📈 STEP 1: Role Bias Analysis")
+    print("="*60)
+    print("Testing if certain roles (IT vs Marketing, Buyer vs Seller, etc.) have inherent advantages")
     contingency_role, pct_role, interp_role = analyze_bias(df, role_col_name, role_col_name)
     if contingency_role is not None:
         print_markdown_table(contingency_role, pct_role, f"Role Bias ({role_col_name.replace('_role', '').title()})")
-        print(f"\n**Statistical Test:** {interp_role}")
+        print(f"\n**Statistical Test Result:** {interp_role}")
     else:
         print(f"\n**Role Bias Analysis:** {interp_role}")
 
     print("\n" + "="*60)
+    print("## 🚀 STEP 2: First-Mover Advantage Analysis") 
+    print("="*60)
+    print("Testing if going first in negotiations provides an advantage")
     contingency_first, pct_first, interp_first = analyze_bias(df, 'First_mover', 'First-Mover Bias')
     if contingency_first is not None:
         print_markdown_table(contingency_first, pct_first, "First-Mover Bias")
-        print(f"\n**Statistical Test:** {interp_first}")
+        print(f"\n**Statistical Test Result:** {interp_first}")
     else:
         print(f"\n**First-Mover Bias Analysis:** {interp_first}")
 
     print("\n" + "="*60)
-    print("\n## Summary")
+    print("## 📋 SUMMARY: Individual Bias Tests")
+    print("="*60)
     print(f"- **Role Bias:** {interp_role}")
     print(f"- **First-Mover Bias:** {interp_first}")
 
-    # Logistic regression adjustment for role bias
-    model, adjusted_prob, pred_probs = logistic_regression_adjustment(df, role_col_name)
+    # Logistic regression adjustment controlling for BOTH role bias AND first-mover advantage
+    include_first_mover = True  # Set to True to include first mover in the analysis
+    model, adjusted_prob, pred_probs = logistic_regression_adjustment(df, role_col_name, include_first_mover=include_first_mover)
 
-    print("\n## Logistic Regression Model Summary (model win ~ role)")
+    print("\n" + "="*80)
+    print("## 🎯 MAIN ANALYSIS: Logistic Regression Controlling for Role AND First-Mover Bias")
+    print("="*80)
+    print("This model controls for BOTH role bias and first-mover advantage simultaneously.")
+    print("Formula: model_win ~ role + first_mover")
+    print("\n### Technical Model Summary:")
     print(model.summary())
 
-    print(f"\n## Overall Win Probability Adjusted for Role Bias: {adjusted_prob:.3f}")
-    print("## Predicted Win Probabilities by Role:")
-    for role, prob in pred_probs.items():
-        print(f"- {role}: {prob:.3f}")
+    print(f"\n### 🏆 FINAL RESULT: Overall Win Probability (Adjusted for Both Biases)")
+    print(f"Win Probability = {adjusted_prob:.3f} ({adjusted_prob*100:.1f}%)")
+    print("This probability accounts for both role bias and first-mover advantage.")
+    
+    print(f"\n### 📊 Detailed Predictions by Role (Adjusted for Both Biases):")
+    for role, probs in pred_probs.items():
+        if include_first_mover:
+            avg_prob = (probs['model_a_first'] + probs['model_b_first']) / 2
+            print(f"- {role}:")
+            print(f"  • When going first: {probs['model_a_first']:.3f} ({probs['model_a_first']*100:.1f}%)")
+            print(f"  • When going second: {probs['model_b_first']:.3f} ({probs['model_b_first']*100:.1f}%)")
+            print(f"  • Average (role-adjusted): {avg_prob:.3f} ({avg_prob*100:.1f}%)")
+        else:
+            print(f"- {role}: {probs:.3f} ({probs*100:.1f}%)")
 
     # Print raw wins for comparison
     df_no_ties = df[df['Winner'] != 'tie']
-    raw_wins = df_no_ties['Winner'].value_counts()
-    print("\n## Raw Win Counts (excluding ties):")
+    
+    # Calculate wins correctly: count unique iterations won by each model
+    # (avoid double-counting since each iteration has 2 rows with same winner)
+    iteration_winners = df_no_ties.groupby('Iteration')['Winner'].first()
+    raw_wins = iteration_winners.value_counts()
+    
+    print("\n" + "="*60)
+    print("## 📊 REFERENCE DATA: Raw Performance (Before Bias Adjustment)")
+    print("="*60)
+    print("### Raw Win Counts (excluding ties):")
+    
+    total_games_with_winners = len(iteration_winners)
+    
     for model_key in raw_wins.index:
         model_label = model_names.get(model_key, model_key)
         count = raw_wins[model_key]
-        print(f"- {model_label}: {count}")
+        win_rate = count / total_games_with_winners
+        print(f"- {model_label}: {count}/{total_games_with_winners} games ({win_rate:.1%})")
     
     # Show win rates by role
-    print("\n## Win Rates by Role:")
+    print("\n### Win Rates by Role (Raw, unadjusted):")
     role_wins = df_no_ties.groupby('Role')['Model_ID'].apply(lambda x: (x == df_no_ties.loc[x.index, 'Winner']).mean()).sort_values(ascending=False)
     for role, win_rate in role_wins.items():
         print(f"- {role}: {win_rate:.3f} ({win_rate*100:.1f}%)")
     
     # Calculate model performance adjusted for role bias
-    print("\n## Model Performance Adjusted for Role Bias:")
+    print("\n" + "="*80)
+    print("## 🔧 ADVANCED: Model Performance Adjusted for Role Bias Only")
+    print("="*80)
+    print("This shows individual model performance when controlling for role bias only")
+    print("(separate from the main analysis above which controls for both biases)")
     calculate_adjusted_model_performance(df_no_ties, model_names)
 
     # Export detailed data
