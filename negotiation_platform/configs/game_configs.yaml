@@ -17,12 +17,12 @@ company_car:
 resource_allocation:
   total_resources: 100
   constraints:
-    gpu_bandwidth: 300  # 4x + 4y <= 300 (BALANCED: Equal coefficients for fair negotiation)
-    min_gpu: 5          # x >= 5 (reduced to be more flexible)
-    min_bandwidth: 5    # y >= 5 (reduced to be more flexible)
+    gpu_bandwidth: 380  # 4x + 4y <= 380 (simpler: x + y <= 95, slightly below total)
+    min_gpu: 5              # x >= 5 (minimum GPU allocation)
+    min_cpu: 5              # y >= 5 (minimum CPU allocation)
   batnas:
-    development: 380    # BALANCED: Increased from 160 to reduce marketing advantage
-    marketing: 370      # BALANCED: Decreased from 154 to create fair negotiation zone
+    development: 300    # BALANCED: Higher BATNA to reduce their systematic utility advantage
+    marketing: 270      # BALANCED: Lower BATNA to compensate for consistently low CPU allocations
   batna_decay:
     development: 0.015  # BALANCED: Same decay rate for both players (was 0.03)
     marketing: 0.015    # BALANCED: Same decay rate for both players (was 0.02)
