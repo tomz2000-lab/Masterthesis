@@ -15,7 +15,7 @@ class UtilitySurplusMetric(BaseMetric):
         super().__init__("Utility Surplus", config)
 
     def calculate(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
-        """Calculate utility surplus for each player"""
+        """Calculate utility surplus for each player with game-specific handling (Option 1)"""
         results = {}
         
         # Get game type to determine how to calculate surplus
@@ -33,11 +33,7 @@ class UtilitySurplusMetric(BaseMetric):
         for player_id in game_result.players:
             if player_id in final_scores:
                 if game_type == "company_car":
-                    # Company car game already calculates surplus over BATNA
-                    surplus = final_scores[player_id]
-                else:
-                    # Resource allocation and integrative games store raw utilities
-                    # Need to subtract BATNA to get actual surplus
+                    # Company car game: final_scores are absolute utilities, need to subtract BATNA
                     raw_utility = final_scores[player_id]
                     batnas_at_agreement = game_result.game_data.get("batnas_at_agreement", {})
                     
@@ -47,6 +43,21 @@ class UtilitySurplusMetric(BaseMetric):
                     else:
                         # Fallback: treat raw utility as surplus if BATNA not available
                         surplus = raw_utility
+                else:
+                    # Unknown game type - try to detect BATNA and calculate surplus
+                    raw_utility = final_scores[player_id]
+                    batnas_at_agreement = game_result.game_data.get("batnas_at_agreement", {})
+                    
+                    if player_id in batnas_at_agreement:
+                        batna = batnas_at_agreement[player_id]
+                        surplus = raw_utility - batna
+                        print(f"💰 [UTILITY SURPLUS] {player_id}: utility={raw_utility:.2f} - BATNA={batna:.2f} = surplus={surplus:.2f}")
+
+                    else:
+                        # Fallback: treat raw utility as surplus if BATNA not available
+                        surplus = raw_utility
+                        print(f"💰 [UTILITY SURPLUS] {player_id}: No BATNA found, using raw utility={surplus:.2f}")
+
                         
                 results[player_id] = surplus
             else:
@@ -60,8 +71,10 @@ class UtilitySurplusMetric(BaseMetric):
         Utility Surplus measures how much better a player did compared to their BATNA.
         Formula: Utility from Agreement - Utility of BATNA
 
-        For company_car games: Uses pre-calculated surplus from game engine
-        For resource_allocation and integrative_negotiations: Calculates utility - BATNA
+        For all game types: Calculates final_utility - BATNA to determine surplus
+        - company_car: Subtracts BATNA from absolute utility values
+        - integrative_negotiations: Subtracts BATNA from point-based utilities  
+        - resource_allocation: Subtracts BATNA from resource-based utilities
 
         Positive values: Player did better than their best alternative
         Zero: Player achieved exactly their BATNA outcome (or no agreement)
