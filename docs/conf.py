@@ -70,7 +70,9 @@ autodoc_default_options = {
 # Mock imports for packages that might not be available during docs build
 autodoc_mock_imports = [
     'torch', 'transformers', 'accelerate', 'bitsandbytes', 
-    'pandas', 'numpy', 'statsmodels', 'scipy'
+    'pandas', 'numpy', 'statsmodels', 'scipy', 'huggingface_hub',
+    'tokenizers', 'datasets', 'tqdm', 'pydantic', 'yaml',
+    'matplotlib', 'seaborn', 'sklearn', 'requests'
 ]
 
 # -- Intersphinx mapping ----------------------------------------------------

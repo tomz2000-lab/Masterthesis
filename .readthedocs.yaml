@@ -19,13 +19,7 @@ formats:
   - pdf
   - epub
 
-# Optional but recommended, declare the Python requirements required
-# to build your documentation
+# Only install documentation requirements to avoid heavy dependencies
 python:
   install:
     - requirements: docs/requirements.txt
-    - requirements: requirements.txt
-    - method: pip
-      path: .
-      extra_requirements:
-        - docs
