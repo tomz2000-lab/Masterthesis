@@ -63,8 +63,8 @@ integrative_negotiations:
       cleaning: 0.2
       branding: 0.3
   batnas:
-    IT: 32        # Realistic BATNA (max achievable ~57, so this creates negotiation space) -> from 32
-    Marketing: 31  # Realistic BATNA (max achievable ~58, so this creates negotiation space) -> from 31
+    IT: 27        # OPTIMIZED: Based on median minus 1σ to reduce 40% tie rate (from 27)
+    Marketing: 19  # OPTIMIZED: Based on median minus 1σ to reduce 62% tie rate (from 19)
   rounds: 5
   batna_decay: 0.015
  
