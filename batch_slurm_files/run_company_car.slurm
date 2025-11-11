@@ -7,7 +7,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=company_car_%j.out
 #SBATCH --error=company_car_%j.err
 
@@ -47,7 +47,7 @@ cd /home/s391129
 echo "=== Running Company Car Game - 10 Iterations ==="
 echo "Game: Employee vs Manager company car negotiation"
 
-ITERATIONS=10
+ITERATIONS=300
 SUCCESS_COUNT=0
 
 for i in $(seq 1 $ITERATIONS); do

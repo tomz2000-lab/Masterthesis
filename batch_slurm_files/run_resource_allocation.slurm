@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=resource_allocation_%j.out
 #SBATCH --error=resource_allocation_%j.err
 
@@ -57,7 +57,7 @@ echo "=== Running Resource Allocation Game - 10 Iterations ==="
 echo "Game: Development Team vs Marketing Team resource negotiation"
 echo "Utility Functions: Development=12x+3y+ε, Marketing=3x+12y+i"
 
-ITERATIONS=100
+ITERATIONS=300
 SUCCESS_COUNT=0
 
 for i in $(seq 1 $ITERATIONS); do

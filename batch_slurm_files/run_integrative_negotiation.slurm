@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=integrative_negotiation_%j.out
 #SBATCH --error=integrative_negotiation_%j.err
 
@@ -56,7 +56,7 @@ echo "=== Running Integrative Negotiations Game - 10 Iterations ==="
 echo "Game: IT Team vs Marketing Team office space negotiation"
 echo "Issues: Server Room Size, Meeting Access, Cleaning Responsibility, Branding Visibility"
 
-ITERATIONS=10
+ITERATIONS=300
 SUCCESS_COUNT=0
 
 for i in $(seq 1 $ITERATIONS); do
