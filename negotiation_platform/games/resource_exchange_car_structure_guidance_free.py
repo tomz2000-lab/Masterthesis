@@ -549,6 +549,12 @@ class ResourceAllocationGame(BaseGame):
         print(f"🔍 is_game_over result: {result}", file=sys.stderr)
         
         return result
+    def _get_neutral_role_label(self, player_id: str) -> str:
+        """Map player to neutral role label to reduce bias."""
+        if player_id == self.development:
+            return "ROLE A"
+        else:
+            return "ROLE B"
 
     def get_game_prompt(self, player_id: str) -> str:
         """Enhanced prompt with structured format, proposal limits, and strategic guidance."""
@@ -566,6 +572,10 @@ class ResourceAllocationGame(BaseGame):
         player_proposals = self.game_data.get(f"{player_id}_proposal_count", 0)
         max_proposals = self.max_rounds - 1
         can_propose = player_proposals < max_proposals
+
+        # Map internal roles to neutral display roles to reduce bias
+        internal_role = "development" if player_id == self.development else "marketing"
+        neutral_role = self._get_neutral_role_label(player_id)
         
         role = private_info.get("role", "unknown")
         team_name = "Development Team" if role == "development" else "Marketing Team"
@@ -588,12 +598,12 @@ class ResourceAllocationGame(BaseGame):
         role_priorities = ""
         if role == "development":
             role_priorities = (
-                f"Your priority is to maximize GPU hours for development tasks.\n"
+                f"Your priority is to maximize GPU hours.\n"
             )
 
         else:  # Marketing
             role_priorities = (
-                f"Your priority is to maximize CPU hours for marketing tasks.\n"
+                f"Your priority is to maximize CPU hours.\n"
             )
 
         # Acceptance guidance
@@ -661,7 +671,7 @@ class ResourceAllocationGame(BaseGame):
             round_display = f"Round {current_round}/{max_total_rounds} (Final Response Phase)"
 
         prompt = f"""=== RESOURCE ALLOCATION NEGOTIATION ===
-{round_display} | Role: {role.upper()}
+{round_display} | Role: {neutral_role}
 
 YOUR PRIORITIES: {role_priorities}
 GOAL: Maximize your utility: {utility_func}

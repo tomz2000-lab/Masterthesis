@@ -815,7 +815,13 @@ class IntegrativeNegotiationsGame(BaseGame):
             if self.game_data.get("agreement_reached", False):
                 return self.game_data.get("final_utilities", {})
         return {player: 0.0 for player in getattr(self, 'players', [])}
-
+    
+    def _get_neutral_role_label(self, player_id: str) -> str:
+        """Map player to neutral role label to reduce bias."""
+        if player_id == self.it_team:
+            return "ROLE A"
+        else:
+            return "ROLE B"
     
     def get_game_prompt(self, player_id: str, game_state: Dict[str, Any] = None) -> str:
         """Generate structured prompt for integrative negotiation - NegotiationArena style."""
@@ -826,6 +832,7 @@ class IntegrativeNegotiationsGame(BaseGame):
         private_info = current_state.get("private_info", {}).get(player_id, {})
         current_round = current_state.get("current_round", 1)
         role = private_info.get("role", "unknown")
+        neutral_role = self._get_neutral_role_label(player_id)
         
         # Get current BATNA for this player and round
         batna = self.get_current_batna(player_id, current_round)
@@ -843,7 +850,7 @@ class IntegrativeNegotiationsGame(BaseGame):
                 f"Cleaning Responsibility (30% weight): Prefer shared arrangements",
                 f"Branding Visibility (20% weight): Moderate visibility acceptable", 
                 f"Meeting Room Access (10% weight): 2 days access sufficient",
-                f"Note: Server room size and cleaning are top priorities for IT"
+                f"Note: Server room size and cleaning are top priorities"
             )
 
         else:  # Marketing
@@ -852,7 +859,7 @@ class IntegrativeNegotiationsGame(BaseGame):
                 f"Branding Visibility (30% weight): Prefer Prominent branding",
                 f"Cleaning Responsibility (20% weight): Prefer IT to handle cleaning",
                 f"Server Room Size (10% weight): 50 sqm are sufficient",
-                f"Note: Meeting access and branding are top priorities for Marketing"
+                f"Note: Meeting access and branding are top priorities"
             )
 
         # Track proposals made by this player
@@ -932,9 +939,9 @@ class IntegrativeNegotiationsGame(BaseGame):
             round_display = f"Round {current_round}/{max_total_rounds} (Final Response Phase)"
 
         prompt = f"""=== OFFICE SPACE NEGOTIATION ===
-{round_display} | Role: {role.upper()}
+{round_display} | Role: {neutral_role}
 
-GOAL: Reach agreement that maximizes your team's utility
+GOAL: Reach agreement that maximizes your utility
 Your BATNA (Best Alternative): {batna:.1f} points
 {proposal_guidance}
 

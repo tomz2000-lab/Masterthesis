@@ -23,7 +23,7 @@ class BaseLLMModel(ABC):
         pass
 
     @abstractmethod
-    def parse_action(self, response: str) -> Dict[str, Any]:
+    def parse_action(self, response: str, game_type: str = None, player_name: str = None) -> Dict[str, Any]:
         """Parse LLM response into a structured action"""
         pass
 

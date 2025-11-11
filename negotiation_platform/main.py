@@ -207,7 +207,7 @@ def main():
     parser.add_argument("--models", nargs="+",
                         default=["model_a", "model_b", "model_c"],
                         help="Models to use")
-    parser.add_argument("--game", choices=["company_car", "resource_allocation", "integrative_negotiations"],
+    parser.add_argument("--game", choices=["company_car", "company_car_arena", "resource_allocation", "integrative_negotiations"],
                         default="company_car", help="Game type for single run")
     parser.add_argument("--log-level", default="INFO",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR"])

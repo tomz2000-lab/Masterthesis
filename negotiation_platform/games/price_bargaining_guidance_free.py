@@ -130,6 +130,10 @@ class CompanyCarGame(BaseGame):
                 "buyer": self.buyer,
                 "seller": self.seller
             },
+            "round_by_round_surplus": {
+                self.buyer: [],
+                self.seller: []
+            },
             "private_info": {
                 self.buyer: {
                     "role": "buyer",
@@ -314,8 +318,8 @@ class CompanyCarGame(BaseGame):
                     offer_round = game_state.get(f"{other_player}_last_offer_round", current_round)
                     print(f"✅ Player {player} accepted offer of €{agreed_price:,.0f} (made in round {offer_round})")
 
-                    # Use the BATNA from when the offer was made, not current round
-                    return self._create_agreement(agreed_price, offer_round, game_state)
+                    # Use the BATNA from the current round (when acceptance happens), not when offer was made
+                    return self._create_agreement(agreed_price, current_round, game_state)
                 else:
                     print(f"⚠️ Player {player} tried to accept but no offer exists")
 
@@ -336,18 +340,37 @@ class CompanyCarGame(BaseGame):
         buyer_batna = self.get_current_batna(self.buyer, current_round)
         seller_batna = self.get_current_batna(self.seller, current_round)
 
-        buyer_utility = buyer_batna - price  # Saved money vs BATNA
-        seller_utility = price - seller_batna  # Profit over BATNA
+        # For the company car game:
+        # - The car has intrinsic value equal to the buyer's BATNA (alternative car cost)
+        # - The seller's minimum cost is their BATNA
+        
+        # Calculate absolute utilities
+        buyer_absolute_utility = buyer_batna - (price - buyer_batna)  # Value - net cost = BATNA - (price - BATNA) = 2*BATNA - price
+        seller_absolute_utility = price - seller_batna + seller_batna  # Revenue - cost + BATNA = price
+        
+        # Actually, let's keep it simple and consistent with session manager expectations:
+        # Session manager expects: final_utilities = absolute utility, then calculates surplus = utility - BATNA
+        # So we need: utility such that (utility - BATNA) = our desired surplus
+        # Therefore: utility = desired_surplus + BATNA
+        
+        # The surplus we want is:
+        buyer_surplus = buyer_batna - price  # Money saved vs BATNA
+        seller_surplus = price - seller_batna  # Profit over BATNA
+        
+        # Convert to absolute utilities for session manager
+        buyer_utility = buyer_surplus + buyer_batna  # This will give surplus when session manager subtracts BATNA
+        seller_utility = seller_surplus + seller_batna  # This will give surplus when session manager subtracts BATNA
         
         # DEBUG: Log the exact calculation values
-        
         print(f"🔍 [BATNA DEBUG] Round {current_round}: price={price}")
         print(f"🔍 [BATNA DEBUG] Config BATNAs: buyer={self.buyer_batna}, seller={self.seller_batna}")
         print(f"🔍 [BATNA DEBUG] Decay rate: {self.batna_decay}")
         print(f"🔍 [BATNA DEBUG] Calculated BATNAs: buyer={buyer_batna:.2f}, seller={seller_batna:.2f}")
-        print(f"🔍 [BATNA DEBUG] Utilities: buyer={buyer_utility:.2f}, seller={seller_utility:.2f}")
+        print(f"🔍 [SURPLUS DEBUG] Buyer surplus: {buyer_surplus:.2f} (saved €{buyer_surplus:.2f} vs BATNA)")
+        print(f"🔍 [SURPLUS DEBUG] Seller surplus: {seller_surplus:.2f} (profit €{seller_surplus:.2f} over BATNA)")
+        print(f"🔍 [UTILITY DEBUG] Final utilities (for session manager): buyer={buyer_utility:.2f}, seller={seller_utility:.2f}")
         print(f"🎲 [ROLE DEBUG] Buyer={self.buyer}, Seller={self.seller}")
-        print(f"🎲 [ROLE DEBUG] {self.buyer} utility={buyer_utility:.2f}, {self.seller} utility={seller_utility:.2f}")
+        print(f"🎲 [ROLE DEBUG] {self.buyer} surplus={buyer_surplus:.2f}, {self.seller} surplus={seller_surplus:.2f}")
 
         game_state.update({
             "agreement_reached": True,
@@ -397,15 +420,35 @@ class CompanyCarGame(BaseGame):
                 game_state.get("current_round", 1) > self.max_rounds)
 
     def get_winner(self, game_state: Dict[str, Any]) -> Optional[str]:
-        """Determine winner based on utilities."""
+        """Determine winner based on positive utility surplus."""
         if not game_state.get("agreement_reached", False):
             return None
 
         utilities = game_state.get("final_utilities", {})
-        if not utilities:
+        batnas = game_state.get("batnas_at_agreement", {})
+        
+        if not utilities or not batnas:
             return None
 
-        return max(utilities, key=utilities.get)
+        # Calculate utility surplus for each player (utility - BATNA)
+        surpluses = {}
+        for player in utilities.keys():
+            utility = utilities[player]
+            batna = batnas[player]
+            surpluses[player] = utility - batna
+
+        # Only consider players with positive surplus
+        positive_surplus_players = {player: surplus for player, surplus in surpluses.items() if surplus > 0}
+        
+        if not positive_surplus_players:
+            # No player has positive surplus - no winner
+            return None
+        elif len(positive_surplus_players) == 1:
+            # Only one player has positive surplus - they win
+            return list(positive_surplus_players.keys())[0]
+        else:
+            # Multiple players with positive surplus - highest surplus wins
+            return max(positive_surplus_players, key=positive_surplus_players.get)
 
     # Required abstract methods from BaseGame
     def process_action(self, action: PlayerAction) -> Dict[str, Any]:
@@ -443,9 +486,15 @@ class CompanyCarGame(BaseGame):
         else:
             return {player: 0.0 for player in self.players}
 
+    def _get_neutral_role_label(self, player_id: str) -> str:
+        """Map player to neutral role label to reduce bias."""
+        if player_id == self.buyer:
+            return "ROLE A"
+        else:
+            return "ROLE B"
 
     def get_game_prompt(self, player_id: str) -> str:
-        """Enhanced prompt with structured format, proposal limits, and strategic guidance."""
+        """Enhanced prompt with neutral role labels to reduce role bias."""
         if not hasattr(self, 'buyer') or not hasattr(self, 'seller'):
             return "Game not initialized properly"
 
@@ -460,8 +509,15 @@ class CompanyCarGame(BaseGame):
         player_proposals = self.game_data.get(f"{player_id}_proposal_count", 0)
         max_proposals = self.max_rounds-1  # Use rounds from YAML config = 4
         
-        role = "buyer" if player_id == self.buyer else "seller"
-        goal = f"Buy car for €{batna:,.0f} or less" if role == "buyer" else f"Sell car for €{batna:,.0f} or more"
+        # Map internal roles to neutral display roles to reduce bias
+        internal_role = "buyer" if player_id == self.buyer else "seller"
+        neutral_role = self._get_neutral_role_label(player_id)
+        
+        # Create neutral goal description
+        if internal_role == "buyer":
+            goal = f"Acquire the item for €{batna:,.0f} or less"
+        else:
+            goal = f"Transfer the item for €{batna:,.0f} or more"
         
         offer_history = []
         if my_offer:
@@ -531,8 +587,8 @@ class CompanyCarGame(BaseGame):
         else:
             round_display = f"Round {current_round}/{max_total_rounds} (Final Response Phase)"
 
-        prompt = f"""=== CAR PRICE NEGOTIATION ===
-{round_display} | Role: {role.upper()}
+        prompt = f"""=== ITEM PRICE NEGOTIATION ===
+{round_display} | Role: {neutral_role}
 
 GOAL: {goal}
 Your BATNA (Best Alternative): €{batna:,.0f}

@@ -2,6 +2,7 @@
 LLM Manager for handling multiple models with plug-and-play functionality
 """
 import yaml
+import threading
 from typing import Dict, List, Any, Optional
 from negotiation_platform.models.base_model import BaseLLMModel
 from negotiation_platform.models.hf_model_wrapper import HuggingFaceModelWrapper
@@ -13,11 +14,19 @@ class LLMManager:
         print(f"[DEBUG] LLMManager received model_configs: {model_configs}")
         print(f"[DEBUG] Type of model_configs: {type(model_configs)}")
         print(f"[DEBUG] Keys in model_configs: {list(model_configs.keys()) if model_configs else 'None or empty'}")
+        # model_id -> wrapper (may be shared across ids)
         self.models: Dict[str, BaseLLMModel] = {}
+        # model_name -> shared wrapper instance
+        self.shared_models: Dict[str, BaseLLMModel] = {}
+        # model_id -> model_name (alias mapping)
+        self.model_aliases: Dict[str, str] = {}
         self.active_model: Optional[str] = None
         self.model_configs = model_configs
-        self.max_loaded_models = 2  # Keep max 2 models in memory at once
-        self.loaded_order = []  # Track loading order for LRU eviction
+        self.max_loaded_models = 2  # Keep max N unique models in memory at once
+        # Track loading order by model_name (unique) for LRU eviction
+        self.loaded_order: List[str] = []
+        # Manager-level lock to serialize load/unload operations and avoid races
+        self.manager_lock = threading.Lock()
 
         # Register all models from config on init (but don't load them yet)
         self._register_all_models()
@@ -49,56 +58,85 @@ class LLMManager:
     def register_model(self, model_id: str, model_config: Dict[str, Any]):
         model_type = model_config.get('type', 'huggingface')
 
-        if model_type == 'huggingface':
-            model = HuggingFaceModelWrapper(
-                model_name=model_config['model_name'],
-                config=model_config.get('config', {})
-            )
-        else:
+        if model_type != 'huggingface':
             raise ValueError(f"Unsupported model type: {model_type}")
 
-        self.models[model_id] = model
-        print(f"📝 Registered model: {model_id}")
+        model_name = model_config['model_name']
+
+        # If we've already created a wrapper for this model_name, reuse it
+        if model_name in self.shared_models:
+            wrapper = self.shared_models[model_name]
+            self.models[model_id] = wrapper
+            self.model_aliases[model_id] = model_name
+            print(f"📝 Registered model alias: {model_id} -> {model_name}")
+            return
+
+        # Otherwise create a new wrapper and register it as shared
+        wrapper = HuggingFaceModelWrapper(
+            model_name=model_name,
+            config=model_config.get('config', {})
+        )
+        self.models[model_id] = wrapper
+        self.shared_models[model_name] = wrapper
+        self.model_aliases[model_id] = model_name
+        print(f"📝 Registered model: {model_id} (new instance for {model_name})")
 
     def load_model(self, model_id: str):
         """Load a specific model with smart memory management"""
-        if model_id not in self.models:
-            raise ValueError(f"Model {model_id} not registered")
+        # Serialize load/unload operations to avoid concurrent from_pretrained calls
+        with self.manager_lock:
+            # Inner function does the actual work while under lock
+            def _do_load():
+                if model_id not in self.models:
+                    raise ValueError(f"Model {model_id} not registered")
 
-        # If already loaded, just update order and return the model
-        if self.models[model_id].is_loaded:
-            if model_id in self.loaded_order:
-                self.loaded_order.remove(model_id)
-            self.loaded_order.append(model_id)
-            return self.models[model_id]
+                # Map model_id -> model_name (shared key)
+                model_name = self.model_aliases.get(model_id)
+                if not model_name:
+                    # fallback: try to get model_name from the wrapper if possible
+                    model_name = getattr(self.models[model_id], 'model_name', None)
 
-        # Check if we need to unload old models to free memory
-        loaded_count = sum(1 for model in self.models.values() if model.is_loaded)
-        
-        if loaded_count >= self.max_loaded_models:
-            # Unload the least recently used model
-            lru_model_id = self.loaded_order.pop(0)
-            print(f"🗑️  Unloading LRU model: {lru_model_id} to free memory")
-            self.models[lru_model_id].unload_model()
+                wrapper = self.models[model_id]
 
-        # Load the requested model
-        print(f"🚀 Loading model: {model_id}")
-        self.models[model_id].load_model()
-        self.loaded_order.append(model_id)
-        
-        # Return the loaded model
-        return self.models[model_id]
+                # If already loaded, just update order and return the wrapper
+                if wrapper.is_loaded:
+                    if model_name in self.loaded_order:
+                        self.loaded_order.remove(model_name)
+                    self.loaded_order.append(model_name)
+                    return wrapper
+
+                # Check if we need to unload old models to free memory
+                # Count unique loaded wrappers (by model_name)
+                loaded_count = sum(1 for wrapper in self.shared_models.values() if wrapper.is_loaded)
+
+                if loaded_count >= self.max_loaded_models:
+                    # Unload the least recently used shared model by model_name
+                    lru_model_name = self.loaded_order.pop(0)
+                    print(f"🗑️  Unloading LRU model: {lru_model_name} to free memory")
+                    shared_wrapper = self.shared_models.get(lru_model_name)
+                    if shared_wrapper and shared_wrapper.is_loaded:
+                        shared_wrapper.unload_model()
+
+                # Load the requested model
+                print(f"🚀 Loading model: {model_id} (shared name: {model_name})")
+                wrapper.load_model()
+                # ensure model_name is in loaded order (unique)
+                if model_name in self.loaded_order:
+                    self.loaded_order.remove(model_name)
+                self.loaded_order.append(model_name)
+
+                # Return the loaded wrapper
+                return wrapper
+
+            # Execute the protected load and return its result
+            return _do_load()
 
     def switch_model(self, model_id: str):
         """Switch to a different model (plug-and-play functionality)"""
         if model_id not in self.models:
             raise ValueError(f"Model {model_id} not registered")
 
-        # Unload current model if exists
-        if self.active_model and self.models[self.active_model].is_loaded:
-            self.models[self.active_model].unload_model()
-
-        # Load new model if not loaded
+        # Do not eagerly unload on switch; rely on LRU eviction instead.
         if not self.models[model_id].is_loaded:
             self.load_model(model_id)
 
@@ -128,12 +166,21 @@ class LLMManager:
         if model_id not in self.models:
             raise ValueError(f"Model {model_id} not registered")
         
-        if self.models[model_id].is_loaded:
-            self.models[model_id].unload_model()
+        model_name = self.model_aliases.get(model_id)
+        wrapper = self.models[model_id]
+
+        # If other aliases reference the same shared model, warn and skip
+        aliases_using = [mid for mid, mname in self.model_aliases.items() if mname == model_name and mid != model_id]
+        if aliases_using:
+            print(f"⚠️  Model {model_id} shares wrapper '{model_name}' with aliases {aliases_using}; skipping unload to avoid breaking aliases")
+            return
+
+        if wrapper.is_loaded:
+            wrapper.unload_model()
             # Remove from loaded order if present
-            if model_id in self.loaded_order:
-                self.loaded_order.remove(model_id)
-            print(f"🗑️  Unloaded model: {model_id}")
+            if model_name in self.loaded_order:
+                self.loaded_order.remove(model_name)
+            print(f"🗑️  Unloaded model: {model_id} (shared name: {model_name})")
         else:
             print(f"⚠️  Model {model_id} was not loaded")
 
@@ -146,7 +193,7 @@ class LLMManager:
 
     def cleanup(self):
         """Unload all models and cleanup resources"""
-        for model in self.models.values():
-            if model.is_loaded:
-                model.unload_model()
-        print("🧹 All models unloaded")
+        for model_name, wrapper in self.shared_models.items():
+            if wrapper.is_loaded:
+                wrapper.unload_model()
+        print("🧹 All shared models unloaded")

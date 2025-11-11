@@ -30,10 +30,10 @@ class RejectAction(BaseModel):
     type: Literal["reject"] = Field(..., description="Must be exactly 'reject'")
 
 class ResourceProposalAction(BaseModel):
-    """Resource allocation proposal with gpu_hours and bandwidth"""
+    """Resource allocation proposal with gpu_hours and cpu_hours"""
     type: Literal["propose"] = Field(..., description="Must be exactly 'propose'")
     gpu_hours: float = Field(..., ge=0, description="GPU hours requested")
-    bandwidth: float = Field(..., ge=0, description="Bandwidth requested")
+    cpu_hours: float = Field(..., ge=0, description="CPU hours requested")
 
 class ProposeTradeAction(BaseModel):
     """Alternative resource allocation trade proposal"""
@@ -54,13 +54,13 @@ class IntegrativeProposalAction(BaseModel):
     def validate_server_room(cls, v):
         """Validate server room size"""
         if v <= 75:
-            print(f"⚠️ [VALIDATION] server_room corrected from {v} to 50")
+            #print(f"⚠️ [VALIDATION] server_room corrected from {v} to 50")
             return 50
         elif v <= 125:
-            print(f"⚠️ [VALIDATION] server_room corrected from {v} to 100")
+            #print(f"⚠️ [VALIDATION] server_room corrected from {v} to 100")
             return 100
         else:
-            print(f"⚠️ [VALIDATION] server_room corrected from {v} to 150")
+            #print(f"⚠️ [VALIDATION] server_room corrected from {v} to 150")
             return 150
     
     @field_validator('meeting_access')
@@ -68,13 +68,13 @@ class IntegrativeProposalAction(BaseModel):
     def validate_meeting_access(cls, v):
         """Validate meeting access hours"""
         if v <= 3:
-            print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 2")
+            #print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 2")
             return 2
         elif v <= 5:
-            print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 4")
+            #print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 4")
             return 4
         else:
-            print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 7")
+            #print(f"⚠️ [VALIDATION] meeting_access corrected from {v} to 7")
             return 7
     
     @field_validator('cleaning')
@@ -82,13 +82,13 @@ class IntegrativeProposalAction(BaseModel):
     def validate_cleaning(cls, v):
         """Validate cleaning responsibility"""
         if str(v).lower() in ['it']:
-            print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'IT'")
+            #print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'IT'")
             return "IT"
         elif str(v).lower() in ['shared']:
-            print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'Shared'")
+            #print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'Shared'")
             return "Shared"
         else:
-            print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'Outsourced'")
+            #print(f"⚠️ [VALIDATION] cleaning corrected from {v} to 'Outsourced'")
             return "Outsourced"
     
     @field_validator('branding')
@@ -96,13 +96,13 @@ class IntegrativeProposalAction(BaseModel):
     def validate_branding(cls, v):
         """Validate branding visibility"""
         if str(v).lower() in ['minimal']:
-            print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Minimal'")
+            #print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Minimal'")
             return "Minimal"
         elif str(v).lower() in ['moderate']:
-            print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Moderate'")
+            #print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Moderate'")
             return "Moderate"
         else:
-            print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Prominent'")
+            #print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Prominent'")
             return "Prominent"
 
 # Union of all possible actions
@@ -209,12 +209,12 @@ def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict
     
     # Auto-correct resource allocation variations
     if game_type == "resource_allocation" and any(word in action_type for word in ["trade", "propose", "offer"]):
-        # Try standard format first (gpu_hours, bandwidth)
+        # Try standard format first (gpu_hours, cpu_hours)
         gpu_hours = parsed.get("gpu_hours") or parsed.get("gpu") or parsed.get("x")
-        bandwidth = parsed.get("bandwidth") or parsed.get("y") or parsed.get("bw")
+        cpu_hours = parsed.get("cpu_hours") or parsed.get("cpu") or parsed.get("y") or parsed.get("bw")
         
-        if gpu_hours is not None and bandwidth is not None:
-            return {"type": "propose", "gpu_hours": float(gpu_hours), "bandwidth": float(bandwidth)}
+        if gpu_hours is not None and cpu_hours is not None:
+            return {"type": "propose", "gpu_hours": float(gpu_hours), "cpu_hours": float(cpu_hours)}
         
         # Try trade format as fallback
         offer = parsed.get("offer") or parsed.get("give") or {}

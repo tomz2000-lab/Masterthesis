@@ -8,8 +8,26 @@ import math
 
 
 def parse_negotiation_log_corrected(file_path):
-    """Parse negotiation log with CORRECT statistical structure - one row per game.
-    python compare_games_statistics_FIXED.py integrative_negotiation_1975553.out
+    """
+    Parses a negotiation log file to extract game data with corrected statistical
+    structure, ensuring one row per game.
+
+    Args:
+        file_path (str): Path to the negotiation log file.
+
+    Returns:
+        tuple: A tuple containing:
+            - pd.DataFrame: DataFrame with parsed game data.
+            - str: The detected game type (e.g., 'integrative_negotiation').
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        ValueError: If the log file format is invalid or cannot be parsed.
+
+    Example:
+        >>> df, game_type = parse_negotiation_log_corrected("log_file.out")
+        >>> print(game_type)
+        'integrative_negotiation'
     """
     with open(file_path, 'r', encoding='utf-8') as f:
         log_text = f.read()
@@ -106,7 +124,28 @@ def parse_negotiation_log_corrected(file_path):
 
 
 def analyze_role_bias_corrected(df, game_type):
-    """CORRECTED role bias analysis - tests if certain roles have advantages."""
+    """
+    Analyzes role bias in negotiation games to determine if certain roles
+    have inherent advantages.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing parsed game data.
+        game_type (str): The type of game (e.g., 'integrative_negotiation').
+
+    Returns:
+        dict or None: A dictionary with statistical test results if analysis
+        is possible, otherwise None. The dictionary includes:
+            - 'chi2' (float): Chi-square test statistic.
+            - 'p_value' (float): P-value of the test.
+            - 'cohens_h' (float): Effect size (Cohen's h).
+            - 'effect_size' (str): Interpretation of effect size.
+            - 'significant' (bool): Whether the result is statistically significant.
+
+    Example:
+        >>> results = analyze_role_bias_corrected(df, "integrative_negotiation")
+        >>> print(results['significant'])
+        True
+    """
     print("\n## 📈 ROLE BIAS ANALYSIS (CORRECTED)")
     print("="*60)
     print("Question: Do certain roles (IT vs Marketing, Buyer vs Seller) have inherent advantages?")
@@ -166,7 +205,26 @@ def analyze_role_bias_corrected(df, game_type):
 
 
 def analyze_first_mover_bias_corrected(df):
-    """CORRECTED first-mover bias analysis."""
+    """
+    Analyzes first-mover bias in negotiation games to determine if going first
+    provides an advantage.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing parsed game data.
+
+    Returns:
+        dict: A dictionary with statistical test results, including:
+            - 'chi2' (float): Chi-square test statistic.
+            - 'p_value' (float): P-value of the test.
+            - 'cohens_h' (float): Effect size (Cohen's h).
+            - 'first_mover_win_rate' (float): Win rate of the first mover.
+            - 'significant' (bool): Whether the result is statistically significant.
+
+    Example:
+        >>> results = analyze_first_mover_bias_corrected(df)
+        >>> print(results['first_mover_win_rate'])
+        0.65
+    """
     print("\n## 🚀 FIRST-MOVER BIAS ANALYSIS (CORRECTED)")
     print("="*60)
     print("Question: Does going first provide an advantage?")
@@ -211,7 +269,28 @@ def analyze_first_mover_bias_corrected(df):
 
 
 def bias_adjusted_model_comparison(df, role_bias_significant=False, first_mover_bias_significant=False):
-    """Compare models while controlling for role and first-mover biases."""
+    """
+    Compares model performances while controlling for role and first-mover biases.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing parsed game data.
+        role_bias_significant (bool): Whether role bias was detected as significant.
+        first_mover_bias_significant (bool): Whether first-mover bias was detected as significant.
+
+    Returns:
+        dict or None: A dictionary with bias-adjusted model comparison results if
+        analysis is successful, otherwise None. The dictionary includes:
+            - 'model_a' (str): Name of the first model.
+            - 'model_b' (str): Name of the second model.
+            - 'adjusted_prob_a' (float): Bias-adjusted win probability for model_a.
+            - 'raw_prob_a' (float): Raw win probability for model_a.
+            - 'adjustment' (float): Difference between adjusted and raw probabilities.
+
+    Example:
+        >>> results = bias_adjusted_model_comparison(df, True, False)
+        >>> print(results['adjusted_prob_a'])
+        0.72
+    """
     print("\n## 🎯 BIAS-ADJUSTED MODEL COMPARISON")
     print("="*80)
     
@@ -282,6 +361,21 @@ def bias_adjusted_model_comparison(df, role_bias_significant=False, first_mover_
 
 
 def main():
+    """
+    Main function to perform corrected bias analysis on a negotiation log file.
+
+    Usage:
+        python compare_games_statistics_FIXED.py <log_file.out>
+
+    Args:
+        None (command-line arguments are used).
+
+    Returns:
+        None: Outputs results to the console and exports corrected data to a CSV file.
+
+    Example:
+        $ python compare_games_statistics_FIXED.py integrative_negotiation_1975553.out
+    """
     if len(sys.argv) < 2:
         print("Usage: python compare_games_statistics_FIXED.py <log_file.out>")
         sys.exit(1)
