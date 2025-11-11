@@ -17,7 +17,7 @@ model_a:
     do_sample: true
     trust_remote_code: true
     load_in_8bit: false
-    #api_token: "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"
+    
 
 # 7B Mistral model for comparison (now in model_b position)
 model_b:
@@ -31,8 +31,6 @@ model_b:
     do_sample: true
     trust_remote_code: true
     load_in_8bit: false
-    # Remove pad_token_id for Mistral models (they handle it differently)
-    api_token: "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"
 
 model_c:
   type: "huggingface"
@@ -46,4 +44,3 @@ model_c:
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: false
-    #api_token: "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"
