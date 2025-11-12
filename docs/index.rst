@@ -14,6 +14,7 @@ This platform enables researchers to study negotiation behaviors, biases, and st
    examples
    configuration
    games
+   docstring_guidelines
 
 Features
 --------

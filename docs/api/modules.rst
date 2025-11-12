@@ -5,6 +5,7 @@ API Documentation
    :maxdepth: 4
 
    negotiation_platform
+   results
 
 Core Modules
 ------------
