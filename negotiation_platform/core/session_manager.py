@@ -331,8 +331,3 @@ class SessionManager:
             self.llm_manager.unload_model(model_name)
 
         return enriched_result
-
-    # ------------------------------------------------------------------ #
-    # HELPER METHODS                                                     #
-    # ------------------------------------------------------------------ #
-    # All fallback prompt methods removed - games must implement get_game_prompt()
