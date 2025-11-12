@@ -27,6 +27,17 @@ resource_allocation:
     development: 0.015  # BALANCED: Same decay rate for both players (was 0.03)
     marketing: 0.015    # BALANCED: Same decay rate for both players (was 0.02)
   rounds: 5
+  utility_functions:
+    development:
+      gpu_coefficient: 8      # Development team utility: 8x + 6y + ε
+      cpu_coefficient: 6
+      uncertainty_min: -2     # epsilon uncertainty range
+      uncertainty_max: 2
+    marketing:
+      gpu_coefficient: 6      # Marketing team utility: 6x + 8y + ι
+      cpu_coefficient: 8
+      uncertainty_min: -2     # iota uncertainty range
+      uncertainty_max: 2
   uncertainty:
     stochastic_demand:
       type: "normal"
