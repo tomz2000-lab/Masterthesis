@@ -65,6 +65,20 @@ def parse_negotiation_log_agent_metrics(file_path):
             else first_proposal_company_car.group(1) if first_proposal_company_car
             else 'unknown'
         )
+        
+        # Parse agreement information
+        agreement_reached = False
+        agreement_round = None
+        
+        agreement_reached_match = re.search(r'Agreement\s+reached:\s*(True|False)', block, re.IGNORECASE)
+        if agreement_reached_match:
+            agreement_reached = agreement_reached_match.group(1).lower() == 'true'
+        
+        if agreement_reached:
+            agreement_round_match = re.search(r'Agreement\s+round:\s*(\d+)', block, re.IGNORECASE)
+            if agreement_round_match:
+                agreement_round = int(agreement_round_match.group(1))
+        
         # Parse metrics for each model
         for model in model_role_mapping.keys():
             metrics = {}
@@ -91,11 +105,75 @@ def parse_negotiation_log_agent_metrics(file_path):
                 'Is_First_Mover': int(first_mover == model),
                 'First_Mover_Model': first_mover,
                 'Game_type': game_type,
+                'Agreement_Reached': agreement_reached,
+                'Agreement_Round': agreement_round,
                 **metrics
             })
     df = pd.DataFrame(data)
     print(f"✅ Parsed {len(df)} model performances across {df['Iteration'].nunique()} games")
     return df, game_type
+
+def calculate_average_agreement_round(df):
+    """
+    Calculates the average round in which agreements were reached.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing parsed agent-based metrics.
+
+    Returns:
+        dict: A dictionary containing:
+            - 'total_games' (int): Total number of games analyzed.
+            - 'agreements_reached' (int): Number of games where agreement was reached.
+            - 'average_agreement_round' (float or None): Average round of agreement, or None if no agreements.
+            - 'agreement_rate' (float): Percentage of games that reached agreement.
+
+    Example:
+        >>> stats = calculate_average_agreement_round(df)
+        >>> print(f"Average agreement round: {stats['average_agreement_round']:.2f}")
+        Average agreement round: 3.25
+    """
+    print(f"\n## 📊 AVERAGE AGREEMENT ROUND ANALYSIS")
+    print("=" * 50)
+    
+    # Get unique games (one entry per iteration since both models have same agreement info)
+    unique_games = df.drop_duplicates(subset=['Iteration']).copy()
+    
+    total_games = len(unique_games)
+    agreements = unique_games[unique_games['Agreement_Reached'] == True]
+    agreements_reached = len(agreements)
+    
+    if agreements_reached > 0:
+        avg_agreement_round = agreements['Agreement_Round'].mean()
+        agreement_rounds = agreements['Agreement_Round'].tolist()
+        
+        print(f"📈 Agreement Statistics:")
+        print(f"   Total games analyzed: {total_games}")
+        print(f"   Agreements reached: {agreements_reached}")
+        print(f"   Agreement rate: {(agreements_reached/total_games)*100:.1f}%")
+        print(f"   Average agreement round: {avg_agreement_round:.2f}")
+        print(f"   Agreement rounds distribution: {sorted(agreement_rounds)}")
+        
+        return {
+            'total_games': total_games,
+            'agreements_reached': agreements_reached,
+            'average_agreement_round': avg_agreement_round,
+            'agreement_rate': (agreements_reached/total_games)*100,
+            'agreement_rounds': agreement_rounds
+        }
+    else:
+        print(f"📈 Agreement Statistics:")
+        print(f"   Total games analyzed: {total_games}")
+        print(f"   Agreements reached: {agreements_reached}")
+        print(f"   Agreement rate: 0.0%")
+        print(f"   Average agreement round: N/A (no agreements)")
+        
+        return {
+            'total_games': total_games,
+            'agreements_reached': agreements_reached,
+            'average_agreement_round': None,
+            'agreement_rate': 0.0,
+            'agreement_rounds': []
+        }
 
 def bias_corrected_metric_analysis(df, metric_name, metric_column):
     """
@@ -200,6 +278,9 @@ def main():
         ('Feasibility', 'Feasibility'),
         ('Utility Surplus', 'Utility_Surplus')
     ]
+    # Calculate average agreement round statistics
+    agreement_stats = calculate_average_agreement_round(df)
+    
     all_results = {}
     for metric_name, metric_column in metrics_config:
         if metric_column in df.columns and not df[metric_column].isna().all():
@@ -212,6 +293,14 @@ def main():
     df.to_csv(output_csv, index=False)
     print(f"\n✅ Agent metrics data exported to '{output_csv}'")
     print(f"\nSUMMARY:")
+    print(f"📊 Agreement Statistics:")
+    print(f"- Agreement rate: {agreement_stats['agreement_rate']:.1f}% ({agreement_stats['agreements_reached']}/{agreement_stats['total_games']} games)")
+    if agreement_stats['average_agreement_round'] is not None:
+        print(f"- Average agreement round: {agreement_stats['average_agreement_round']:.2f}")
+    else:
+        print(f"- Average agreement round: N/A (no agreements reached)")
+    
+    print(f"\n🔬 Metric Comparisons:")
     for metric_name, result in all_results.items():
         if result and result['significant']:
             print(f"- {metric_name}: {result['model_a']} ({result['predicted_mean_a']:.3f}) vs {result['model_b']} ({result['predicted_mean_b']:.3f}), diff = {result['adjusted_difference']:.3f} (p = {result['p_value']:.4f})")
