@@ -9,15 +9,6 @@ from .negotiation_tools import calculate_percentage_difference, calculate_utilit
 class IntegrativeNegotiationsGame(BaseGame):
     """
     Integrative negotiations game between IT and Marketing teams with price bargaining logic.
-    
-    ADAPTED FROM ORIGINAL: Uses the same content (4 issues, point values, weights) but 
-    follows the price bargaining game patterns for proposals, offers, and game flow:
-    - Same max_rounds structure as price bargaining (5 rounds)
-    - Same proposal limits (max_rounds - 1)
-    - Same role assignment randomization logic
-    - Same JSON parsing and action processing patterns
-    - Same agreement/no-agreement creation patterns
-    - Same debug logging patterns
 
     Four issues with point values (unchanged from original):
     - Server Room Size: 50 sqm (10), 100 sqm (30), 150 sqm (60)
@@ -98,7 +89,7 @@ class IntegrativeNegotiationsGame(BaseGame):
             }
 
         # Base BATNA values - keeping original approach but with price bargaining decay
-        self.base_batnas = config.get("batnas", {"IT": 35, "Marketing": 30})
+        #self.base_batnas = config.get("batnas", {"IT": 35, "Marketing": 30})
 
     def _generate_labels(self, issue_name: str, options: List[Any]) -> List[str]:
         """Generate descriptive labels for issue options."""
