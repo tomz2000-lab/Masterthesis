@@ -8,9 +8,7 @@ from .base_game import BaseGame, PlayerAction
 class CompanyCarGame(BaseGame):
     """
     Bilateral car negotiation game based on document specifications.
-    - Company car worth 45,000€ starting price
-    - Buyer max budget 40,000€, seller cost 38,000€
-    - BATNAs: Buyer 44,000€ (alternative car cost), Seller 39,000€ (minimum acceptable)
+    - BATNAs: Buyer 41,000€ (alternative car cost), Seller 39,000€ (minimum acceptable)
     - 5 rounds with time-adjusted BATNA decay
     - Enhanced with structured prompts, proposal limits, and strategic guidance
     """
