@@ -23,7 +23,7 @@ class ResourceAllocationGame(BaseGame):
         # Initialize base class with game type as game_id  
         super().__init__(game_id="resource_allocation", config=config)
         required_fields = [
-            "batnas", "rounds", "batna_decay", "total_resources", "constraints"
+            "batnas", "rounds", "batna_decay", "total_resources", "constraints", "utility_functions"
         ]
         for field in required_fields:
             if field not in config:
@@ -39,6 +39,23 @@ class ResourceAllocationGame(BaseGame):
         # Resource allocation specific configuration
         self.total_resources = config["total_resources"]
         self.constraints = config["constraints"]
+        
+        # Load utility function parameters from config
+        utility_functions = config["utility_functions"]
+        self.utility_functions = {
+            "development": {
+                "gpu_coeff": utility_functions["development"]["gpu_coefficient"],
+                "cpu_coeff": utility_functions["development"]["cpu_coefficient"],
+                "uncertainty_min": utility_functions["development"]["uncertainty_min"],
+                "uncertainty_max": utility_functions["development"]["uncertainty_max"]
+            },
+            "marketing": {
+                "gpu_coeff": utility_functions["marketing"]["gpu_coefficient"],
+                "cpu_coeff": utility_functions["marketing"]["cpu_coefficient"],
+                "uncertainty_min": utility_functions["marketing"]["uncertainty_min"],
+                "uncertainty_max": utility_functions["marketing"]["uncertainty_max"]
+            }
+        }
         
         # Uncertainty parameters (optional)
         self.uncertainty = config.get("uncertainty", {})
@@ -145,14 +162,14 @@ class ResourceAllocationGame(BaseGame):
                 self.development: {
                     "role": "development",
                     "team": "development",
-                    "utility_function": "8x + 6y + ε",
+                    "utility_function": f"{self.utility_functions['development']['gpu_coeff']}x + {self.utility_functions['development']['cpu_coeff']}y + ε",
                     "batna": self.development_batna,
                     "constraints": self.constraints
                 },
                 self.marketing: {
                     "role": "marketing", 
                     "team": "marketing",
-                    "utility_function": "6x + 8y + ι", 
+                    "utility_function": f"{self.utility_functions['marketing']['gpu_coeff']}x + {self.utility_functions['marketing']['cpu_coeff']}y + ι", 
                     "batna": self.marketing_batna,
                     "constraints": self.constraints
                 }
@@ -178,18 +195,18 @@ class ResourceAllocationGame(BaseGame):
 
     def calculate_utility(self, player: str, gpu_hours: float, cpu_hours: float, round_num: int) -> float:
         """Calculate utility for a player given resource allocation."""
-        if player == self.development:
-            # Development team utility: 9x + 6y + ε (epsilon for uncertainty)
-            base_utility = 8 * gpu_hours + 6 * cpu_hours
-            # Add small random uncertainty factor
-            epsilon = random.uniform(-2, 2)
-            return base_utility + epsilon
-        else:
-            # Marketing team utility: 6x + 9y + i (iota for market volatility)
-            base_utility = 6 * gpu_hours + 8 * cpu_hours
-            # Add small random uncertainty factor
-            iota = random.uniform(-2, 2)
-            return base_utility + iota
+        role = "development" if player == self.development else "marketing"
+        utility_params = self.utility_functions[role]
+        
+        # Calculate base utility using configurable coefficients
+        base_utility = (utility_params["gpu_coeff"] * gpu_hours + 
+                       utility_params["cpu_coeff"] * cpu_hours)
+        
+        # Add configurable uncertainty factor
+        uncertainty = random.uniform(utility_params["uncertainty_min"], 
+                                   utility_params["uncertainty_max"])
+        
+        return base_utility + uncertainty
 
     def _validate_resource_constraints(self, gpu_hours: float, cpu_hours: float) -> bool:
         """Validate resource allocation against constraints."""
@@ -468,10 +485,11 @@ class ResourceAllocationGame(BaseGame):
         dev_batna = self.get_current_batna(self.development, batna_round)
         mkt_batna = self.get_current_batna(self.marketing, batna_round)
 
-        # Calculate utility using the resource allocation utility functions
-        # Development: 8x + 6x, Marketing: 6x + 8x
-        dev_utility = 8 * gpu_hours + 6 * cpu_hours
-        mkt_utility = 6 * gpu_hours + 8 * cpu_hours
+        # Calculate utility using the configurable utility functions
+        dev_params = self.utility_functions["development"]
+        mkt_params = self.utility_functions["marketing"]
+        dev_utility = dev_params["gpu_coeff"] * gpu_hours + dev_params["cpu_coeff"] * cpu_hours
+        mkt_utility = mkt_params["gpu_coeff"] * gpu_hours + mkt_params["cpu_coeff"] * cpu_hours
 
         # Calculate utility surplus (utility - BATNA)
         dev_surplus = dev_utility - dev_batna
