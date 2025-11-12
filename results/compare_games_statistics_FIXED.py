@@ -6,6 +6,7 @@ import statsmodels.formula.api as smf
 from scipy.stats import chi2_contingency
 import math
 
+#python compare_games_statistics_FIXED.py batch_comparison/resource_game/resource_allocation_2013440.out  
 
 def parse_negotiation_log_corrected(file_path):
     """
