@@ -138,70 +138,14 @@ Complex multi-issue business negotiation with potential for mutual gains.
 Game Implementation
 -------------------
 
-All games inherit from the ``BaseGame`` class and implement:
-
-.. code-block:: python
-
-   class BaseGame:
-       def initialize_game(self, players: List[str]) -> Dict[str, Any]:
-           """Set up initial game state."""
-           
-       def is_valid_action(self, player: str, action: Dict, state: Dict) -> bool:
-           """Validate player actions."""
-           
-       def process_actions(self, actions: Dict, state: Dict) -> Dict[str, Any]:
-           """Process all player actions and update state."""
-           
-       def is_game_over(self, state: Dict[str, Any]) -> bool:
-           """Check if game should end."""
-           
-       def get_winner(self, state: Dict[str, Any]) -> Optional[str]:
-           """Determine winner if applicable."""
-           
-       def get_game_prompt(self, player_id: str) -> str:
-           """Generate player-specific prompt."""
+All games inherit from the ``BaseGame`` class and implement standardized interfaces.
+For detailed implementation information, see :doc:`api/games`.
 
 Custom Game Development
 -----------------------
 
-To create a new game:
-
-1. **Create game class**:
-
-.. code-block:: python
-
-   from negotiation_platform.games.base_game import BaseGame
-   
-   class MyCustomGame(BaseGame):
-       def __init__(self, config: Dict[str, Any]):
-           super().__init__(game_id="my_game", config=config)
-           # Initialize game-specific parameters
-           
-       def initialize_game(self, players: List[str]) -> Dict[str, Any]:
-           # Set up initial state
-           return {
-               "players": players,
-               "current_round": 1,
-               "game_specific_data": {}
-           }
-
-2. **Register game in GameEngine**:
-
-.. code-block:: python
-
-   from negotiation_platform.core.game_engine import GameEngine
-   
-   engine = GameEngine()
-   engine.register_game_type("my_game", MyCustomGame)
-
-3. **Add configuration**:
-
-.. code-block:: yaml
-
-   games:
-     my_game:
-       parameter1: value1
-       parameter2: value2
+To create a new game, extend the base game class and implement the required methods.
+See the :class:`negotiation_platform.games.base_game.BaseGame` API documentation for details.
 
 Action Formats
 --------------

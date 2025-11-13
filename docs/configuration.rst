@@ -23,22 +23,24 @@ Model Configuration
      # Hugging Face models
      dialogpt_medium:
        type: "huggingface"
-       model_name: "microsoft/DialoGPT-medium"
+       model_name: "model_a"
        device_map: "auto"
        torch_dtype: "float16"
        load_in_8bit: false
        max_new_tokens: 256
        temperature: 0.7
        do_sample: true
+       use_auth_token: true
        
      dialogpt_large:
        type: "huggingface" 
-       model_name: "microsoft/DialoGPT-large"
+       model_name: "model_b"
        device_map: "auto"
        torch_dtype: "float16"
        load_in_8bit: true  # Enable 8-bit quantization
        max_new_tokens: 512
        temperature: 0.8
+       use_auth_token: true
        
      # Custom model example
      custom_negotiator:
@@ -61,6 +63,7 @@ Model Configuration
 * ``max_new_tokens``: Maximum tokens to generate
 * ``temperature``: Sampling temperature (0.1-2.0)
 * ``do_sample``: Enable sampling vs greedy decoding
+* ``use_auth_token``: Use authentication token for private models
 
 Game Configuration
 ------------------
@@ -70,16 +73,13 @@ Game Configuration
 .. code-block:: yaml
 
    games:
-     company_car:
-       starting_price: 45000
-       buyer_budget: 40000
-       seller_cost: 38000  
+     company_car: 
        buyer_batna: 44000
        seller_batna: 39000
        rounds: 5
        batna_decay:
-         buyer: 0.05    # 5% decay per round
-         seller: 0.03   # 3% decay per round
+         buyer: 0.025    # 5% decay per round
+         seller: 0.025   # 3% decay per round
          
      resource_allocation:
        total_gpu_hours: 80

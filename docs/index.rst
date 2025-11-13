@@ -6,14 +6,27 @@ This platform enables researchers to study negotiation behaviors, biases, and st
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: User Guide:
 
    installation
    quickstart
-   api/modules
-   examples
    configuration
-   games
+   examples
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference:
+
+   api/core
+   api/games
+   api/models
+   api/metrics
+   api/analysis
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Development:
+
    docstring_guidelines
 
 Features
