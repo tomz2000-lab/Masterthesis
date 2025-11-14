@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=company_car
 #SBATCH --partition=standard
-#SBATCH --nodelist=jn117,jn118,jn120  # Target known working nodes
 #SBATCH --gres=gpu:L40:1
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
