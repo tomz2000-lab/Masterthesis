@@ -29,7 +29,59 @@ from .metrics_calculator import MetricsCalculator
 
 
 class SessionManager:
-    """High-level driver that runs a single negotiation session."""
+    """
+    High-level driver that orchestrates complete negotiation sessions between AI agents.
+    
+    This class coordinates all aspects of a negotiation session, from game initialization
+    through completion and metrics calculation. It serves as the central orchestrator
+    that manages turn-based interactions, validates actions, handles errors, and computes
+    final performance metrics.
+    
+    Key Responsibilities:
+        - Game bootstrap and initial state creation
+        - Turn-based scheduling and player action coordination  
+        - Action validation using game-specific rules
+        - State transition management and action history logging
+        - Game termination detection based on stopping criteria
+        - Comprehensive metrics calculation via MetricsCalculator
+        - Fault tolerance for malformed LLM outputs with retry logic
+        - Winner determination and performance analysis
+    
+    Workflow:
+        1. Initialize game instance with specified configuration
+        2. Establish initial game state and player assignments
+        3. Coordinate alternating turns between players
+        4. Validate each action against game rules
+        5. Process valid actions and update game state
+        6. Log all actions and state transitions
+        7. Check termination conditions after each round
+        8. Calculate comprehensive metrics upon completion
+        9. Return enriched results with performance analysis
+    
+    Attributes:
+        llm_manager (LLMManager): Manages AI model loading and interaction.
+        game_engine (GameEngine): Creates and manages game instances.
+        metrics_calculator (MetricsCalculator): Computes performance metrics.
+        max_turn_retries (int): Maximum retry attempts for invalid actions.
+        logger (logging.Logger): Logger for session events and debugging.
+    
+    Example:
+        >>> llm_manager = LLMManager(model_configs)
+        >>> game_engine = GameEngine()
+        >>> metrics_calc = MetricsCalculator()
+        >>> session = SessionManager(llm_manager, game_engine, metrics_calc)
+        >>> result = session.run_negotiation(
+        ...     game_type="price_bargaining",
+        ...     players=["model_a", "model_b"],
+        ...     game_config={"max_rounds": 5}
+        ... )
+        >>> print(result['agreement_reached'])
+        True
+    
+    Raises:
+        ValueError: If invalid game type or player configuration provided.
+        RuntimeError: If session execution fails due to unrecoverable errors.
+    """
 
     # ------------------------------------------------------------------ #
     # CONSTRUCTION                                                       #
@@ -43,6 +95,36 @@ class SessionManager:
         max_turn_retries: int = 3,
         logger: Optional[logging.Logger] = None,
     ) -> None:
+        """
+        Initialize a new SessionManager instance with required components.
+        
+        Creates a session manager that orchestrates negotiations between AI agents
+        using the provided LLM manager, game engine, and metrics calculator.
+        
+        Args:
+            llm_manager (LLMManager): Manager for loading and interacting with AI models.
+                Must be configured with the models that will participate in negotiations.
+            game_engine (GameEngine): Engine for creating and managing game instances.
+                Should have all required game types registered.
+            metrics_calculator (MetricsCalculator): Calculator for computing performance metrics.
+                Will be used to analyze negotiation outcomes and player performance.
+            max_turn_retries (int, optional): Maximum number of retry attempts when a player
+                provides an invalid action. Defaults to 3. Higher values increase robustness
+                but may slow down sessions with consistently invalid players.
+            logger (logging.Logger, optional): Logger for session events and debugging.
+                If None, creates a new logger using the class name.
+        
+        Example:
+            >>> llm_manager = LLMManager({"model_a": model_config})
+            >>> game_engine = GameEngine()
+            >>> metrics_calc = MetricsCalculator()
+            >>> session = SessionManager(
+            ...     llm_manager=llm_manager,
+            ...     game_engine=game_engine, 
+            ...     metrics_calculator=metrics_calc,
+            ...     max_turn_retries=5  # Allow more retries for unstable models
+            ... )
+        """
         self.llm_manager = llm_manager
         self.game_engine = game_engine
         self.metrics_calculator = metrics_calculator

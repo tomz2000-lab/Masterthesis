@@ -1,3 +1,34 @@
+"""
+Negotiation Metrics Analysis and Statistics
+===========================================
+
+This module provides comprehensive statistical analysis tools for negotiation
+metrics and performance data. It processes negotiation logs and computes
+advanced statistical measures for research and evaluation purposes.
+
+Key Features:
+    - Log parsing and data extraction from negotiation sessions
+    - Agent-based metrics analysis with model performance tracking
+    - Advanced statistical testing for research validation
+    - Performance comparison across different negotiation scenarios
+    - Research-grade data processing and reporting
+
+Analysis Capabilities:
+    - Agent Performance Analysis: Tracks individual model metrics over time
+    - Statistical Distribution Testing: Validates metric distributions
+    - Comparative Analysis: Compares performance across models and games
+    - Correlation Analysis: Identifies relationships between metrics
+    - Longitudinal Analysis: Tracks performance changes over sessions
+
+Usage:
+    This module is designed for researchers analyzing negotiation platform
+    output logs. It provides both command-line and programmatic interfaces
+    for comprehensive statistical analysis of agent performance metrics.
+
+Example:
+    python metrics_statistics.py negotiation_log.out
+"""
+
 import re
 import sys
 import pandas as pd

@@ -1,7 +1,36 @@
 #!/usr/bin/env python3
 """
-Main entry point for the Negotiation Platform.
-Demonstrates usage and provides example runs.
+Negotiation Platform - Main Entry Point
+=======================================
+
+This module serves as the primary entry point for the Negotiation Platform,
+providing command-line interface, demonstration capabilities, and example
+usage patterns for researchers and developers.
+
+Key Features:
+    - Command-line interface for quick testing and experimentation
+    - Single negotiation runs for focused analysis
+    - Comprehensive model comparison across multiple games
+    - Interactive mode for guided exploration
+    - Configurable logging and output options
+    - Integration examples for all platform components
+
+Usage Modes:
+    1. Quick Mode: Single negotiation with default settings
+    2. Comparison Mode: Full model comparison across games
+    3. Interactive Mode: Guided selection of options
+    4. Custom Mode: Programmatic usage with specific configurations
+
+Example Command Lines:
+    python main.py --quick --models model_a model_b --game company_car
+    python main.py --comparison --models model_a model_b model_c
+    python main.py --log-level DEBUG
+
+Architecture:
+    The main module demonstrates the complete platform initialization
+    workflow: ConfigManager -> LLMManager -> GameEngine -> MetricsCalculator
+    -> SessionManager -> Results. This pattern should be followed for
+    custom integrations and extensions.
 """
 #from dotenv import load_dotenv
 #load_dotenv()
@@ -28,7 +57,41 @@ from negotiation_platform.core.config_manager import ConfigManager
 
 
 def setup_logging(level="INFO"):
-    """Setup logging configuration."""
+    """
+    Configure comprehensive logging for the negotiation platform.
+    
+    Sets up dual-output logging (file and console) with detailed formatting
+    for debugging, monitoring, and analysis of negotiation sessions.
+    
+    Args:
+        level (str, optional): Logging level (DEBUG, INFO, WARNING, ERROR).
+            Defaults to "INFO". DEBUG provides detailed execution traces,
+            INFO shows key events and progress, WARNING highlights potential
+            issues, ERROR logs only critical failures.
+    
+    Logging Configuration:
+        - File Output: negotiation_platform.log (persistent record)
+        - Console Output: Real-time feedback during execution
+        - Format: Timestamp - Logger Name - Level - Message
+        - Rotation: Not configured (manual cleanup required)
+    
+    Log Categories:
+        - SessionManager: Negotiation progress and outcomes
+        - LLMManager: Model loading, switching, and memory management
+        - GameEngine: Game creation and state transitions
+        - MetricsCalculator: Performance analysis and calculations
+        - Individual Games: Game-specific events and decisions
+    
+    Example:
+        >>> setup_logging("DEBUG")
+        >>> logger = logging.getLogger(__name__)
+        >>> logger.info("Platform initialized successfully")
+        2023-12-01 10:30:45,123 - __main__ - INFO - Platform initialized successfully
+    
+    Note:
+        Should be called early in application startup before other components
+        are initialized to ensure all log messages are captured.
+    """
     logging.basicConfig(
         level=getattr(logging, level),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -40,8 +103,63 @@ def setup_logging(level="INFO"):
 
 
 def run_single_negotiation(config_manager, models, game_type="company_car"):
-    """Run a single negotiation example."""
-    print(f"\n=== Running Single {game_type.replace('_', ' ').title()} Negotiation ===")
+    """
+    Execute a single negotiation session between two AI models for analysis.
+    
+    Demonstrates the complete negotiation workflow from platform initialization
+    through result analysis. Useful for focused testing, debugging, and detailed
+    analysis of specific model interactions.
+    
+    Args:
+        config_manager (ConfigManager): Initialized configuration manager containing
+            model definitions, game settings, and platform parameters.
+        models (List[str]): List of model identifiers to use as negotiation
+            participants. Only the first two models are used for bilateral games.
+        game_type (str, optional): Type of negotiation game to run. Must be
+            registered in the GameEngine. Options include:
+                - "company_car": Bilateral vehicle price negotiation
+                - "resource_allocation": Multi-resource team distribution
+                - "integrative_negotiations": Multi-issue collaborative negotiation
+            Defaults to "company_car".
+    
+    Returns:
+        Dict[str, Any]: Complete negotiation results containing:
+            - agreement_reached (bool): Whether players reached an agreement
+            - agreement_round (int): Round when agreement was reached
+            - final_utilities (Dict[str, float]): Final utility values per player
+            - metrics (Dict[str, Dict[str, float]]): Computed performance metrics
+            - session_metadata (Dict[str, Any]): Session information and timestamps
+            - actions_history (List[Dict]): Complete action log for analysis
+    
+    Workflow:
+        1. Initialize all platform components with configurations
+        2. Set up lazy-loading LLM manager for memory efficiency
+        3. Create game instance with specified type and configuration
+        4. Execute negotiation session with turn-based interaction
+        5. Calculate comprehensive performance metrics
+        6. Display results and maintain model state for reuse
+    
+    Example:
+        >>> config = ConfigManager()
+        >>> models = ["model_a", "model_b"]
+        >>> result = run_single_negotiation(config, models, "company_car")
+        >>> print(result['agreement_reached'])
+        True
+        >>> print(result['metrics']['utility_surplus'])
+        {'model_a': 2500.0, 'model_b': 1800.0}
+    
+    Performance Notes:
+        - Uses lazy loading to minimize GPU memory usage
+        - Models remain loaded after completion for potential reuse
+        - Detailed logging provides debugging and analysis capabilities
+        - All metrics are calculated automatically for comprehensive analysis
+    
+    Error Handling:
+        Exceptions during negotiation are logged and may result in incomplete
+        results. Check the 'success' field in returned results and logs for
+        error details.
+    """
+    print(f"\n=== Running Single {game_type.replace('_', ' ').title()} Negotiation ==")
 
     # Initialize components
     llm_manager = LLMManager(config_manager.get_config("model_configs"))

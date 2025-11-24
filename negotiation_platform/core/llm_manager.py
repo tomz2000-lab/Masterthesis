@@ -1,6 +1,32 @@
 """
-LLM Manager for handling multiple models with plug-and-play functionality
+LLM Manager
+===========
+
+The LLMManager provides comprehensive management of Large Language Model instances
+with advanced features including lazy loading, memory management, and plug-and-play
+model switching for negotiation sessions.
+
+Key Features:
+    - Dynamic model loading and unloading with memory management
+    - Thread-safe model operations with concurrent session support
+    - Lazy loading strategy to minimize GPU memory usage
+    - LRU (Least Recently Used) eviction for memory optimization
+    - Model aliasing and shared instance management
+    - Plug-and-play architecture for different model types
+    - Automatic model registration from configuration files
+
+Architecture:
+    The LLMManager uses a sophisticated caching strategy where models are loaded
+    on-demand and shared across sessions when possible. This minimizes GPU memory
+    usage while maintaining performance for active negotiations.
+
+Memory Management:
+    - Lazy loading: Models loaded only when first requested
+    - Shared instances: Same model shared across multiple model IDs
+    - LRU eviction: Least recently used models unloaded when memory limit reached
+    - Thread safety: All operations protected by locks for concurrent access
 """
+
 import yaml
 import threading
 from typing import Dict, List, Any, Optional
@@ -8,9 +34,98 @@ from negotiation_platform.models.base_model import BaseLLMModel
 from negotiation_platform.models.hf_model_wrapper import HuggingFaceModelWrapper
 
 class LLMManager:
-    """Manages multiple LLM models with plug-and-play switching"""
+    """
+    Advanced Large Language Model management system with memory optimization and threading support.
+    
+    The LLMManager orchestrates the complete lifecycle of AI model instances used in negotiations.
+    It provides intelligent loading, caching, and memory management to efficiently handle multiple
+    models while minimizing GPU memory usage and maximizing performance.
+    
+    Core Capabilities:
+        - Dynamic model registration from configuration files
+        - Lazy loading with on-demand model instantiation
+        - Intelligent memory management with LRU eviction
+        - Thread-safe operations for concurrent negotiation sessions
+        - Model aliasing for flexible configuration management
+        - Shared model instances to reduce memory footprint
+        - Plug-and-play architecture supporting multiple model types
+    
+    Memory Strategy:
+        Uses a sophisticated multi-level caching system:
+        1. Model Registry: Configurations for all available models
+        2. Shared Instances: Actual loaded models (limited by max_loaded_models)
+        3. Model Aliases: Mapping from model IDs to shared instances
+        4. LRU Eviction: Automatic unloading of least recently used models
+    
+    Attributes:
+        models (Dict[str, BaseLLMModel]): Registry of model ID to wrapper instances.
+        shared_models (Dict[str, BaseLLMModel]): Cache of actual loaded model instances.
+        model_aliases (Dict[str, str]): Mapping from model IDs to shared model names.
+        model_configs (Dict[str, Dict[str, Any]]): Configuration for all registered models.
+        max_loaded_models (int): Maximum number of models to keep loaded simultaneously.
+        loaded_order (List[str]): LRU tracking for loaded models.
+        manager_lock (threading.Lock): Thread synchronization for safe concurrent access.
+    
+    Example:
+        >>> model_configs = {
+        ...     "model_a": {"model_name": "meta-llama/Llama-2-7b-chat-hf", "type": "huggingface"},
+        ...     "model_b": {"model_name": "mistralai/Mistral-7B-Instruct-v0.1", "type": "huggingface"}
+        ... }
+        >>> llm_manager = LLMManager(model_configs)
+        >>> response = llm_manager.generate_response("model_a", "Hello, how are you?")
+        >>> print(response)
+        "I'm doing well, thank you for asking!"
+    
+    Thread Safety:
+        All public methods are thread-safe and can be called concurrently from multiple
+        negotiation sessions without risk of race conditions or memory corruption.
+    """
 
     def __init__(self, model_configs: dict):
+        """
+        Initialize the LLMManager with model configurations and setup internal data structures.
+        
+        Creates a new LLMManager instance with the provided model configurations and
+        initializes all internal data structures for model management, caching, and
+        thread safety. Models are registered but not loaded until first requested.
+        
+        Args:
+            model_configs (dict): Dictionary mapping model IDs to their configurations.
+                Each configuration should contain:
+                    - model_name (str): HuggingFace model identifier
+                    - type (str): Model wrapper type (e.g., 'huggingface')
+                    - device (str): Target device ('cuda:0', 'cpu', etc.)
+                    - generation_config (dict): Model generation parameters
+                    - api_key (str): Authentication token (environment variable)
+        
+        Architecture Setup:
+            - models: Registry mapping model IDs to wrapper instances
+            - shared_models: Cache of actual loaded model instances (limited size)
+            - model_aliases: Mapping from model IDs to shared model names
+            - loaded_order: LRU tracking list for memory management
+            - manager_lock: Thread synchronization primitive
+        
+        Memory Management:
+            The manager is configured to keep a maximum of 2 models loaded simultaneously
+            (configurable via max_loaded_models). This prevents GPU memory exhaustion
+            while maintaining reasonable performance for active negotiations.
+        
+        Example:
+            >>> configs = {
+            ...     "model_a": {
+            ...         "model_name": "meta-llama/Llama-2-7b-chat-hf",
+            ...         "type": "huggingface",
+            ...         "device": "cuda:0"
+            ...     }
+            ... }
+            >>> manager = LLMManager(configs)
+            >>> print(len(manager.model_configs))
+            1
+        
+        Note:
+            Models are registered during initialization but not loaded into memory.
+            Loading occurs lazily when the first generation request is made.
+        """
         print(f"[DEBUG] LLMManager received model_configs: {model_configs}")
         print(f"[DEBUG] Type of model_configs: {type(model_configs)}")
         print(f"[DEBUG] Keys in model_configs: {list(model_configs.keys()) if model_configs else 'None or empty'}")
@@ -56,6 +171,46 @@ class LLMManager:
             self.model_configs = {"models": {}}
 
     def register_model(self, model_id: str, model_config: Dict[str, Any]):
+        """
+        Register a new model configuration without loading it into memory.
+        
+        Adds a model configuration to the registry, making it available for future
+        loading and generation requests. The model is not loaded into memory during
+        registration - this occurs lazily when first requested.
+        
+        Args:
+            model_id (str): Unique identifier for this model instance. Used to
+                reference the model in generation requests.
+            model_config (Dict[str, Any]): Configuration dictionary containing:
+                - model_name (str): HuggingFace model identifier
+                - type (str): Model wrapper type (currently supports 'huggingface')
+                - device (str): Target device specification
+                - generation_config (dict): Model-specific generation parameters
+                - api_key (str): Authentication token reference
+        
+        Supported Model Types:
+            - huggingface: HuggingFace Transformers models with GPU/CPU support
+        
+        Registration Process:
+            1. Validates model type is supported
+            2. Creates model alias mapping for shared instance management
+            3. Stores configuration for lazy loading
+            4. Sets up wrapper instance placeholder
+        
+        Example:
+            >>> manager = LLMManager({})
+            >>> config = {
+            ...     "model_name": "meta-llama/Llama-2-7b-chat-hf",
+            ...     "type": "huggingface",
+            ...     "device": "cuda:0"
+            ... }
+            >>> manager.register_model("my_model", config)
+            >>> "my_model" in manager.models
+            True
+        
+        Raises:
+            ValueError: If model_type is not supported (currently only 'huggingface').
+        """
         model_type = model_config.get('type', 'huggingface')
 
         if model_type != 'huggingface':

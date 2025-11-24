@@ -1,3 +1,30 @@
+"""
+Game Engine
+===========
+
+The GameEngine serves as a factory and registry for all negotiation game types.
+It manages game registration, instantiation, and provides discovery capabilities
+for available game types within the platform.
+
+Key Features:
+    - Dynamic game type registration and discovery
+    - Type-safe game instantiation with configuration validation
+    - Built-in registry of default negotiation games
+    - Extensible architecture for custom game implementations
+    - Comprehensive game metadata and information retrieval
+
+Supported Game Types:
+    - company_car: Bilateral price negotiation for vehicle purchases
+    - resource_allocation: Multi-resource distribution between teams
+    - integrative_negotiations: Multi-issue collaborative negotiations
+
+Architecture:
+    The GameEngine follows the Factory pattern, maintaining a registry of
+    game classes mapped to string identifiers. This allows for clean separation
+    between game logic and session management while enabling runtime game
+    type selection and dynamic extension.
+"""
+
 from typing import Dict, Type, Any, Optional
 import logging
 from negotiation_platform.games.base_game import BaseGame
@@ -7,9 +34,62 @@ from negotiation_platform.games.integrative_negotiation import IntegrativeNegoti
 
 
 class GameEngine:
-    """Manages game registration and instantiation."""
+    """
+    Factory and registry for negotiation game types with dynamic instantiation capabilities.
+    
+    The GameEngine manages the complete lifecycle of game type registration and instance
+    creation. It maintains a registry of available game types and provides type-safe
+    instantiation with configuration validation.
+    
+    Design Pattern:
+        Implements the Factory pattern combined with a Registry pattern to enable
+        clean separation between game logic and session orchestration. Game types
+        are registered once and can be instantiated multiple times with different
+        configurations.
+    
+    Key Features:
+        - Type-safe game registration with BaseGame inheritance validation
+        - Configuration-driven game instantiation
+        - Built-in registration of default game types
+        - Runtime game type discovery and metadata retrieval
+        - Extensible architecture for custom game implementations
+        - Comprehensive error handling for invalid game types
+    
+    Attributes:
+        registered_games (Dict[str, Type[BaseGame]]): Registry mapping game type names
+            to their corresponding game class implementations.
+        logger (logging.Logger): Logger for game engine events and debugging.
+    
+    Example:
+        >>> engine = GameEngine()
+        >>> print(engine.get_available_games())
+        ['company_car', 'resource_allocation', 'integrative_negotiations']
+        >>> game = engine.create_game('company_car', {'max_rounds': 5})
+        >>> isinstance(game, BaseGame)
+        True
+    
+    Raises:
+        ValueError: If attempting to register invalid game class or create unknown game type.
+    """
 
     def __init__(self):
+        """
+        Initialize a new GameEngine instance with default game types.
+        
+        Creates an empty game registry and automatically registers all built-in
+        negotiation game types. The engine is immediately ready for use after
+        initialization.
+        
+        Default Game Types Registered:
+            - company_car: Bilateral vehicle price negotiation
+            - resource_allocation: Multi-resource team distribution
+            - integrative_negotiations: Multi-issue collaborative negotiation
+        
+        Example:
+            >>> engine = GameEngine()
+            >>> 'company_car' in engine.get_available_games()
+            True
+        """
         self.registered_games: Dict[str, Type[BaseGame]] = {}
         self.logger = logging.getLogger(__name__) #Must become before next line in order to work
         self._register_default_games()
@@ -21,7 +101,29 @@ class GameEngine:
         self.register_game_type("integrative_negotiations", IntegrativeNegotiationsGame)
 
     def register_game_type(self, game_name: str, game_class: Type[BaseGame]):
-        """Register a new game type."""
+        """
+        Register a new game type with the engine for future instantiation.
+        
+        Adds a new game class to the registry, making it available for creation
+        via create_game(). Validates that the provided class properly inherits
+        from BaseGame to ensure interface compliance.
+        
+        Args:
+            game_name (str): The unique identifier for this game type. Used in
+                create_game() calls and must be unique within the registry.
+            game_class (Type[BaseGame]): The game class to register. Must inherit
+                from BaseGame and implement all required abstract methods.
+        
+        Raises:
+            ValueError: If game_class does not inherit from BaseGame.
+        
+        Example:
+            >>> from my_games import CustomNegotiationGame
+            >>> engine = GameEngine()
+            >>> engine.register_game_type("custom_game", CustomNegotiationGame)
+            >>> "custom_game" in engine.get_available_games()
+            True
+        """
         if not issubclass(game_class, BaseGame):
             raise ValueError(f"Game class must inherit from BaseGame")
 
@@ -29,7 +131,36 @@ class GameEngine:
         self.logger.info(f"Registered game type: {game_name}")
 
     def create_game(self, game_type: str, config: Dict[str, Any]) -> BaseGame:
-        """Create game instance from configuration."""
+        """
+        Create a new game instance of the specified type with given configuration.
+        
+        Instantiates a registered game class with the provided configuration dictionary.
+        The configuration is passed directly to the game's constructor and should contain
+        all necessary parameters for that specific game type.
+        
+        Args:
+            game_type (str): The registered name of the game type to create. Must be
+                a key that exists in the registered_games registry.
+            config (Dict[str, Any]): Configuration dictionary containing game-specific
+                parameters. The exact structure depends on the target game type:
+                - company_car: max_rounds, batna_decay_rate, etc.
+                - resource_allocation: resource_limits, team_preferences, etc.
+                - integrative_negotiations: issues, priorities, etc.
+        
+        Returns:
+            BaseGame: A fully initialized game instance ready for play.
+        
+        Raises:
+            ValueError: If game_type is not registered in the engine.
+            TypeError: If config is missing required parameters for the game type.
+        
+        Example:
+            >>> engine = GameEngine()
+            >>> config = {"max_rounds": 5, "batna_decay_rate": 0.1}
+            >>> game = engine.create_game("company_car", config)
+            >>> game.max_rounds
+            5
+        """
         if game_type not in self.registered_games:
             raise ValueError(f"Unknown game type: {game_type}")
 
