@@ -1,6 +1,8 @@
 Configuration
 =============
 
+The Negotiation Platform is highly configurable, allowing researchers to customize every aspect of the negotiation environment. This includes model parameters for different LLMs, game-specific rules and economics, and platform behavior settings. All configuration is managed through structured YAML files that ensure reproducible experiments and easy parameter tuning.
+
 The Negotiation Platform uses YAML configuration files to manage models, games, and platform settings.
 
 Configuration Files
@@ -151,13 +153,15 @@ Game Configuration
 **Company Car Parameters**:
 
 * ``starting_price``: Initial asking price (€45,000)
-* ``buyer_budget``: Maximum buyer can afford (€42,000)
-* ``seller_cost``: Seller's minimum cost (€36,000)
-* ``buyer_batna``: Buyer's best alternative cost (€41,000)
-* ``seller_batna``: Seller's minimum acceptable price (€39,000)
+* ``buyer_budget``: Maximum buyer can afford (€42,000) - *For player context only*
+* ``seller_cost``: Seller's minimum cost (€36,000) - *For player context only*
+* ``buyer_batna``: Buyer's best alternative cost (€41,000) - *Used in utility calculations*
+* ``seller_batna``: Seller's minimum acceptable price (€39,000) - *Used in utility calculations*
 * ``rounds``: Maximum negotiation rounds (5)
 * ``batna_decay``: Per-round BATNA degradation (1.5% for both parties)
 * ``acceptance_training``: Parameters to encourage realistic acceptance behavior
+
+**Note**: The ``buyer_budget`` and ``seller_cost`` parameters are provided to players as contextual information during negotiations but are not used in the actual utility calculations or game logic. The platform relies entirely on BATNA values for determining outcomes and player utilities. These contextual parameters help create more realistic negotiation scenarios by giving players additional background information about their financial constraints, even though the core game mechanics are driven by BATNA-based calculations.
 
 **Resource Allocation Parameters**:
 
