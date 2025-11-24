@@ -1,7 +1,19 @@
-Results and Analysis
-===================
+Results
+=======
 
-Statistical analysis and research tools for negotiation data processing and performance evaluation.
+Statistical analysis and research tools for processing negotiation data and evaluating model performance.
+
+This package provides comprehensive analysis capabilities for researchers studying negotiation behaviors, 
+biases, and AI model performance in structured negotiation environments.
+
+Key Features
+-----------
+
+* **Bias Detection**: Advanced statistical testing for role bias and first-mover advantages
+* **Model Comparison**: Sophisticated comparison tools with bias adjustment
+* **Performance Metrics**: Agent-based metrics analysis and longitudinal tracking
+* **Statistical Reporting**: Research-grade statistical analysis with effect sizes
+* **Data Processing**: Robust log parsing and data extraction capabilities
 
 Results Package
 --------------
