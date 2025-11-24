@@ -1,3 +1,45 @@
+"""
+Company Car Price Bargaining Game
+=================================
+
+Bilateral negotiation game for vehicle price negotiations with realistic market dynamics.
+
+This module implements a structured car buying/selling negotiation where a buyer and seller
+negotiate the price of a company vehicle. The game includes realistic elements such as:
+
+- Time-decaying BATNAs (Best Alternatives to Negotiated Agreement)
+- Strategic guidance and structured prompts
+- Market-realistic price ranges and constraints
+- JSON-based proposal system for structured interactions
+
+Key Features:
+    - Bilateral negotiation between buyer and seller roles
+    - Dynamic BATNA values that decay over time to simulate urgency
+    - Structured proposal system with validation
+    - Strategic prompts to guide realistic negotiation behavior
+    - Win-win outcome detection and scoring
+
+Game Parameters:
+    - Starting Price: Initial vehicle price for negotiation
+    - Buyer Budget: Maximum amount buyer can afford
+    - Seller Cost: Minimum acceptable amount for seller  
+    - BATNA Values: Alternative options for both parties
+    - Time Decay: How BATNAs change over negotiation rounds
+
+Example:
+    >>> config = {
+    ...     "starting_price": 42000,
+    ...     "buyer_budget": 45000,
+    ...     "seller_cost": 38000,
+    ...     "buyer_batna": 41000,
+    ...     "seller_batna": 39000,
+    ...     "rounds": 5,
+    ...     "batna_decay": 0.02
+    ... }
+    >>> game = CompanyCarGame(config)
+    >>> game.initialize_game(["buyer_agent", "seller_agent"])
+"""
+
 import random
 import re
 import json

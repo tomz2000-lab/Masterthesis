@@ -1,228 +1,95 @@
 from typing import Dict, List, Any, Optional, Tuple
-import random
-import re
-import json
 from .base_game import BaseGame, PlayerAction
-from .negotiation_tools import calculate_percentage_difference, calculate_utility
 
 
 class IntegrativeNegotiationsGame(BaseGame):
     """
-    Integrative negotiations game between IT and Marketing teams with price bargaining logic.
+    Integrative negotiations game between IT and Marketing teams.
+    Based on document specifications for office space and collaborative responsibilities.
 
-    Four issues with point values (unchanged from original):
+    Four issues with point values:
     - Server Room Size: 50 sqm (10), 100 sqm (30), 150 sqm (60)
     - Meeting Room Access: 2 days/week (10), 4 days/week (30), 7 days/week (60)
-    - Cleaning Responsibility: IT handles (10), Shared (30), Outsourced (60)
+    - Cleaning Responsibility: IT handles (30), Shared (50), Outsourced (10)
     - Branding Visibility: Minimal (10), Moderate (30), Prominent (60)
     """
 
     def __init__(self, config: Dict[str, Any]):
-        # Initialize base class with game type as game_id  
+        # Initialize base class with game type as game_id
         super().__init__(game_id="integrative_negotiations", config=config)
-        required_fields = [
-            "batnas", "rounds", "batna_decay"
-        ]
-        for field in required_fields:
-            if field not in config:
-                raise ValueError(f"Missing required config field: {field}")
-        
-        # Extract BATNAs from the batnas dictionary
-        batnas = config["batnas"]
-        self.marketing_batna = batnas["Marketing"]
-        self.it_batna = batnas["IT"]
-        self.max_rounds = config["rounds"]
-        self.batna_decay = config["batna_decay"]
+        self.max_rounds = config.get("rounds", 10)  # Increased from 5 to 10 for complex negotiations
+        self.batna_decay = config.get("batna_decay", 0.02)  # 2% per round as specified
 
-        # Load issue configurations from config instead of hardcoding
-        if "issues" in config:
-            self.issues = {}
-            for issue_name, issue_config in config["issues"].items():
-                self.issues[issue_name] = {
-                    "options": issue_config["options"],
-                    "points": issue_config["points"],
-                    "labels": self._generate_labels(issue_name, issue_config["options"])
-                }
-        else:
-            # Fallback to hardcoded values if not in config (for backward compatibility)
-            self.issues = {
-                "server_room": {
-                    "options": [50, 100, 150],  # sqm
-                    "points": [10, 30, 60],
-                    "labels": ["50 sqm", "100 sqm", "150 sqm"]
-                },
-                "meeting_access": {
-                    "options": [2, 4, 7],  # days per week
-                    "points": [10, 30, 60],
-                    "labels": ["2 days/week", "4 days/week", "7 days/week"]
-                },
-                "cleaning": {
-                    "options": ["IT", "Shared", "Outsourced"],
-                    "points": [10, 30, 60],
-                    "labels": ["IT handles", "Shared responsibility", "Outsourced"]
-                },
-                "branding": {
-                    "options": ["Minimal", "Moderate", "Prominent"],
-                    "points": [10, 30, 60],
-                    "labels": ["Minimal visibility", "Moderate visibility", "Prominent visibility"]
-                }
+        # Issue configurations from document
+        self.issues = {
+            "server_room": {
+                "options": [50, 100, 150],  # sqm
+                "points": [10, 30, 60],
+                "labels": ["50 sqm", "100 sqm", "150 sqm"]
+            },
+            "meeting_access": {
+                "options": [2, 4, 7],  # days per week
+                "points": [10, 30, 60],
+                "labels": ["2 days/week", "4 days/week", "7 days/week"]
+            },
+            "cleaning": {
+                "options": ["IT", "Shared", "Outsourced"],
+                "points": [30, 50, 10],
+                "labels": ["IT handles", "Shared responsibility", "Outsourced"]
+            },
+            "branding": {
+                "options": ["Minimal", "Moderate", "Prominent"],
+                "points": [10, 30, 60],
+                "labels": ["Minimal visibility", "Moderate visibility", "Prominent visibility"]
             }
+        }
 
-        # Load preference weights from config instead of hardcoding
-        if "weights" in config:
-            self.weights = config["weights"]
-        else:
-            # Fallback to hardcoded values if not in config (for backward compatibility)
-            self.weights = {
-                "IT": {
-                    "server_room": 0.4,  # 40%
-                    "meeting_access": 0.1,  # 10%
-                    "cleaning": 0.3,  # 30%
-                    "branding": 0.2  # 20%
-                },
-                "Marketing": {
-                    "server_room": 0.1,  # 10%
-                    "meeting_access": 0.4,  # 40%
-                    "cleaning": 0.2,  # 20%
-                    "branding": 0.3  # 30%
-                }
+        # Preference weights from document specifications
+        self.weights = {
+            "IT": {
+                "server_room": 0.4,  # 40%
+                "meeting_access": 0.1,  # 10%
+                "cleaning": 0.3,  # 30%
+                "branding": 0.2  # 20%
+            },
+            "Marketing": {
+                "server_room": 0.1,  # 10%
+                "meeting_access": 0.4,  # 40%
+                "cleaning": 0.2,  # 20%
+                "branding": 0.3  # 30%
             }
+        }
 
-        # Base BATNA values - keeping original approach but with price bargaining decay
-        #self.base_batnas = config.get("batnas", {"IT": 35, "Marketing": 30})
-
-    def _generate_labels(self, issue_name: str, options: List[Any]) -> List[str]:
-        """Generate descriptive labels for issue options."""
-        if issue_name == "server_room":
-            return [f"{option} sqm" for option in options]
-        elif issue_name == "meeting_access":
-            return [f"{option} days/week" for option in options]
-        elif issue_name == "cleaning":
-            label_map = {
-                "IT": "IT handles",
-                "Shared": "Shared responsibility", 
-                "Outsourced": "Outsourced"
-            }
-            return [label_map.get(str(option), str(option)) for option in options]
-        elif issue_name == "branding":
-            label_map = {
-                "Minimal": "Minimal visibility",
-                "Moderate": "Moderate visibility",
-                "Prominent": "Prominent visibility"
-            }
-            return [label_map.get(str(option), str(option)) for option in options]
-        else:
-            # Generic labels for unknown issues
-            return [str(option) for option in options]
-
-    def validate_json_response(self, response: str) -> bool:
-        """Check if response is valid JSON with proper structure."""
-        try:
-            data = json.loads(response.strip())
-            return isinstance(data, dict) and "type" in data
-        except (json.JSONDecodeError, TypeError):
-            return False
-
-    def parse_json_response(self, response: str) -> Dict[str, Any]:
-        """Parse pure JSON response format similar to company car game."""
-        try:
-            # Clean the response by removing common instruction patterns
-            cleaned_response = response.strip()
-            
-            # Remove any surrounding text that isn't JSON
-            json_match = re.search(r'\{[^{}]*"type"[^{}]*\}', cleaned_response)
-            if json_match:
-                json_str = json_match.group(0)
-                decision_data = json.loads(json_str)
-                
-                # Validate that decision has required type field
-                if not decision_data.get("type"):
-                    print(f"⚠️ Decision missing 'type' field: {decision_data}")
-                    decision_data = {"type": "reject"}
-                    
-                return {
-                    "decision": decision_data,
-                    "raw_response": response
-                }
-            else:
-                # Try to parse the entire response as JSON
-                decision_data = json.loads(cleaned_response)
-                if not decision_data.get("type"):
-                    decision_data = {"type": "reject"}
-                    
-                return {
-                    "decision": decision_data,
-                    "raw_response": response
-                }
-                
-        except json.JSONDecodeError as e:
-            print(f"⚠️ JSON decode error: {e}")
-            print(f"Raw response: {response[:200]}...")
-            
-            # Try to extract type and proposal manually as fallback
-            type_match = re.search(r'"type":\s*"([^"]+)"', response)
-            proposal_match = re.search(r'"proposal":\s*(\{[^}]+\})', response)
-            if type_match:
-                decision_data = {"type": type_match.group(1)}
-                if proposal_match:
-                    try:
-                        proposal_data = json.loads(proposal_match.group(1))
-                        decision_data["proposal"] = proposal_data
-                    except:
-                        pass
-                return {
-                    "decision": decision_data,
-                    "raw_response": response
-                }
-            
-            # Ultimate fallback
-            return {
-                "decision": {"type": "reject"},
-                "raw_response": response
-            }
-        except Exception as e:
-            print(f"⚠️ Failed to parse JSON response: {e}")
-            return {
-                "decision": {"type": "reject"}, 
-                "raw_response": response
-            }
+        # Base BATNA values - must match point-based utility scale (max ~57 points)
+        # Set BATNAs to create negotiation pressure but be achievable
+        self.base_batnas = config.get("batnas", {"IT": 35, "Marketing": 30})
 
     def initialize_game(self, players: List[str]) -> Dict[str, Any]:
-        """Initialize integrative negotiations game with randomized role assignment."""
+        """Initialize integrative negotiations game."""
         if len(players) != 2:
             raise ValueError("Integrative negotiations game requires exactly 2 players")
 
         self.players = players
-        
-        # Randomize role assignment like price bargaining - Fix for positional bias
-        if random.choice([True, False]):
-            self.it_team = players[0]
-            self.marketing_team = players[1]
-            print(f"🎲 [ROLE ASSIGNMENT] {players[0]} = IT, {players[1]} = MARKETING")
-        else:
-            self.it_team = players[1] 
-            self.marketing_team = players[0]
-            print(f"🎲 [ROLE ASSIGNMENT] {players[1]} = IT, {players[0]} = MARKETING")
+        self.it_team = players[0]  # First player is IT
+        self.marketing_team = players[1]  # Second player is Marketing
 
         self.game_data = {
             "game_type": "integrative_negotiations",
             "players": self.players,
             "rounds": self.max_rounds,
             "current_round": 1,
-            "role_assignments": {
-                "IT": self.it_team,
-                "Marketing": self.marketing_team
-            },
             "private_info": {
                 self.it_team: {
                     "role": "IT",
-                    "batna": self.it_batna,
-                    "preferences": "Prioritizes server room and cleaning costs"
+                    "weights": self.weights["IT"],
+                    "base_batna": self.base_batnas["IT"],
+                    "preferences": "Prioritizes server room size and cleaning responsibility"
                 },
                 self.marketing_team: {
-                    "role": "Marketing", 
-                    "batna": self.marketing_batna,
-                    "preferences": "Prioritizes meeting access and branding costs"
+                    "role": "Marketing",
+                    "weights": self.weights["Marketing"],
+                    "base_batna": self.base_batnas["Marketing"],
+                    "preferences": "Prioritizes meeting room access and branding visibility"
                 }
             },
             "public_info": {
@@ -237,50 +104,20 @@ class IntegrativeNegotiationsGame(BaseGame):
             },
             "proposals_history": [],
             "current_proposal": None,
-            "round_proposals": {},  # Track proposals by round to prevent overwriting
-            "game_config": {
-                "batna_decay": {
-                    "IT": self.batna_decay if isinstance(self.batna_decay, float) else self.batna_decay.get("IT", 0.015),
-                    "Marketing": self.batna_decay if isinstance(self.batna_decay, float) else self.batna_decay.get("Marketing", 0.015)
-                },
-                "issues": self.issues,
-                "weights": self.weights
-            }
+            "round_proposals": {}  # Track proposals by round to prevent overwriting
         }
         
         return self.game_data
 
     def get_current_batna(self, player: str, round_num: int) -> float:
         """Calculate time-adjusted BATNA for current round."""
-        if player == self.marketing_team:
-            # Handle both dict and float formats for batna_decay
-            if isinstance(self.batna_decay, dict):
-                decay_rate = self.batna_decay.get("Marketing", self.batna_decay.get("marketing", 0.0))
-            else:
-                decay_rate = self.batna_decay
-            base_batna = self.marketing_batna
-        else:
-            # Handle both dict and float formats for batna_decay
-            if isinstance(self.batna_decay, dict):
-                decay_rate = self.batna_decay.get("IT", self.batna_decay.get("it", 0.0))
-            else:
-                decay_rate = self.batna_decay
-            base_batna = self.it_batna
-
-        return base_batna * ((1 - decay_rate) ** (round_num - 1))
+        base_batna = self.base_batnas.get("IT" if "IT" in player or player == self.it_team else "Marketing", 200)
+        return base_batna * ((1 - self.batna_decay) ** (round_num - 1))
 
     def calculate_utility(self, player: str, proposal: Dict[str, Any]) -> float:
         """Calculate weighted utility for a given proposal."""
-        # Determine player role based on exact team assignment
-        if player == self.it_team:
-            player_role = "IT"
-        elif player == self.marketing_team:
-            player_role = "Marketing"
-        else:
-            # Fallback: should not happen if game is properly initialized
-            print(f"⚠️ Warning: Unknown player {player}, defaulting to IT role")
-            player_role = "IT"
-            
+        # Determine player role
+        player_role = "IT" if (player == self.it_team or "IT" in player) else "Marketing"
         player_weights = self.weights[player_role]
 
         total_utility = 0.0
@@ -333,252 +170,94 @@ class IntegrativeNegotiationsGame(BaseGame):
         return True
 
     def is_valid_action(self, player: str, action: Dict[str, Any], game_state: Dict[str, Any]) -> bool:
-        """Validate player action with enhanced structured format support and proposal limits."""
-        # Handle structured response format
-        if isinstance(action, dict) and "decision" in action:
-            action_data = action["decision"]
-        else:
-            action_data = action
-            
-        action_type = action_data.get("type", "")
-        
-        # Handle empty or invalid action types by treating as reject
-        if not action_type or action_type == "":
-            print(f"⚠️ Player {player} provided empty action type, treating as reject")
-            return True  # Allow but will be processed as reject
-            
-        max_proposals = self.max_rounds - 1  # Like price bargaining
-        player_proposals = game_state.get(f"{player}_proposal_count", 0)
+        """Validate player action."""
+        action_type = action.get("type", "")
 
         if action_type == "propose":
-            # Check proposal limit
-            if player_proposals >= max_proposals:
-                print(f"⚠️ Player {player} tried to make proposal but exceeded limit ({player_proposals}/{max_proposals})")
-                return False
-            
-            # Handle both nested and flat proposal formats
-            if "proposal" in action_data:
-                # Nested format: {"type": "propose", "proposal": {...}}
-                proposal = action_data["proposal"]
-            else:
-                # Flat format from Pydantic: {"type": "propose", "server_room": 150, ...}
-                proposal = {}
-                for field in ["server_room", "meeting_access", "cleaning", "branding"]:
-                    if field in action_data:
-                        proposal[field] = action_data[field]
-                
-                if not proposal:
-                    print(f"⚠️ Player {player} made propose action but no proposal fields found in {action_data}")
-                    return False
-            
+            proposal = action.get("proposal", {})
             return self.is_valid_proposal(proposal)
 
-        elif action_type in ["accept", "reject"]:
-            return True
-
-        elif action_type in ["counter", "counter-offer"]:
-            # Check proposal limit for counters too
-            if player_proposals >= max_proposals:
-                return False
-            
-            # Handle both nested and flat proposal formats
-            if "proposal" in action_data:
-                # Nested format
-                proposal = action_data["proposal"]
-            else:
-                # Flat format from Pydantic
-                proposal = {}
-                for field in ["server_room", "meeting_access", "cleaning", "branding"]:
-                    if field in action_data:
-                        proposal[field] = action_data[field]
-                
-                if not proposal:
-                    return False
-            
-            return self.is_valid_proposal(proposal)
-
-        elif action_type == "noop":
-            # Allow no-op actions as fallback
+        elif action_type in ["accept", "reject", "counter", "counter-offer"]:
             return True
 
         return False
 
-    def validate_response(self, response: Dict[str, Any]) -> bool:
-        """Validate the LLM response to ensure it contains a valid action."""
-        required_keys = {"type", "proposal"}
-        if not required_keys.issubset(response.keys()):
-            print(f"Invalid response: Missing keys in {response}")
-            return False
-
-        if response["type"] not in {"propose", "accept", "reject"}:
-            print(f"Invalid response type: {response['type']}")
-            return False
-
-        return True
-
     def process_actions(self, actions: Dict[str, Dict[str, Any]], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Process player actions with proposal limits and enhanced JSON validation."""
+        """Process player actions and update game state with fixed proposal tracking."""
         current_round = game_state["current_round"]
-        max_proposals = self.max_rounds - 1  # Like price bargaining
 
-        #print(f"\n{'='*80}")
-        #print(f"🔍 [PROCESS_ACTIONS] Round {current_round}: Processing actions")
-        #print(f"🔍 [PROCESS_ACTIONS] Raw actions received: {actions}")
-        #print(f"{'='*80}\n")
+        # Separate different action types
+        proposals = {player: action for player, action in actions.items()
+                     if action.get("type") == "propose"}
+        acceptances = {player: action for player, action in actions.items()
+                       if action.get("type") == "accept"}
+        rejections = {player: action for player, action in actions.items()
+                      if action.get("type") == "reject"}
+        counters = {player: action for player, action in actions.items()
+                    if action.get("type") in ["counter", "counter-offer"]}
 
-        # Initialize proposal counters if not present
-        for player in [self.it_team, self.marketing_team]:
-            if f"{player}_proposal_count" not in game_state:
-                game_state[f"{player}_proposal_count"] = 0
+        # Track proposals by round to prevent overwriting issue
+        round_key = f"round_{current_round}"
+        if round_key not in game_state["round_proposals"]:
+            game_state["round_proposals"][round_key] = {}
 
-        # Process JSON responses and extract decision data
-        processed_actions = {}
-        for player, raw_action in actions.items():
-            #print(f"🔍 [{player}] Raw action type: {type(raw_action)}")
-            #print(f"🔍 [{player}] Raw action: {raw_action}")
-            
-            if isinstance(raw_action, str):
-                # If it's a string, try to parse it as JSON response
-                parsed = self.parse_json_response(raw_action)
-                action_data = parsed["decision"]
-                #print(f"🔍 [{player}] Parsed from string, extracted decision: {action_data}")
-            elif isinstance(raw_action, dict) and "decision" in raw_action:
-                # Already structured
-                action_data = raw_action["decision"]
-                #print(f"🔍 [{player}] Dict with 'decision' key, extracted: {action_data}")
-            else:
-                # Regular action format
-                action_data = raw_action
-                #print(f"🔍 [{player}] Regular dict format: {action_data}")
-            
-            processed_actions[player] = action_data
-            #print(f"🔍 [{player}] Processed action: {action_data}\n")
-
-        # Normalize action types - treat counter/counter-offer as proposals, handle empty types
-        normalized_actions = {}
-        for player, action in processed_actions.items():
-            action_type = action.get("type", "")
-            #print(f"🔍 [{player}] Normalizing action type: '{action_type}'")
-            
-            # Handle empty or invalid action types
-            if not action_type or action_type == "":
-                print(f"⚠️ Player {player} provided empty action type, treating as reject")
-                normalized_actions[player] = {"type": "reject"}
-            elif action_type in ["counter", "counter-offer"]:
-                # Convert to propose
-                normalized_actions[player] = {"type": "propose", "proposal": action.get("proposal", {})}
-                print(f"🔧 [{player}] Converted counter to propose: {normalized_actions[player]}")
-            elif action_type == "propose":
-                # Handle both nested and flat proposal formats
-                if "proposal" in action:
-                    # Already in nested format
-                    normalized_actions[player] = action
-                    print(f"✅ [{player}] Already in nested format: {action}")
-                else:
-                    # Flat format - extract proposal fields and nest them
-                    proposal_fields = {}
-                    for field in ["server_room", "meeting_access", "cleaning", "branding"]:
-                        if field in action:
-                            proposal_fields[field] = action[field]
-                    
-                    if proposal_fields:
-                        print(f"🔧 [FORMAT FIX] Converting flat proposal to nested format for {player}: {proposal_fields}")
-                        normalized_actions[player] = {"type": "propose", "proposal": proposal_fields}
-                    else:
-                        print(f"⚠️ Player {player} made propose action but no proposal fields found")
-                        print(f"⚠️ Action keys: {list(action.keys())}")
-                        normalized_actions[player] = {"type": "reject"}
-            else:
-                normalized_actions[player] = action
-                print(f"✅ [{player}] Action accepted as-is: {action}")
-        
-        #print(f"\n🔍 [NORMALIZATION COMPLETE] Normalized actions: {normalized_actions}\n")
-
-        # Check for proposals and responses
-        proposals = {player: action for player, action in normalized_actions.items()
-                    if action.get("type") == "propose"}
-        responses = {player: action for player, action in normalized_actions.items()
-                    if action.get("type") in ["accept", "reject"]}
-        
-        #print(f"🔍 [CATEGORIZATION] Proposals: {proposals}")
-        #print(f"🔍 [CATEGORIZATION] Responses: {responses}\n")
-
-        # Process rejections - only end if proposal limit reached
-        for player, action in responses.items():
-            if action.get("type") == "reject":
-                player_proposals = game_state.get(f"{player}_proposal_count", 0)
-                if player_proposals >= max_proposals:
-                    print(f"❌ Player {player} rejected after reaching proposal limit ({player_proposals}/{max_proposals})")
-                    return self._create_no_agreement(game_state)
-                else:
-                    print(f"⚠️ Player {player} rejected but still has proposals remaining ({player_proposals}/{max_proposals}). Continuing negotiation.")
-
-        # Process proposals with proposal limit validation
+        # Record all proposals for this round
         for player, action in proposals.items():
-            player_proposals = game_state.get(f"{player}_proposal_count", 0)
+            proposal_record = {
+                "player": player,
+                "round": current_round,
+                "proposal": action.get("proposal", {})
+            }
+            game_state["proposals_history"].append(proposal_record)
+            game_state["round_proposals"][round_key][player] = proposal_record
             
-            #print(f"🔍 [{player}] Processing proposal (count: {player_proposals}/{max_proposals})")
-            #print(f"🔍 [{player}] Action: {action}")
-            
-            # Check proposal limit
-            if player_proposals >= max_proposals:
-                print(f"⚠️ Player {player} exceeded proposal limit ({player_proposals}/{max_proposals}). Ignoring additional proposals.")
-                # Don't process this proposal, but don't end negotiation unless they also rejected
-                continue
-            
-            # Valid proposal - process it
-            proposal = action.get("proposal", {})
-            #print(f"🔍 [{player}] Extracted proposal: {proposal}")
-            
-            if self.is_valid_proposal(proposal):
-                game_state[f"{player}_last_proposal"] = proposal
-                game_state[f"{player}_last_proposal_round"] = current_round  # Track when proposal was made
-                game_state[f"{player}_proposal_count"] = player_proposals + 1
-                print(f"💡 Player {player} made proposal (#{player_proposals + 1}/{max_proposals}): {proposal}")
-                print(f"✅ [{player}] Stored in game_state as '{player}_last_proposal'")
-                
-                # Track in proposals history for compatibility
+            # Set as current proposal, but don't let it get overwritten
+            if not game_state.get("current_proposal"):
+                game_state["current_proposal"] = proposal_record
+
+        # Handle counter-proposals
+        for player, action in counters.items():
+            if "proposal" in action:
                 proposal_record = {
                     "player": player,
                     "round": current_round,
-                    "proposal": proposal
+                    "proposal": action.get("proposal", {}),
+                    "type": "counter"
                 }
                 game_state["proposals_history"].append(proposal_record)
+                game_state["round_proposals"][round_key][player] = proposal_record
                 game_state["current_proposal"] = proposal_record
-            else:
-                print(f"⚠️ Player {player} made invalid proposal: {proposal}")
 
-        # Check for convergence: if both players made identical proposals, create agreement
-        if len(proposals) == 2:  # Both players made proposals this round
-            proposal_dicts = [action.get("proposal", {}) for action in proposals.values()]
-            if len(proposal_dicts) == 2 and proposal_dicts[0] == proposal_dicts[1] and proposal_dicts[0]:
-                agreed_proposal = proposal_dicts[0]
-                print(f"🎉 CONVERGENCE! Both players proposed identical terms - Creating automatic agreement!")
-                return self._create_agreement(agreed_proposal, current_round, game_state)
-
-        # Process acceptances (rejections already handled above)
-        for player, action in responses.items():
-            if action.get("type") == "accept":
-                # Find the proposal being accepted (from the other player)
-                other_player = self.marketing_team if player == self.it_team else self.it_team
-                print(f"🔍 [{player}] Trying to accept proposal from {other_player}")
-                print(f"🔍 [{player}] Looking for key: '{other_player}_last_proposal' in game_state")
-                print(f"🔍 [{player}] Game state keys: {list(game_state.keys())}")
-                
-                if f"{other_player}_last_proposal" in game_state:
-                    accepted_proposal = game_state[f"{other_player}_last_proposal"]
-                    # Get the round when the accepted proposal was made
-                    proposal_round = game_state.get(f"{other_player}_last_proposal_round", current_round)
-                    print(f"✅ Player {player} accepted proposal: {accepted_proposal} (made in round {proposal_round})")
-                    return self._create_agreement(accepted_proposal, proposal_round, game_state)
-                else:
-                    print(f"⚠️ Player {player} tried to accept but no proposal exists from {other_player}")
-                    print(f"⚠️ Available game_state keys: {[k for k in game_state.keys() if 'proposal' in k.lower()]}")
+        # Check for mutual acceptance
+        if len(acceptances) >= 1:  # At least one player accepts
+            # Find the correct proposal that was accepted by looking at what the accepting player was evaluating
+            accepting_player = list(acceptances.keys())[0]
+            
+            # In simultaneous games, the accepting player is evaluating the opponent's proposal from the previous round
+            final_proposal = None
+            if current_round > 1:
+                previous_round_key = f"round_{current_round - 1}"
+                if previous_round_key in game_state.get("round_proposals", {}):
+                    previous_round_data = game_state["round_proposals"][previous_round_key]
+                    # Find the opponent's proposal from the previous round
+                    for other_player, proposal_data in previous_round_data.items():
+                        if other_player != accepting_player:  # It's from the opponent
+                            final_proposal = proposal_data["proposal"]
+                            print(f"🎯 [DEBUG] Player {accepting_player} accepted opponent's proposal: {final_proposal}")
+                            break
+            
+            # Fallback to current_proposal if we can't find the correct one
+            if final_proposal is None and game_state.get("current_proposal"):
+                final_proposal = game_state["current_proposal"]["proposal"]
+                print(f"⚠️ [DEBUG] Fallback to current_proposal: {final_proposal}")
+            
+            if final_proposal:
+                return self._create_agreement(final_proposal, current_round, game_state)
 
         # Update round
         game_state["current_round"] += 1
 
-        # Check if deadline reached - like price bargaining
+        # Check deadline
         if game_state["current_round"] > self.max_rounds:
             return self._create_no_agreement(game_state)
 
@@ -586,55 +265,31 @@ class IntegrativeNegotiationsGame(BaseGame):
 
     def _create_no_agreement(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Create no agreement result with BATNA values."""
-        print(f"🎲 [ROLE DEBUG] No Agreement - IT={self.it_team}, Marketing={self.marketing_team}")
-        print(f"🎲 [ROLE DEBUG] {self.it_team} utility=0, {self.marketing_team} utility=0")
+        current_round = game_state["current_round"]
+        
+        it_batna = self.get_current_batna(self.it_team, current_round)
+        marketing_batna = self.get_current_batna(self.marketing_team, current_round)
         
         game_state.update({
             "agreement_reached": False,
-            "game_ended": True,  # Explicitly mark game as ended
-            "role_assignments": {
-                "IT": self.it_team,
-                "Marketing": self.marketing_team
-            },
             "final_utilities": {
-                self.it_team: 0,  # No deal utility like price bargaining
-                self.marketing_team: 0
+                self.it_team: it_batna,
+                self.marketing_team: marketing_batna
             },
             "termination_reason": "deadline_reached",
-            "final_round": game_state["current_round"]
+            "final_round": current_round
         })
         
         return game_state
 
-    def _create_agreement(self, final_proposal: Dict[str, Any], round_num: int, game_state: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_agreement(self, final_proposal: Dict[str, Any], round_num: int, game_state: Dict[str, Any]) -> Dict[
+        str, Any]:
         """Create agreement result with utilities."""
         it_utility = self.calculate_utility(self.it_team, final_proposal)
         marketing_utility = self.calculate_utility(self.marketing_team, final_proposal)
 
         it_batna = self.get_current_batna(self.it_team, round_num)
         marketing_batna = self.get_current_batna(self.marketing_team, round_num)
-
-        # DEBUG: Log the calculation like price bargaining
-        print(f"🔍 [BATNA DEBUG] Round {round_num}: proposal={final_proposal}")
-        print(f"🔍 [BATNA DEBUG] Config BATNAs: IT={self.it_batna}, Marketing={self.marketing_batna}")
-        print(f"🔍 [BATNA DEBUG] Decay rate: {self.batna_decay}")
-        print(f"🔍 [BATNA DEBUG] Calculated BATNAs: IT={it_batna:.2f}, Marketing={marketing_batna:.2f}")
-        
-        # DEBUG: Show detailed utility breakdown
-        it_breakdown = self._calculate_utility_breakdown(self.it_team, final_proposal)
-        marketing_breakdown = self._calculate_utility_breakdown(self.marketing_team, final_proposal)
-        
-        print(f"🔍 [UTILITY BREAKDOWN] IT Team:")
-        for issue, data in it_breakdown.items():
-            print(f"    {issue}: {data['selection']} = {data['raw_points']} * {data['weight']} = {data['weighted_utility']:.2f}")
-        print(f"🔍 [UTILITY BREAKDOWN] Marketing Team:")
-        for issue, data in marketing_breakdown.items():
-            print(f"    {issue}: {data['selection']} = {data['raw_points']} * {data['weight']} = {data['weighted_utility']:.2f}")
-            
-        print(f"🔍 [UTILITY DEBUG] Utilities: IT={it_utility:.2f}, Marketing={marketing_utility:.2f}")
-        print(f"🔍 [SURPLUS DEBUG] Surpluses: IT={it_utility - it_batna:.2f}, Marketing={marketing_utility - marketing_batna:.2f}")
-        print(f"🎲 [ROLE DEBUG] IT={self.it_team}, Marketing={self.marketing_team}")
-        print(f"🎲 [ROLE DEBUG] {self.it_team} utility={it_utility:.2f}, {self.marketing_team} utility={marketing_utility:.2f}")
 
         # Create detailed agreement summary
         agreement_details = {}
@@ -652,14 +307,9 @@ class IntegrativeNegotiationsGame(BaseGame):
 
         game_state.update({
             "agreement_reached": True,
-            "game_ended": True,  # Explicitly mark game as ended
             "final_proposal": final_proposal,
             "agreement_details": agreement_details,
             "agreement_round": round_num,
-            "role_assignments": {
-                "IT": self.it_team,
-                "Marketing": self.marketing_team
-            },
             "final_utilities": {
                 self.it_team: it_utility,
                 self.marketing_team: marketing_utility
@@ -667,25 +317,18 @@ class IntegrativeNegotiationsGame(BaseGame):
             "batnas_at_agreement": {
                 self.it_team: it_batna,
                 self.marketing_team: marketing_batna
+            },
+            "utility_breakdown": {
+                self.it_team: self._calculate_utility_breakdown(self.it_team, final_proposal),
+                self.marketing_team: self._calculate_utility_breakdown(self.marketing_team, final_proposal)
             }
         })
 
         return game_state
 
-
-
     def _calculate_utility_breakdown(self, player: str, proposal: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
         """Calculate detailed utility breakdown by issue."""
-        # Use exact same logic as calculate_utility method
-        if player == self.it_team:
-            player_role = "IT"
-        elif player == self.marketing_team:
-            player_role = "Marketing"
-        else:
-            # Fallback: should not happen if game is properly initialized
-            print(f"⚠️ Warning: Unknown player {player}, defaulting to IT role")
-            player_role = "IT"
-            
+        player_role = "IT" if (player == self.it_team or "IT" in player) else "Marketing"
         player_weights = self.weights[player_role]
 
         breakdown = {}
@@ -717,7 +360,6 @@ class IntegrativeNegotiationsGame(BaseGame):
     def is_game_over(self, game_state: Dict[str, Any]) -> bool:
         """Check if game is finished."""
         return (game_state.get("agreement_reached", False) or
-                game_state.get("game_ended", False) or
                 game_state.get("current_round", 1) > self.max_rounds)
 
     def get_winner(self, game_state: Dict[str, Any]) -> Optional[str]:
@@ -738,18 +380,7 @@ class IntegrativeNegotiationsGame(BaseGame):
             batna = batnas[player]
             surpluses[player] = utility - batna
 
-        # Only consider players with positive surplus
-        positive_surplus_players = {player: surplus for player, surplus in surpluses.items() if surplus > 0}
-        
-        if not positive_surplus_players:
-            # No player has positive surplus - no winner
-            return None
-        elif len(positive_surplus_players) == 1:
-            # Only one player has positive surplus - they win
-            return list(positive_surplus_players.keys())[0]
-        else:
-            # Multiple players with positive surplus - highest surplus wins
-            return max(positive_surplus_players, key=positive_surplus_players.get)
+        return max(surpluses, key=surpluses.get)
 
     def get_game_summary(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
         """Get comprehensive game summary."""
@@ -807,160 +438,175 @@ class IntegrativeNegotiationsGame(BaseGame):
                 return self.game_data.get("final_utilities", {})
         return {player: 0.0 for player in getattr(self, 'players', [])}
     
-    def _get_neutral_role_label(self, player_id: str) -> str:
-        """Map player to neutral role label to reduce bias."""
-        if player_id == self.it_team:
-            return "ROLE A"
-        else:
-            return "ROLE B"
-    
-    def get_game_prompt(self, player_id: str, game_state: Dict[str, Any] = None) -> str:
-        """Generate structured prompt for integrative negotiation - NegotiationArena style."""
-        current_state = game_state if game_state is not None else getattr(self, 'game_data', {})
-        if not current_state:
-            return "Game not initialized properly"
+    def get_system_prompt(self, player_id: str, game_state: Dict[str, Any]) -> str:
+        """Get system prompt for integrative negotiations - follows resource allocation pattern."""
+        return """You are an expert negotiator participating in an integrative negotiation about office space allocation.
+Focus on value creation and finding win-win solutions.
+Your responses must be valid JSON only."""
 
-        private_info = current_state.get("private_info", {}).get(player_id, {})
-        current_round = current_state.get("current_round", 1)
+    def get_human_prompt(self, player_id: str, game_state: Dict[str, Any]) -> str:
+        """Get detailed human prompt with fixed proposal visibility."""
+        private_info = game_state.get("private_info", {}).get(player_id, {})
+        current_round = game_state.get("current_round", 1)
         role = private_info.get("role", "unknown")
-        neutral_role = self._get_neutral_role_label(player_id)
         
         # Get current BATNA for this player and round
         batna = self.get_current_batna(player_id, current_round)
         
-        # Check for opponent's proposal - follow price bargaining pattern
-        other_player = self.marketing_team if player_id == self.it_team else self.it_team
-        other_offer = current_state.get(f"{other_player}_last_proposal", None)
-        my_proposal = current_state.get(f"{player_id}_last_proposal", None)
-
-        # Role-specific configuration
-        role_priorities = ""
-        if role == "IT":
-            role_priorities = (
-                f"Server Room Size (40% weight): Prefer 150 sqm of room size",
-                f"Cleaning Responsibility (30% weight): Prefer shared arrangements",
-                f"Branding Visibility (20% weight): Moderate visibility acceptable", 
-                f"Meeting Room Access (10% weight): 2 days access sufficient",
-                f"Note: Server room size and cleaning are top priorities"
-            )
-
-        else:  # Marketing
-            role_priorities = (
-                f"Meeting Room Access (40% weight): Prefer 7 days access to meeting room",
-                f"Branding Visibility (30% weight): Prefer Prominent branding",
-                f"Cleaning Responsibility (20% weight): Prefer IT to handle cleaning",
-                f"Server Room Size (10% weight): 50 sqm are sufficient",
-                f"Note: Meeting access and branding are top priorities"
-            )
-
-        # Track proposals made by this player
-        player_proposals = current_state.get(f"{player_id}_proposal_count", 0)
-        max_proposals = self.max_rounds - 1  # Use rounds from YAML config like price bargaining
+        # Check for opponent's proposal from PREVIOUS round (simultaneous game fix)
+        current_proposal = None
+        round_proposals = game_state.get("round_proposals", {})
         
-        # Enhanced acceptance guidance
-        acceptance_guidance = ""
-        can_propose = player_proposals < max_proposals
-        rounds_remaining = max_proposals - player_proposals
+        # In simultaneous games, look at previous round for opponent proposal
+        if current_round > 1:
+            previous_round_key = f"round_{current_round - 1}"
+            print(f"🔍 [DEBUG] Looking for opponent proposal in {previous_round_key}")
+            print(f"🔍 [DEBUG] Available round_proposals keys: {list(round_proposals.keys())}")
+            if previous_round_key in round_proposals:
+                previous_round_data = round_proposals[previous_round_key]
+                print(f"🔍 [DEBUG] Previous round data: {previous_round_data}")
+                for other_player, proposal_data in previous_round_data.items():
+                    if other_player != player_id:  # It's from the opponent
+                        current_proposal = proposal_data
+                        print(f"🔍 [DEBUG] Found opponent proposal from {other_player}: {proposal_data}")
+                        break
+            else:
+                print(f"🔍 [DEBUG] No proposals found for {previous_round_key}")
+        else:
+            print(f"🔍 [DEBUG] Round 1 - no previous proposals to check")
         
-        if other_offer is not None:
-            proposal_utility = self.calculate_utility(player_id, other_offer)
-            is_above_batna = proposal_utility > batna
+        base_prompt = f"""**Round {current_round}/{self.max_rounds} - Office Space Negotiation**
+You are participating as the {role} team in this negotiation.
+Your current BATNA (fallback option): {batna:.1f} points
+
+"""
+
+        # Add proposal context with car-game-style clear decision guidance
+        if current_proposal:
+            proposal = current_proposal['proposal']
+            # Calculate utility for current proposal
+            if role == "IT":
+                weights = {"server_room": 0.4, "cleaning": 0.3, "branding": 0.2, "meeting_access": 0.1}
+            else:  # Marketing
+                weights = {"meeting_access": 0.4, "branding": 0.3, "cleaning": 0.2, "server_room": 0.1}
             
-            if is_above_batna:
-                if rounds_remaining == 0:  # No proposals left - encourage acceptance
-                    acceptance_guidance = (
-                        f"🎯 FINAL ANALYSIS: The opponent's proposal gives you {proposal_utility:.1f} points, "
-                        f"which is ABOVE your BATNA ({batna:.1f}). You have no proposals left - ACCEPT to secure this beneficial deal!\n"
-                    )
-                elif rounds_remaining == 1:  # Last proposal - be more encouraging
-                    acceptance_guidance = (
-                        f"🎯 ANALYSIS: The opponent's proposal gives you {proposal_utility:.1f} points, "
-                        f"which is ABOVE your BATNA ({batna:.1f}). With only 1 proposal left, consider accepting or making the last counter proposal.\n"
-                    )
-                else:  # Multiple proposals left - encourage exploration
-                    acceptance_guidance = (
-                        f"💡 ANALYSIS: The opponent's proposal gives you {proposal_utility:.1f} points, "
-                        f"which is ABOVE your BATNA ({batna:.1f}), but you have {rounds_remaining} proposals left. You might negotiate for an even better deal.\n"
-                    )
-            else:
-                gap = abs(proposal_utility - batna)
-                if rounds_remaining == 0:  # No proposals left - suggest accepting to avoid no-deal
-                    acceptance_guidance = (
-                        f"🚨 FINAL DECISION: The opponent's proposal gives you {proposal_utility:.1f} points, "
-                        f"which is {gap:.1f} points below your BATNA ({batna:.1f}). You have no proposals left. "
-                        f"ACCEPT to avoid no-deal or REJECT this proposal.\n"
-                    )
-                elif rounds_remaining == 1:  # Last proposal - be more encouraging
-                    acceptance_guidance = (
-                        f"🎯 ANALYSIS: The opponent's proposal gives you {proposal_utility:.1f} points, "
-                        f"which is {gap:.1f} points below your BATNA ({batna:.1f}). With only 1 proposal left, consider accepting or making the last counter proposal.\n"
-                    )
-                else:
-                    acceptance_guidance = (
-                        f"⚠️ ANALYSIS: The opponent's proposal gives you {proposal_utility:.1f} points, "
-                        f"which is {gap:.1f} points below your BATNA ({batna:.1f}). You should negotiate for a better deal.\n"
-                    )
+            # Use the actual game utility calculation method for consistency
+            total_utility = self.calculate_utility(player_id, proposal)
+            
+            # Clear binary decision guidance like car game
+            decision_guidance = "ACCEPT IT" if total_utility >= batna else "COUNTER-OFFER"
+            offer_status = "acceptable" if total_utility >= batna else "below your BATNA"
+            
+            print(f"🎯 [GUIDANCE] Player {player_id} ({role}): Proposal {proposal}")
+            print(f"🎯 [GUIDANCE] Utility: {total_utility:.1f}, BATNA: {batna:.1f}")
+            print(f"🎯 [GUIDANCE] Decision: {decision_guidance} ({offer_status})")
+            
+            base_prompt += f"""**Other team's proposal:** {proposal}
+Your utility from this proposal: {total_utility:.1f} points
+Your BATNA (fallback): {batna:.1f} points
+**Decision: {decision_guidance}** (proposal is {offer_status})
 
-        # Build offer history like price bargaining
-        offer_history = []
-        if my_proposal:
-            proposal_str = ", ".join([f"{k}: {v}" for k, v in my_proposal.items()])
-            offer_history.append(f"- Your last proposal: {proposal_str}")
-        if other_offer:
-            offer_str = ", ".join([f"{k}: {v}" for k, v in other_offer.items()])
-            offer_history.append(f"- Opponent's last proposal: {offer_str}")
-        offer_status = "\n".join(offer_history) if offer_history else "No proposals made yet."
+"""
+        elif current_round == 1:
+            base_prompt += "**This is the opening round.** Consider making an initial proposal to start the negotiation.\n\n"
 
-        # Proposal limit guidance
-        proposal_guidance = ""
-        max_total_rounds = self.max_rounds
-        
-        if can_propose:
-            proposal_guidance = f"You have {max_proposals - current_round + 1} proposals remaining."
-        else:
-            if current_round <= self.max_rounds:
-                proposal_guidance = f"⚠️ You have used all {max_proposals} proposals. You can only ACCEPT or REJECT now. Note: Rejecting will END the negotiation."
-            else:
-                proposal_guidance = f"🕒 FINAL RESPONSE PHASE: You can only ACCEPT or REJECT. Negotiation ends in {max_total_rounds - current_round + 1} rounds."
+        # Role-specific information
+        if role == "IT":
+            base_prompt += f"""**Your Role: IT Department**
+You need office space that supports your technical operations and team productivity.
 
-        # Update round display to show proposal vs response phases
-        if current_round <= self.max_rounds:
-            round_display = f"Round {current_round}/{self.max_rounds} (Proposal Phase)"
-        else:
-            round_display = f"Round {current_round}/{max_total_rounds} (Final Response Phase)"
+**Your Priorities (importance weights):**
+- Server Room Size: 40% (you need adequate space for servers and equipment)
+- Cleaning Responsibility: 30% (you prefer shared arrangements)
+- Branding Visibility: 20% (moderate visibility works for you)
+- Meeting Room Access: 10% (you need some meeting access but it's not critical)
 
-        prompt = f"""=== OFFICE SPACE NEGOTIATION ===
-{round_display} | Role: {neutral_role}
-
-GOAL: Reach agreement that maximizes your utility
-Your BATNA (Best Alternative): {batna:.1f} points
-{proposal_guidance}
-
-YOUR OPTIONS:
+**Available Options for Each Issue:**
 - **Server Room Size:** 50 sqm (10 pts), 100 sqm (30 pts), or 150 sqm (60 pts)
 - **Meeting Room Access:** 2 days/week (10 pts), 4 days/week (30 pts), or 7 days/week (60 pts)
-- **Cleaning Responsibility:** "IT" (10 pts), "Shared" (30 pts), or "Outsourced" (60 pts)
+- **Cleaning Responsibility:** "IT" (30 pts), "Shared" (50 pts), or "Outsourced" (10 pts)
 - **Branding Visibility:** "Minimal" (10 pts), "Moderate" (30 pts), or "Prominent" (60 pts)
 
-YOUR PRIORITIES:
-{role_priorities}
+TASK: Respond with ONLY valid JSON. No explanations."""
 
-CURRENT SITUATION:
-{offer_status}
-{acceptance_guidance}
+            # Add decision-specific instructions based on guidance
+            if current_proposal:
+                proposal = current_proposal['proposal']
+                total_utility = self.calculate_utility(player_id, proposal)
+                if total_utility >= batna:
+                    base_prompt += f"""
+**IMPORTANT: The other team's proposal gives you {total_utility:.1f} points, which is ABOVE your BATNA of {batna:.1f}.**
+**YOU SHOULD ACCEPT THIS PROPOSAL.**
 
-RESPONSE FORMAT: Respond with ONLY valid JSON. No explanations.
-Valid responses:
-
-{{"type": "accept"}}  // Accept the opponent's last offer
-{{"type": "propose", "server_room": 150, "meeting_access": 2, "cleaning": "Shared", "branding": "Minimal"}} // // Propose new allocation
-{{"type": "reject"}}  // Reject and end negotiation
-
-EXAMPLE OFFERS:
-{{"type": "propose", "server_room": 150, "meeting_access": 2, "cleaning": "Shared", "branding": "Minimal"}}
-
-Do NOT repeat any of the rules or instructions in your response. Focus on negotiation.
+Required response:
+{{"type": "accept"}}
 
 Your response:"""
-        
-        return prompt
+                else:
+                    base_prompt += f"""
+Valid responses:
+{{"type": "accept"}}
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
+
+Your response:"""
+            else:
+                base_prompt += """
+Valid responses:
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 4, "cleaning": "Shared", "branding": "Moderate"}}}}
+
+Your response:"""
+
+        elif role == "Marketing":
+            base_prompt += f"""**Your Role: Marketing Department**
+You need office space that enhances your team's visibility and client interaction capabilities.
+
+**Your Priorities (importance weights):**
+- Meeting Room Access: 40% (critical for client meetings and presentations)
+- Branding Visibility: 30% (important for company image)
+- Cleaning Responsibility: 20% (you prefer outsourced cleaning)
+- Server Room Size: 10% (not a priority for your team)
+
+**Available Options for Each Issue:**
+- **Server Room Size:** 50 sqm (10 pts), 100 sqm (30 pts), or 150 sqm (60 pts)
+- **Meeting Room Access:** 2 days/week (10 pts), 4 days/week (30 pts), or 7 days/week (60 pts)
+- **Cleaning Responsibility:** "IT" (30 pts), "Shared" (50 pts), or "Outsourced" (10 pts)
+- **Branding Visibility:** "Minimal" (10 pts), "Moderate" (30 pts), or "Prominent" (60 pts)
+
+TASK: Respond with ONLY valid JSON. No explanations."""
+
+            # Add decision-specific instructions based on guidance (Marketing)
+            if current_proposal:
+                proposal = current_proposal['proposal']
+                total_utility = self.calculate_utility(player_id, proposal)
+                if total_utility >= batna:
+                    base_prompt += f"""
+**IMPORTANT: The other team's proposal gives you {total_utility:.1f} points, which is ABOVE your BATNA of {batna:.1f}.**
+**YOU SHOULD ACCEPT THIS PROPOSAL.**
+
+Required response:
+{{"type": "accept"}}
+
+Your response:"""
+                else:
+                    base_prompt += f"""
+Valid responses:
+{{"type": "accept"}}
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}
+
+Your response:"""
+            else:
+                base_prompt += """
+Valid responses:
+{{"type": "propose", "proposal": {{"server_room": 100, "meeting_access": 7, "cleaning": "Outsourced", "branding": "Prominent"}}}}
+
+Your response:"""
+
+        return base_prompt
+
+    def get_game_prompt(self, player_id: str, game_state: Dict[str, Any] = None) -> str:
+        """Get the current game prompt for a specific player (required by base class)"""
+        # Use provided game_state if available, otherwise fall back to self.game_data
+        current_state = game_state if game_state is not None else getattr(self, 'game_data', {})
+        if not current_state:
+            return "Game not initialized properly"
+        return self.get_human_prompt(player_id, current_state)

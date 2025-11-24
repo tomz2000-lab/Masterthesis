@@ -1,3 +1,43 @@
+"""
+Resource Allocation Negotiation Game
+====================================
+
+Multi-resource distribution negotiation between development and marketing teams.
+
+This module implements a complex resource allocation scenario where two teams 
+(Development and Marketing) negotiate the distribution of limited resources 
+including GPUs, developers, and budget allocation for a project.
+
+The game simulates realistic organizational resource conflicts where:
+- Teams have different priorities and valuation of resources
+- Resources are limited and must be allocated efficiently
+- Teams must balance their needs against organizational constraints
+- Win-win solutions require creative resource sharing and trade-offs
+
+Key Features:
+    - Multi-resource negotiation (GPUs, developers, budget)
+    - Team-based roles with different resource priorities
+    - Complex utility calculations based on resource combinations
+    - BATNA values representing alternative resource sources
+    - Structured JSON proposal system for resource requests
+
+Game Components:
+    - Development Team: Focuses on GPU resources and technical staff
+    - Marketing Team: Prioritizes budget and developer support
+    - Resource Pool: Limited resources that must be allocated
+    - Utility Functions: Team-specific valuation of resource combinations
+
+Example:
+    >>> config = {
+    ...     "max_rounds": 5,
+    ...     "total_gpus": 10,
+    ...     "total_developers": 8,
+    ...     "total_budget": 100000
+    ... }
+    >>> game = ResourceAllocationGame(config)
+    >>> game.initialize_game(["dev_team", "marketing_team"])
+"""
+
 import random
 import re
 import json
