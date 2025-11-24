@@ -9,24 +9,24 @@ negotiation_platform.models package
 Submodules
 ----------
 
-negotiation_platform.models.action_schemas module
--------------------------------------------------
+Action Schemas Module
+---------------------
 
 .. automodule:: negotiation_platform.models.action_schemas
    :members:
    :undoc-members:
    :show-inheritance:
 
-negotiation_platform.models.base_model module
----------------------------------------------
+Base Model Module
+-----------------
 
 .. automodule:: negotiation_platform.models.base_model
    :members:
    :undoc-members:
    :show-inheritance:
 
-negotiation_platform.models.hf_model_wrapper module
----------------------------------------------------
+HF Model Wrapper Module
+-----------------------
 
 .. automodule:: negotiation_platform.models.hf_model_wrapper
    :members:

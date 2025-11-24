@@ -13,7 +13,7 @@ This platform enables researchers to study negotiation behaviors, biases, and st
    submodules
 
 Architecture
------------
+------------
 
 The negotiation platform consists of several key components:
 

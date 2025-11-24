@@ -8,8 +8,7 @@ negotiation_platform.core package
 
 Submodules
 ----------
-
-negotiation_platform.core.base_metric module
+Base Metric Module
 --------------------------------------------
 
 .. automodule:: negotiation_platform.core.base_metric
@@ -17,7 +16,7 @@ negotiation_platform.core.base_metric module
    :undoc-members:
    :show-inheritance:
 
-negotiation_platform.core.config_manager module
+Configuration Manager Module
 -----------------------------------------------
 
 .. automodule:: negotiation_platform.core.config_manager
@@ -25,7 +24,7 @@ negotiation_platform.core.config_manager module
    :undoc-members:
    :show-inheritance:
 
-negotiation_platform.core.game_engine module
+Game Engine Module
 --------------------------------------------
 
 .. automodule:: negotiation_platform.core.game_engine
@@ -33,24 +32,24 @@ negotiation_platform.core.game_engine module
    :undoc-members:
    :show-inheritance:
 
-negotiation_platform.core.llm_manager module
---------------------------------------------
+LLM Manager Module
+------------------
 
 .. automodule:: negotiation_platform.core.llm_manager
    :members:
    :undoc-members:
    :show-inheritance:
 
-negotiation_platform.core.metrics_calculator module
----------------------------------------------------
+Metrics Calculator Module
+-------------------------
 
 .. automodule:: negotiation_platform.core.metrics_calculator
    :members:
    :undoc-members:
    :show-inheritance:
 
-negotiation_platform.core.session_manager module
-------------------------------------------------
+Session Manager Module
+----------------------
 
 .. automodule:: negotiation_platform.core.session_manager
    :members:
