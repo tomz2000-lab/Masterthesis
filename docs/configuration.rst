@@ -19,51 +19,56 @@ Model Configuration
 
 .. code-block:: yaml
 
-   models:
-     # Hugging Face models
-     dialogpt_medium:
-       type: "huggingface"
-       model_name: "model_a"
+   # GPU configuration for model comparison with Llama and Qwen models
+   model_a:
+     type: "huggingface"
+     model_name: "meta-llama/Llama-3.1-8B-Instruct"
+     config:
+       device: "cuda"
        device_map: "auto"
-       torch_dtype: "float16"
-       load_in_8bit: false
-       max_new_tokens: 256
        temperature: 0.7
+       max_length: 16
        do_sample: true
-       use_auth_token: true
-       
-     dialogpt_large:
-       type: "huggingface" 
-       model_name: "model_b"
+       trust_remote_code: true
+       load_in_8bit: false
+
+   model_b:
+     type: "huggingface"
+     model_name: "Qwen/Qwen2.5-7B"
+     config:
+       device: "cuda"
        device_map: "auto"
-       torch_dtype: "float16"
-       load_in_8bit: true  # Enable 8-bit quantization
-       max_new_tokens: 512
-       temperature: 0.8
-       use_auth_token: true
-       
-     # Custom model example
-     custom_negotiator:
-       type: "huggingface"
-       model_name: "path/to/your/model"
-       device_map: "cuda:0"
-       torch_dtype: "float32"
-       custom_parameters:
-         repetition_penalty: 1.1
-         top_k: 50
-         top_p: 0.9
+       temperature: 0.7
+       max_length: 16
+       do_sample: true
+       trust_remote_code: true
+       load_in_8bit: false
+
+   model_c:
+     type: "huggingface"
+     model_name: "meta-llama/Llama-3.2-3B-Instruct"
+     config:
+       device: "cuda"
+       device_map: "auto"
+       temperature: 0.0
+       max_length: 16
+       do_sample: false
+       pad_token_id: 50256
+       trust_remote_code: true
+       load_in_8bit: false
 
 **Model Configuration Parameters**:
 
 * ``type``: Model type (currently supports "huggingface")
-* ``model_name``: Hugging Face model identifier or local path
-* ``device_map``: Device allocation ("auto", "cuda:0", "cpu", etc.)
-* ``torch_dtype``: Data type ("float16", "float32", "auto")
-* ``load_in_8bit``: Enable 8-bit quantization for memory efficiency
-* ``max_new_tokens``: Maximum tokens to generate
-* ``temperature``: Sampling temperature (0.1-2.0)
+* ``model_name``: Hugging Face model identifier (e.g., "meta-llama/Llama-3.1-8B-Instruct")
+* ``device``: Target device ("cuda", "cpu")
+* ``device_map``: Device allocation strategy ("auto" for automatic GPU distribution)
+* ``temperature``: Sampling temperature (0.0 for deterministic, 0.7 for creative)
+* ``max_length``: Maximum sequence length for generation
 * ``do_sample``: Enable sampling vs greedy decoding
-* ``use_auth_token``: Use authentication token for private models
+* ``trust_remote_code``: Allow execution of remote code for certain models
+* ``load_in_8bit``: Enable 8-bit quantization for memory efficiency
+* ``pad_token_id``: Token ID for padding (model-specific)
 
 Game Configuration
 ------------------
@@ -72,52 +77,102 @@ Game Configuration
 
 .. code-block:: yaml
 
-   games:
-     company_car: 
-       buyer_batna: 44000
-       seller_batna: 39000
-       rounds: 5
-       batna_decay:
-         buyer: 0.025    # 5% decay per round
-         seller: 0.025   # 3% decay per round
-         
-     resource_allocation:
-       total_gpu_hours: 80
-       total_cpu_hours: 160
-       deadline_pressure: 0.1
-       dev_team_priorities:
-         gpu_weight: 0.8
-         cpu_weight: 0.2
-       marketing_team_priorities:
-         gpu_weight: 0.3
-         cpu_weight: 0.7
-         
-     integrative_negotiations:
-       total_budget: 100000
-       project_duration_weeks: 12
-       quality_importance:
-         buyer: 0.6
-         seller: 0.4
-       timeline_flexibility:
-         buyer: 0.3
-         seller: 0.8
+   company_car:
+     starting_price: 45000
+     buyer_budget: 42000
+     seller_cost: 36000
+     buyer_batna: 41000
+     seller_batna: 39000
+     rounds: 5
+     batna_decay:
+       buyer: 0.015
+       seller: 0.015
+     acceptance_training:
+       profit_threshold: 0.10
+       urgency_multiplier: 1.5
+       risk_aversion: 0.8
+
+   resource_allocation:
+     total_resources: 100
+     constraints:
+       gpu_bandwidth: 380
+       min_gpu: 5
+       min_cpu: 5
+     batnas:
+       development: 300
+       marketing: 270
+     batna_decay:
+       development: 0.015
+       marketing: 0.015
+     rounds: 5
+     utility_functions:
+       development:
+         gpu_coefficient: 8
+         cpu_coefficient: 6
+         uncertainty_min: -2
+         uncertainty_max: 2
+       marketing:
+         gpu_coefficient: 6
+         cpu_coefficient: 8
+         uncertainty_min: -2
+         uncertainty_max: 2
+
+   integrative_negotiations:
+     issues:
+       server_room:
+         options: [50, 100, 150]
+         points: [10, 30, 60]
+       meeting_access:
+         options: [2, 4, 7]
+         points: [10, 30, 60]
+       cleaning:
+         options: ["IT", "Shared", "Outsourced"]
+         points: [10, 30, 60]
+       branding:
+         options: ["Minimal", "Moderate", "Prominent"]
+         points: [10, 30, 60]
+     weights:
+       IT:
+         server_room: 0.4
+         meeting_access: 0.1
+         cleaning: 0.3
+         branding: 0.2
+       Marketing:
+         server_room: 0.1
+         meeting_access: 0.4
+         cleaning: 0.2
+         branding: 0.3
+     batnas:
+       IT: 27
+       Marketing: 19
+     rounds: 5
+     batna_decay: 0.015
 
 **Company Car Parameters**:
 
-* ``starting_price``: Initial asking price
-* ``buyer_budget``: Maximum buyer can spend
-* ``seller_cost``: Minimum seller will accept
-* ``buyer_batna``: Buyer's best alternative (fallback option cost)
-* ``seller_batna``: Seller's minimum acceptable price
-* ``rounds``: Maximum negotiation rounds
-* ``batna_decay``: Per-round degradation of BATNA values
+* ``starting_price``: Initial asking price (€45,000)
+* ``buyer_budget``: Maximum buyer can afford (€42,000)
+* ``seller_cost``: Seller's minimum cost (€36,000)
+* ``buyer_batna``: Buyer's best alternative cost (€41,000)
+* ``seller_batna``: Seller's minimum acceptable price (€39,000)
+* ``rounds``: Maximum negotiation rounds (5)
+* ``batna_decay``: Per-round BATNA degradation (1.5% for both parties)
+* ``acceptance_training``: Parameters to encourage realistic acceptance behavior
 
 **Resource Allocation Parameters**:
 
-* ``total_gpu_hours``: Available GPU compute time
-* ``total_cpu_hours``: Available CPU compute time  
-* ``deadline_pressure``: Urgency factor (0.0-1.0)
-* Team priorities define relative importance of resources
+* ``total_resources``: Total available resource pool (100 units)
+* ``constraints``: Resource allocation constraints and minimums
+* ``batnas``: Team-specific BATNA values (Development: 300, Marketing: 270)
+* ``utility_functions``: Team-specific utility calculations with coefficients
+* ``uncertainty``: Market volatility and stochastic demand modeling
+
+**Integrative Negotiation Parameters**:
+
+* ``issues``: Multi-issue negotiation topics (server room, meetings, cleaning, branding)
+* ``weights``: Team-specific importance weights for each issue
+* ``batnas``: Minimum acceptable outcomes (IT: 27, Marketing: 19)
+* ``options/points``: Available choices and point values for each issue
 
 Platform Configuration
 ----------------------
@@ -127,29 +182,27 @@ Platform Configuration
 .. code-block:: yaml
 
    platform:
-     # Logging configuration
-     logging:
-       level: "INFO"        # DEBUG, INFO, WARNING, ERROR
-       file: "negotiation.log"
-       console_output: true
-       
-     # Session management
-     session:
-       max_retries: 3
-       timeout_seconds: 300
-       save_full_history: true
-       
-     # Performance settings  
-     performance:
-       batch_size: 1
-       parallel_sessions: 1
-       memory_cleanup: true
-       
-     # Output settings
-     output:
-       save_results: true
-       results_directory: "results/"
-       export_format: "json"  # json, csv, both
+     logging_level: "INFO"
+     max_retries: 3
+     timeout_seconds: 30
+     results_dir: "results"
+
+   models:
+     memory_management: true
+     auto_unload: true
+     default_models: ["model_a", "model_b", "model_c"]
+
+   games:
+     default_rounds: 5
+     allow_early_termination: true
+
+   metrics:
+     calculate_all: true
+     export_detailed: true
+
+   experiments:
+     runs_per_comparison: 10
+     statistical_significance: 0.05
 
 Environment Variables
 ---------------------
@@ -158,13 +211,17 @@ You can override configuration values using environment variables:
 
 .. code-block:: bash
 
-   # Model configuration
-   export NEGOTIATION_MODEL_DEVICE="cuda:1"
-   export NEGOTIATION_MODEL_DTYPE="float32"
+   # HuggingFace API token for model access
+   export HF_TOKEN="your_huggingface_token_here"
+   
+   # Model configuration overrides
+   export NEGOTIATION_MODEL_DEVICE="cuda"
+   export NEGOTIATION_MODEL_TEMPERATURE="0.8"
    
    # Platform settings
    export NEGOTIATION_LOG_LEVEL="DEBUG"
    export NEGOTIATION_RESULTS_DIR="/path/to/results"
+   export NEGOTIATION_MAX_RETRIES="5"
 
 Configuration Loading
 ---------------------
@@ -194,40 +251,46 @@ Validation
 
 Configurations are automatically validated on load:
 
-* Model names must be valid Hugging Face identifiers or local paths
-* Game parameters must be within reasonable ranges
-* Required fields must be present
-* Data types must match expectations
+* Model names must be valid Hugging Face identifiers (e.g., "meta-llama/Llama-3.1-8B-Instruct")
+* Game parameters must be within realistic ranges (BATNA values, resource constraints)
+* Required configuration fields must be present
+* Device specifications must match available hardware
+* Temperature values must be appropriate for the sampling strategy
 
 **Common Validation Errors**:
 
-* ``ModelNotFoundError``: Invalid model name or path
-* ``ConfigValidationError``: Missing required fields
-* ``InvalidParameterError``: Parameter values out of valid range
+* ``ModelNotFoundError``: Invalid Hugging Face model identifier
+* ``ConfigValidationError``: Missing required fields (batna_decay, utility_functions)
+* ``InvalidParameterError``: Temperature out of range or invalid device specification
+* ``GPUMemoryError``: Insufficient GPU memory for selected models
 
 Best Practices
 --------------
 
 1. **Model Selection**:
    
-   * Use smaller models (medium) for development/testing
-   * Use 8-bit quantization for larger models to save memory
-   * Set appropriate temperature values (0.7-0.9 for negotiation)
+   * Current setup uses state-of-the-art models: Llama-3.1-8B, Qwen2.5-7B, Llama-3.2-3B
+   * Temperature 0.7 for creative negotiation, 0.0 for deterministic behavior
+   * GPU memory optimization through ``device_map: "auto"``
+   * Trust remote code enabled for modern model architectures
 
 2. **Game Configuration**:
    
-   * Ensure BATNA values create realistic negotiation zones
-   * Set appropriate decay rates to create time pressure
-   * Balance team priorities for fair resource allocation
+   * BATNA values optimized through empirical testing for realistic negotiations
+   * Balanced decay rates (0.015) create appropriate time pressure
+   * Acceptance training parameters encourage realistic negotiation behavior
+   * Multi-issue weights reflect real-world team priorities
 
 3. **Performance**:
    
-   * Enable memory cleanup for long-running sessions
-   * Use appropriate batch sizes based on available GPU memory
-   * Monitor resource usage during model comparison runs
+   * Memory management and auto-unload enabled for efficient GPU usage
+   * Short timeout (30s) prevents hanging sessions
+   * Detailed metrics export for comprehensive analysis
+   * Statistical significance testing at p < 0.05 level
 
-4. **Development**:
+4. **Research Configuration**:
    
-   * Use DEBUG logging during development
-   * Save full action history for analysis
-   * Create separate configs for different experimental conditions
+   * 10 runs per comparison for statistical reliability
+   * Bias detection through model position swapping
+   * Comprehensive logging for research reproducibility
+   * Uncertainty modeling in resource allocation scenarios
