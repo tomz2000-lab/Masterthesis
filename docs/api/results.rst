@@ -15,18 +15,10 @@ Key Features
 * **Statistical Reporting**: Research-grade statistical analysis with effect sizes
 * **Data Processing**: Robust log parsing and data extraction capabilities
 
-Results Package
---------------
-
-.. automodule:: results
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Submodules
 ----------
 
-results.metrics_statistics module
+metrics_statistics.py
 ---------------------------------
 
 Comprehensive statistical analysis tools for negotiation metrics and performance data.
@@ -36,7 +28,7 @@ Comprehensive statistical analysis tools for negotiation metrics and performance
    :undoc-members:
    :show-inheritance:
 
-results.win_statistics module
+win_statistics.py
 -----------------------------
 
 Advanced statistical analysis for negotiation outcomes with bias detection and model comparison.

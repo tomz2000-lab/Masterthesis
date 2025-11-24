@@ -12,14 +12,6 @@ This platform enables researchers to study negotiation behaviors, biases, and st
    results
    submodules
 
-Platform Overview
-----------------
-
-.. automodule:: negotiation_platform
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Architecture
 -----------
 
