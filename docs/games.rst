@@ -19,15 +19,18 @@ A bilateral negotiation over the price of a company car between a buyer and sell
 
 **Scenario**:
 - Company car worth €45,000 starting price
-- Buyer has maximum budget of €40,000
-- Seller has minimum cost of €38,000
+- Buyer has maximum budget of €42,000 (contextual information)
+- Seller has minimum cost of €36,000 (contextual information)
 - Both parties have BATNA (Best Alternative) options that decay over time
+- Game mechanics driven by BATNA values, not budget/cost constraints
 
 **Key Features**:
 - Time pressure through BATNA decay
 - Asymmetric information (each player knows only their own constraints)
-- Clear win/lose outcomes based on final price
+- Utility calculations based on BATNA values only
 - Randomized role assignment to eliminate role bias
+- Acceptance training parameters to encourage realistic behavior
+- JSON-based structured proposal system
 
 **Configuration Parameters**:
 
@@ -35,14 +38,18 @@ A bilateral negotiation over the price of a company car between a buyer and sell
 
    company_car:
      starting_price: 45000      # Initial asking price
-     buyer_budget: 40000        # Maximum buyer can afford
-     seller_cost: 38000         # Seller's minimum acceptable price
-     buyer_batna: 44000         # Cost of buyer's alternative option
+     buyer_budget: 42000        # Maximum buyer can afford (context only)
+     seller_cost: 36000         # Seller's minimum cost (context only)
+     buyer_batna: 41000         # Cost of buyer's alternative option
      seller_batna: 39000        # Seller's minimum if no deal
      rounds: 5                  # Maximum negotiation rounds
      batna_decay:
-       buyer: 0.05             # 5% decay per round
-       seller: 0.03            # 3% decay per round
+       buyer: 0.015             # 1.5% decay per round (balanced)
+       seller: 0.015            # 1.5% decay per round (balanced)
+     acceptance_training:
+       profit_threshold: 0.10   # Accept within 10% of BATNA
+       urgency_multiplier: 1.5  # Increased acceptance over time
+       risk_aversion: 0.8       # Risk tolerance factor
 
 **Mechanics**:
 - Players can make offers, accept, or reject proposals
@@ -61,73 +68,120 @@ Resource Allocation
 
 **Game Type**: ``resource_allocation``
 
-Multi-issue negotiation between development teams over limited computing resources.
+Multi-resource allocation negotiation between Development and Marketing teams.
 
 **Scenario**:
-- Limited GPU and CPU hours available for projects
-- Development Team vs Marketing Team with different priorities
-- Teams must negotiate fair allocation of resources
-- Each team values resources differently based on their project needs
+- Limited GPU and CPU resources (100 total units) available for projects
+- Development Team vs Marketing Team with different resource priorities
+- Teams must negotiate optimal allocation under constraints
+- Complex utility functions with uncertainty modeling
+- Mathematical constraints ensure realistic resource distributions
 
 **Configuration Parameters**:
 
 .. code-block:: yaml
 
    resource_allocation:
-     total_gpu_hours: 80              # Available GPU compute time
-     total_cpu_hours: 160             # Available CPU compute time  
-     deadline_pressure: 0.1           # Urgency factor
-     dev_team_priorities:
-       gpu_weight: 0.8               # High GPU importance
-       cpu_weight: 0.2               # Lower CPU importance
-     marketing_team_priorities:
-       gpu_weight: 0.3               # Lower GPU importance  
-       cpu_weight: 0.7               # High CPU importance
+     total_resources: 100           # Total resource pool
+     constraints:
+       gpu_bandwidth: 380           # 4x + 4y <= 380 constraint
+       min_gpu: 5                   # Minimum GPU allocation
+       min_cpu: 5                   # Minimum CPU allocation
+     batnas:
+       development: 300             # Development team BATNA
+       marketing: 270               # Marketing team BATNA
+     batna_decay:
+       development: 0.015           # 1.5% decay per round
+       marketing: 0.015             # 1.5% decay per round
+     rounds: 5                      # Maximum negotiation rounds
+     utility_functions:
+       development:
+         gpu_coefficient: 8         # 8x + 6y utility function
+         cpu_coefficient: 6
+         uncertainty_min: -2        # Uncertainty range
+         uncertainty_max: 2
+       marketing:
+         gpu_coefficient: 6         # 6x + 8y utility function
+         cpu_coefficient: 8
+         uncertainty_min: -2        # Uncertainty range
+         uncertainty_max: 2
+     uncertainty:
+       stochastic_demand:
+         type: "normal"
+         mean: 0
+         std: 5
+       market_volatility:
+         type: "uniform"
+         min: -0.08
+         max: 0.08
 
 **Mechanics**:
-- Teams propose resource allocations (GPU hours, CPU hours)
-- Proposals must not exceed total available resources
-- Each team has different valuation weights for resources
-- Success measured by how well final allocation matches preferences
+- Teams propose GPU/CPU allocations within constraints
+- Utility calculated using linear functions with uncertainty
+- Different team coefficients create integrative potential
+- BATNA decay creates time pressure
+- Mathematical validation ensures feasible proposals
 
 **Key Features**:
-- Multi-dimensional negotiation (2+ resources)
-- Integrative potential (teams value resources differently)
-- Zero-sum constraint (total resources are fixed)
-- Deadline pressure affects urgency
+- Two-dimensional resource negotiation (GPU x, CPU y)
+- Asymmetric utility functions enable win-win solutions
+- Constraint-based validation (bandwidth, minimums)
+- Stochastic uncertainty modeling for realism
+- BATNA-driven outcome evaluation
 
 Integrative Negotiations
 -----------------------
 
 **Game Type**: ``integrative_negotiations``
 
-Complex multi-issue business negotiation with potential for mutual gains.
+Complex multi-issue office space negotiation between IT and Marketing teams.
 
 **Scenario**:
-- IT Team and Marketing Team negotiating project parameters
-- Multiple issues: budget, timeline, quality requirements, features
-- Teams have different priorities across issues
-- Opportunity for win-win solutions through trade-offs
+- IT Team and Marketing Team negotiating office space and collaborative arrangements
+- Four distinct issues with multiple options and point values
+- Teams have asymmetric preferences enabling integrative solutions
+- Opportunity for win-win solutions through strategic issue trading
 
 **Configuration Parameters**:
 
 .. code-block:: yaml
 
    integrative_negotiations:
-     total_budget: 100000             # Project budget constraint
-     project_duration_weeks: 12       # Timeline constraint
-     quality_importance:
-       buyer: 0.6                    # Quality priority for buyer
-       seller: 0.4                   # Quality priority for seller
-     timeline_flexibility:
-       buyer: 0.3                    # Timeline flexibility for buyer
-       seller: 0.8                   # Timeline flexibility for seller
+     issues:
+       server_room:
+         options: [50, 100, 150]     # Square meters
+         points: [10, 30, 60]       # Point values
+       meeting_access:
+         options: [2, 4, 7]          # Days per week
+         points: [10, 30, 60]
+       cleaning:
+         options: ["IT", "Shared", "Outsourced"]
+         points: [10, 30, 60]
+       branding:
+         options: ["Minimal", "Moderate", "Prominent"]
+         points: [10, 30, 60]
+     weights:
+       IT:
+         server_room: 0.4           # Server room critical for IT
+         meeting_access: 0.1        # Low meeting priority
+         cleaning: 0.3              # Moderate cleaning concern
+         branding: 0.2              # Low branding priority
+       Marketing:
+         server_room: 0.1           # Low server room priority
+         meeting_access: 0.4        # High meeting room needs
+         cleaning: 0.2              # Moderate cleaning concern
+         branding: 0.3              # High branding importance
+     batnas:
+       IT: 27                      # Optimized BATNA values
+       Marketing: 19               # Reduced tie rates
+     rounds: 5                      # Maximum negotiation rounds
+     batna_decay: 0.015             # 1.5% decay per round
 
 **Issues Negotiated**:
-1. **Budget allocation** across project components
-2. **Timeline** and milestone dates
-3. **Quality standards** and testing requirements  
-4. **Feature scope** and deliverables
+1. **Server Room Size**: 50, 100, or 150 square meters
+2. **Meeting Room Access**: 2, 4, or 7 days per week
+3. **Cleaning Responsibility**: IT handles, shared, or outsourced
+4. **Branding Visibility**: Minimal, moderate, or prominent visibility
 
 **Key Features**:
 - Multiple interdependent issues
@@ -150,15 +204,23 @@ See the :class:`negotiation_platform.games.base_game.BaseGame` API documentation
 Action Formats
 --------------
 
-Games use standardized action formats:
+Games use standardized JSON action formats:
 
-**Offer Actions**:
+**Company Car Actions**:
 
 .. code-block:: json
 
    {
      "type": "offer",
      "price": 42000
+   }
+   
+   {
+     "type": "accept"
+   }
+   
+   {
+     "type": "reject"
    }
 
 **Resource Allocation Actions**:
@@ -167,22 +229,28 @@ Games use standardized action formats:
 
    {
      "type": "propose",
-     "allocation": {
-       "gpu_hours": 40,
-       "cpu_hours": 80
-     }
+     "gpu": 40,
+     "cpu": 60
+   }
+   
+   {
+     "type": "accept"
    }
 
-**Response Actions**:
+**Integrative Negotiation Actions**:
 
 .. code-block:: json
 
    {
-     "type": "accept"
+     "type": "propose",
+     "server_room": 100,
+     "meeting_access": 4,
+     "cleaning": "Shared",
+     "branding": "Moderate"
    }
    
    {
-     "type": "reject"
+     "type": "accept"
    }
 
 Bias Mitigation Features
