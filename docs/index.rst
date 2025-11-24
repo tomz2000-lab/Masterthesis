@@ -17,11 +17,14 @@ This platform enables researchers to study negotiation behaviors, biases, and st
    :maxdepth: 2
    :caption: API Reference:
 
+   api/modules
+   api/negotiation_platform
    api/core
    api/games
    api/models
    api/metrics
    api/analysis
+   api/results
 
 .. toctree::
    :maxdepth: 1
