@@ -15,7 +15,7 @@ __author__ = "Your Name"
 
 # Import main functions for easy access
 try:
-    from .compare_games_statistics_FIXED import (
+    from .win_statistics import (
         parse_negotiation_log_corrected,
         analyze_role_bias,
         analyze_first_move_advantage,
