@@ -18,6 +18,36 @@ class IntegrativeNegotiationsGame(BaseGame):
     """
 
     def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize integrative negotiations game with configuration parameters.
+        
+        Sets up multi-issue office space negotiation between IT and Marketing teams.
+        Configures team preferences, BATNA values, issue structures, and decay rates
+        based on provided configuration dictionary.
+        
+        Args:
+            config (Dict[str, Any]): Game configuration containing:
+                - batnas (Dict[str, float]): BATNA values for IT and Marketing teams
+                - rounds (int): Maximum negotiation rounds allowed
+                - batna_decay (float or Dict): Decay rate(s) for time pressure
+                - issues (Dict, optional): Issue configurations and point values
+                - weights (Dict, optional): Team preference weights by issue
+        
+        Raises:
+            ValueError: If required configuration fields are missing.
+        
+        Example:
+            >>> config = {
+            ...     "batnas": {"IT": 35, "Marketing": 30},
+            ...     "rounds": 8,
+            ...     "batna_decay": 0.02
+            ... }
+            >>> game = IntegrativeNegotiationsGame(config)
+        
+        Note:
+            Supports both hardcoded fallback values and flexible configuration
+            for research customization and parameter sensitivity analysis.
+        """
         # Initialize base class with game type as game_id  
         super().__init__(game_id="integrative_negotiations", config=config)
         required_fields = [
@@ -92,7 +122,36 @@ class IntegrativeNegotiationsGame(BaseGame):
         #self.base_batnas = config.get("batnas", {"IT": 35, "Marketing": 30})
 
     def _generate_labels(self, issue_name: str, options: List[Any]) -> List[str]:
-        """Generate descriptive labels for issue options."""
+        """
+        Generate human-readable descriptive labels for negotiation issue options.
+        
+        Creates contextual labels for each option within negotiation issues to
+        improve readability in prompts and result reporting. Handles both standard
+        issues and custom configurations with appropriate fallbacks.
+        
+        Args:
+            issue_name (str): Name of the negotiation issue (server_room,
+                meeting_access, cleaning, branding, or custom issue).
+            options (List[Any]): List of available options for the issue.
+        
+        Returns:
+            List[str]: Descriptive labels corresponding to each option.
+                For server_room: ["50 sqm", "100 sqm", "150 sqm"]
+                For meeting_access: ["2 days/week", "4 days/week", "7 days/week"]
+                For cleaning: ["IT handles", "Shared responsibility", "Outsourced"]
+                For branding: ["Minimal visibility", "Moderate visibility", "Prominent visibility"]
+                For unknown issues: String representations of options
+        
+        Example:
+            >>> game._generate_labels("server_room", [50, 100, 150])
+            ["50 sqm", "100 sqm", "150 sqm"]
+            >>> game._generate_labels("cleaning", ["IT", "Shared", "Outsourced"])
+            ["IT handles", "Shared responsibility", "Outsourced"]
+        
+        Note:
+            Supports extensibility for custom issues while maintaining backward
+            compatibility with standard office space negotiation scenarios.
+        """
         if issue_name == "server_room":
             return [f"{option} sqm" for option in options]
         elif issue_name == "meeting_access":
@@ -116,7 +175,37 @@ class IntegrativeNegotiationsGame(BaseGame):
             return [str(option) for option in options]
 
     def validate_json_response(self, response: str) -> bool:
-        """Check if response is valid JSON with proper structure."""
+        """
+        Validate that AI model response is properly formatted JSON with required structure.
+        
+        Performs structural validation of negotiation responses to ensure they
+        contain the minimum required fields for processing. Used as a quick
+        validation step before detailed parsing and action processing.
+        
+        Args:
+            response (str): Raw response string from AI model to validate.
+        
+        Returns:
+            bool: True if response is valid JSON dict with "type" field,
+                False for malformed JSON or missing required structure.
+        
+        Validation Criteria:
+            - Must be valid JSON syntax
+            - Must parse to a dictionary object
+            - Must contain "type" field for action identification
+        
+        Example:
+            >>> game.validate_json_response('{"type": "propose", "proposal": {}}')
+            True
+            >>> game.validate_json_response('invalid json')
+            False
+            >>> game.validate_json_response('{"proposal": {}}')
+            False
+        
+        Note:
+            This is a lightweight validation step. Full semantic validation
+            of proposals and action types occurs in subsequent processing steps.
+        """
         try:
             data = json.loads(response.strip())
             return isinstance(data, dict) and "type" in data
@@ -124,7 +213,44 @@ class IntegrativeNegotiationsGame(BaseGame):
             return False
 
     def parse_json_response(self, response: str) -> Dict[str, Any]:
-        """Parse pure JSON response format similar to company car game."""
+        """
+        Parse and extract decision data from AI model JSON responses with error recovery.
+        
+        Handles multiple response formats and provides robust parsing with graceful
+        error recovery for malformed responses. Extracts decision data and preserves
+        raw response for debugging purposes.
+        
+        Args:
+            response (str): Raw JSON response string from AI model containing
+                negotiation decision and potentially surrounding text.
+        
+        Returns:
+            Dict[str, Any]: Parsed response containing:
+                - decision (Dict): Extracted action data with type and parameters
+                - raw_response (str): Original unmodified response for debugging
+        
+        Response Format Handling:
+            - Pure JSON: {"type": "propose", "proposal": {...}}
+            - Embedded JSON: Text containing JSON objects
+            - Malformed JSON: Fallback to regex extraction and default rejection
+        
+        Error Recovery:
+            - JSON parsing errors: Attempts regex extraction of key fields
+            - Missing type field: Defaults to "reject" action
+            - Invalid structure: Returns safe rejection response
+        
+        Example:
+            >>> response = '{"type": "propose", "proposal": {"server_room": 150}}'
+            >>> parsed = game.parse_json_response(response)
+            >>> print(parsed["decision"]["type"])
+            "propose"
+            >>> print(parsed["decision"]["proposal"])
+            {"server_room": 150}
+        
+        Note:
+            Designed for robustness with AI model responses that may include
+            explanatory text, formatting inconsistencies, or parsing errors.
+        """
         try:
             # Clean the response by removing common instruction patterns
             cleaned_response = response.strip()
@@ -188,7 +314,40 @@ class IntegrativeNegotiationsGame(BaseGame):
             }
 
     def initialize_game(self, players: List[str]) -> Dict[str, Any]:
-        """Initialize integrative negotiations game with randomized role assignment."""
+        """
+        Initialize the integrative negotiation game with randomized role assignments.
+        
+        Sets up a multi-issue office space negotiation between IT and Marketing
+        teams with randomized role assignment to minimize positional bias.
+        Establishes complete game state including private information, utility
+        functions, and BATNA parameters.
+        
+        Args:
+            players (List[str]): List of exactly 2 player identifiers to
+                participate in the bilateral negotiation.
+        
+        Returns:
+            Dict[str, Any]: Complete initialized game state containing:
+                - game_type (str): "integrative_negotiations"
+                - players (List[str]): Player identifiers
+                - role_assignments (Dict[str, str]): Mapping of roles to players
+                - private_info (Dict[str, Dict]): Individual BATNAs and preferences
+                - public_info (Dict[str, Any]): Shared issue descriptions
+                - game_config (Dict[str, Any]): Configuration parameters
+        
+        Raises:
+            ValueError: If number of players is not exactly 2.
+        
+        Example:
+            >>> game = IntegrativeNegotiationsGame(config)
+            >>> state = game.initialize_game(["alice", "bob"])
+            >>> state["role_assignments"]
+            {"IT": "alice", "Marketing": "bob"}
+        
+        Note:
+            Role assignment is randomized to prevent systematic positional
+            advantages. The first player is not always IT team.
+        """
         if len(players) != 2:
             raise ValueError("Integrative negotiations game requires exactly 2 players")
 
@@ -251,7 +410,34 @@ class IntegrativeNegotiationsGame(BaseGame):
         return self.game_data
 
     def get_current_batna(self, player: str, round_num: int) -> float:
-        """Calculate time-adjusted BATNA for current round."""
+        """
+        Calculate time-adjusted BATNA value accounting for negotiation urgency.
+        
+        Computes the Best Alternative to a Negotiated Agreement with exponential
+        decay to model increasing time pressure and opportunity costs as rounds
+        progress. Different decay rates can be applied per team role.
+        
+        Args:
+            player (str): Player identifier to calculate BATNA for.
+            round_num (int): Current round number (1-indexed) for time adjustment.
+        
+        Returns:
+            float: Time-adjusted BATNA value for the specified player and round.
+                Always less than or equal to the initial BATNA value.
+        
+        Formula:
+            BATNA(t) = base_BATNA * (1 - decay_rate)^(round - 1)
+        
+        Example:
+            >>> game.get_current_batna("alice", 1)  # Round 1
+            85.0
+            >>> game.get_current_batna("alice", 5)  # Round 5
+            79.8  # Decreased due to time pressure
+        
+        Note:
+            Supports both uniform decay rates (float) and role-specific
+            decay rates (dict) for asymmetric time pressure modeling.
+        """
         if player == self.marketing_team:
             # Handle both dict and float formats for batna_decay
             if isinstance(self.batna_decay, dict):
@@ -270,7 +456,38 @@ class IntegrativeNegotiationsGame(BaseGame):
         return base_batna * ((1 - decay_rate) ** (round_num - 1))
 
     def calculate_utility(self, player: str, proposal: Dict[str, Any]) -> float:
-        """Calculate weighted utility for a given proposal."""
+        """
+        Calculate total weighted utility for a player given a specific proposal.
+        
+        Computes utility by evaluating each negotiation issue against the
+        player's preferences and applying role-specific weights. Uses the
+        additive utility model where total utility is the sum of weighted
+        issue utilities.
+        
+        Args:
+            player (str): Player identifier to calculate utility for.
+            proposal (Dict[str, Any]): Proposal dictionary containing selections
+                for each negotiation issue (server_room, meeting_access, etc.).
+        
+        Returns:
+            float: Total weighted utility value for the player. Higher values
+                indicate more preferred outcomes.
+        
+        Utility Calculation:
+            For each issue: utility += issue_points * role_weight
+            Where issue_points are determined by option selection and
+            role_weights reflect strategic importance to the player's team.
+        
+        Example:
+            >>> proposal = {"server_room": 150, "meeting_access": 4,
+            ...            "cleaning": "Shared", "branding": "Moderate"}
+            >>> game.calculate_utility("alice", proposal)
+            87.5
+        
+        Note:
+            Returns 0.0 for invalid proposals or unrecognized players.
+            Role assignment determines which weight set is applied.
+        """
         # Determine player role based on exact team assignment
         if player == self.it_team:
             player_role = "IT"
@@ -312,7 +529,39 @@ class IntegrativeNegotiationsGame(BaseGame):
         return total_utility
 
     def is_valid_proposal(self, proposal: Dict[str, Any]) -> bool:
-        """Check if proposal contains valid selections for all issues."""
+        """
+        Validate that a proposal contains valid selections for all negotiation issues.
+        
+        Performs comprehensive validation to ensure proposals are complete and
+        contain only valid options. Checks both completeness (all issues addressed)
+        and validity (selections exist in defined option sets).
+        
+        Args:
+            proposal (Dict[str, Any]): Proposal dictionary to validate containing
+                issue names as keys and selected options as values.
+        
+        Returns:
+            bool: True if proposal is complete and contains only valid selections,
+                False if missing issues or invalid options detected.
+        
+        Validation Requirements:
+            - Must be non-empty dictionary
+            - Must contain all required issues (server_room, meeting_access, etc.)
+            - All selections must exist in the corresponding issue option sets
+        
+        Example:
+            >>> valid = {"server_room": 150, "meeting_access": 4,
+            ...          "cleaning": "Shared", "branding": "Moderate"}
+            >>> game.is_valid_proposal(valid)
+            True
+            >>> invalid = {"server_room": 200}  # Missing issues, invalid size
+            >>> game.is_valid_proposal(invalid)
+            False
+        
+        Note:
+            This method validates structure and options but not semantic
+            reasonableness or strategic value of proposals.
+        """
         if not proposal:
             return False
 
@@ -404,7 +653,38 @@ class IntegrativeNegotiationsGame(BaseGame):
         return False
 
     def validate_response(self, response: Dict[str, Any]) -> bool:
-        """Validate the LLM response to ensure it contains a valid action."""
+        """
+        Validate AI model response structure for required negotiation components.
+        
+        Performs comprehensive validation of parsed responses to ensure they
+        contain all necessary fields and valid action types for multi-issue
+        negotiation processing.
+        
+        Args:
+            response (Dict[str, Any]): Parsed response dictionary to validate
+                containing action type and associated parameters.
+        
+        Returns:
+            bool: True if response contains valid action structure,
+                False if missing required fields or invalid action types.
+        
+        Validation Rules:
+            - Must contain "type" and "proposal" keys
+            - Action type must be "propose", "accept", or "reject"
+            - Proposal validation handled separately by is_valid_proposal()
+        
+        Example:
+            >>> response = {"type": "propose", "proposal": {"server_room": 150}}
+            >>> game.validate_response(response)
+            True
+            >>> invalid = {"type": "invalid_action"}
+            >>> game.validate_response(invalid)
+            False
+        
+        Note:
+            This method validates response structure but not semantic validity
+            of proposals. Content validation occurs in downstream processing.
+        """
         required_keys = {"type", "proposal"}
         if not required_keys.issubset(response.keys()):
             print(f"Invalid response: Missing keys in {response}")
@@ -585,7 +865,39 @@ class IntegrativeNegotiationsGame(BaseGame):
         return game_state
 
     def _create_no_agreement(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Create no agreement result with BATNA values."""
+        """
+        Create final game state when negotiation ends without agreement.
+        
+        Generates the terminal state for failed negotiations where players
+        could not reach mutual agreement. Players receive their current
+        BATNA values as final utilities, representing their fallback options.
+        
+        Args:
+            game_state (Dict[str, Any]): Current game state to be finalized
+                with no-agreement outcomes.
+        
+        Returns:
+            Dict[str, Any]: Updated game state with no-agreement results including:
+                - agreement_reached: False
+                - reason: "no_agreement"
+                - final_utilities: BATNA values for each player
+                - winner: None (no winner in failed negotiations)
+        
+        Utility Assignment:
+            Each player receives their time-adjusted BATNA value as utility,
+            representing the value of their best alternative option.
+        
+        Example:
+            >>> final_state = game._create_no_agreement(game_state)
+            >>> final_state["agreement_reached"]
+            False
+            >>> final_state["final_utilities"]
+            {"alice": 78.5, "bob": 82.1}  # BATNA values
+        
+        Note:
+            BATNA values reflect time decay from negotiation duration.
+            No winner is declared in failed negotiations.
+        """
         print(f"🎲 [ROLE DEBUG] No Agreement - IT={self.it_team}, Marketing={self.marketing_team}")
         print(f"🎲 [ROLE DEBUG] {self.it_team} utility=0, {self.marketing_team} utility=0")
         
@@ -607,7 +919,43 @@ class IntegrativeNegotiationsGame(BaseGame):
         return game_state
 
     def _create_agreement(self, final_proposal: Dict[str, Any], round_num: int, game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Create agreement result with utilities."""
+        """
+        Create final game state when negotiation concludes with mutual agreement.
+        
+        Processes successful negotiations by calculating final utilities,
+        determining the winner based on utility surplus over BATNA, and
+        generating comprehensive agreement details for analysis.
+        
+        Args:
+            final_proposal (Dict[str, Any]): The agreed-upon proposal containing
+                selections for all negotiation issues.
+            round_num (int): Round number when agreement was reached for
+                time-adjusted BATNA calculations.
+            game_state (Dict[str, Any]): Current game state to be finalized
+                with agreement outcomes.
+        
+        Returns:
+            Dict[str, Any]: Updated game state with agreement results including:
+                - agreement_reached: True
+                - agreement_round: Round of agreement
+                - final_utilities: Calculated utilities for both players
+                - utility_breakdown: Detailed utility analysis by issue
+                - winner: Player with highest utility surplus over BATNA
+        
+        Winner Determination:
+            Winner is the player with the largest positive difference between
+            negotiated utility and their time-adjusted BATNA value.
+        
+        Example:
+            >>> proposal = {"server_room": 150, "cleaning": "Shared"}
+            >>> final_state = game._create_agreement(proposal, 3, game_state)
+            >>> final_state["winner"]
+            "alice"  # Highest utility surplus
+        
+        Note:
+            Includes detailed debugging output for utility calculations
+            and BATNA comparisons to support research analysis.
+        """
         it_utility = self.calculate_utility(self.it_team, final_proposal)
         marketing_utility = self.calculate_utility(self.marketing_team, final_proposal)
 
@@ -675,7 +1023,39 @@ class IntegrativeNegotiationsGame(BaseGame):
 
 
     def _calculate_utility_breakdown(self, player: str, proposal: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
-        """Calculate detailed utility breakdown by issue."""
+        """
+        Calculate detailed utility breakdown showing contribution of each issue.
+        
+        Provides granular analysis of utility calculation by decomposing
+        total utility into per-issue contributions. Shows raw points,
+        weights, and weighted utilities for transparency and debugging.
+        
+        Args:
+            player (str): Player identifier to calculate breakdown for.
+            proposal (Dict[str, Any]): Proposal containing issue selections
+                to analyze for utility contributions.
+        
+        Returns:
+            Dict[str, Dict[str, float]]: Nested dictionary with issue names
+                as keys and breakdown details as values:
+                - selection: The chosen option for this issue
+                - raw_points: Unweighted points for the selection
+                - weight: Role-specific weight for this issue
+                - weighted_utility: Final weighted contribution
+        
+        Breakdown Structure:
+            Each issue provides: selection, raw_points, weight, weighted_utility
+            enabling detailed analysis of negotiation outcomes.
+        
+        Example:
+            >>> breakdown = game._calculate_utility_breakdown("alice", proposal)
+            >>> breakdown["server_room"]
+            {"selection": 150, "raw_points": 60, "weight": 0.4, "weighted_utility": 24.0}
+        
+        Note:
+            Used primarily for detailed analysis and debugging of utility
+            calculations in research contexts.
+        """
         # Use exact same logic as calculate_utility method
         if player == self.it_team:
             player_role = "IT"
@@ -715,13 +1095,75 @@ class IntegrativeNegotiationsGame(BaseGame):
         return breakdown
 
     def is_game_over(self, game_state: Dict[str, Any]) -> bool:
-        """Check if game is finished."""
+        """
+        Determine if the negotiation has reached a terminal state.
+        
+        Checks multiple termination conditions to determine if the game
+        should end. Used by the game engine to control round progression
+        and trigger final result calculations.
+        
+        Args:
+            game_state (Dict[str, Any]): Current game state containing
+                round information and agreement status.
+        
+        Returns:
+            bool: True if game should terminate, False if negotiation
+                should continue with additional rounds.
+        
+        Termination Conditions:
+            - Agreement reached between players
+            - Game explicitly marked as ended
+            - Maximum rounds exceeded
+        
+        Example:
+            >>> game.is_game_over({"agreement_reached": True})
+            True
+            >>> game.is_game_over({"current_round": 10})  # max_rounds=8
+            True
+            >>> game.is_game_over({"current_round": 3})
+            False
+        
+        Note:
+            Multiple termination conditions ensure robust game state
+            management across different negotiation scenarios.
+        """
         return (game_state.get("agreement_reached", False) or
                 game_state.get("game_ended", False) or
                 game_state.get("current_round", 1) > self.max_rounds)
 
     def get_winner(self, game_state: Dict[str, Any]) -> Optional[str]:
-        """Determine winner based on utility surplus relative to BATNA."""
+        """
+        Determine negotiation winner based on utility surplus over BATNA.
+        
+        Identifies the player who achieved the greatest benefit from the
+        negotiation by comparing their utility gain above their Best
+        Alternative to a Negotiated Agreement (BATNA). No winner is
+        declared for failed negotiations.
+        
+        Args:
+            game_state (Dict[str, Any]): Final game state containing
+                agreement details and utility calculations.
+        
+        Returns:
+            Optional[str]: Player identifier of the winner, or None if:
+                - No agreement was reached
+                - Both players have equal utility surplus
+        
+        Winner Criteria:
+            Winner = max(utility - time_adjusted_BATNA) for each player
+            Only positive surpluses indicate successful negotiation outcomes.
+        
+        Example:
+            >>> # Player utilities: alice=85, bob=78; BATNAs: alice=75, bob=80
+            >>> game.get_winner(final_state)
+            "alice"  # Surplus: alice=10, bob=-2
+            >>> game.get_winner(no_agreement_state)
+            None  # No agreement reached
+        
+        Note:
+            Winner determination encourages value-creating negotiations
+            rather than purely competitive zero-sum outcomes.
+        """
         if not game_state.get("agreement_reached", False):
             return None
 
@@ -752,7 +1194,42 @@ class IntegrativeNegotiationsGame(BaseGame):
             return max(positive_surplus_players, key=positive_surplus_players.get)
 
     def get_game_summary(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Get comprehensive game summary."""
+        """
+        Generate comprehensive summary of negotiation results for analysis.
+        
+        Creates a structured summary containing all key negotiation outcomes,
+        player roles, agreement details, and utility calculations. Used for
+        research analysis, reporting, and comparative studies.
+        
+        Args:
+            game_state (Dict[str, Any]): Final game state containing complete
+                negotiation history and outcomes.
+        
+        Returns:
+            Dict[str, Any]: Comprehensive summary containing:
+                - game_type: "Integrative Negotiations"
+                - players: Mapping of player IDs to role names
+                - agreement_reached: Boolean success indicator
+                - agreement_details: Final proposal if successful
+                - utilities: Final utility values for each player
+                - failure_reason: Explanation if negotiation failed
+        
+        Summary Structure:
+            Successful negotiations include agreement round, final proposal,
+            utilities, and detailed breakdowns. Failed negotiations include
+            failure reasons and context.
+        
+        Example:
+            >>> summary = game.get_game_summary(final_state)
+            >>> summary["agreement_reached"]
+            True
+            >>> summary["final_agreement"]
+            {"server_room": 150, "cleaning": "Shared"}
+        
+        Note:
+            Provides standardized output format for research data collection
+            and comparative analysis across different negotiation scenarios.
+        """
         summary = {
             "game_type": "Integrative Negotiations",
             "players": {
@@ -776,7 +1253,34 @@ class IntegrativeNegotiationsGame(BaseGame):
 
     # Required abstract methods from BaseGame
     def process_action(self, action) -> Dict[str, Any]:
-        """Process a single player action (required by base class)"""
+        """
+        Process a single player action (required by BaseGame interface).
+        
+        Implements the abstract BaseGame method for single-action processing.
+        In integrative negotiations, multi-player action processing via
+        process_actions() is preferred. This method serves as a compatibility
+        interface for the base class contract.
+        
+        Args:
+            action: Single player action to process (format varies).
+        
+        Returns:
+            Dict[str, Any]: Processing result indicating successful handling.
+        
+        Implementation Note:
+            This game uses simultaneous bilateral action processing through
+            process_actions() rather than sequential single-action processing.
+            This method provides base class compatibility.
+        
+        Example:
+            >>> result = game.process_action({"type": "propose"})
+            >>> result["processed"]
+            True
+        
+        Note:
+            For actual negotiation processing, use process_actions() which
+            handles simultaneous bilateral actions appropriately.
+        """
         # Add action to history if it has the required structure
         if hasattr(action, 'player_id') and hasattr(action, 'action_data'):
             self.add_action(action)
@@ -795,27 +1299,143 @@ class IntegrativeNegotiationsGame(BaseGame):
             return {}
     
     def check_end_conditions(self) -> bool:
-        """Check if the game should end (required by base class)"""
+        """
+        Check if the game should end (required by BaseGame interface).
+        
+        Implements the abstract BaseGame method for termination checking.
+        Delegates to the state-based is_game_over() method when game data
+        is available, providing base class compatibility.
+        
+        Returns:
+            bool: True if game should terminate, False otherwise.
+                Delegates to is_game_over() when game state exists.
+        
+        Implementation Note:
+            This game uses state-based termination checking through
+            is_game_over() which analyzes current game state for
+            termination conditions.
+        
+        Example:
+            >>> game.check_end_conditions()
+            True  # If agreement reached or rounds exceeded
+        
+        Note:
+            Primary termination logic resides in is_game_over() which
+            requires game state for proper condition evaluation.
+        """
         if hasattr(self, 'game_data'):
             return self.is_game_over(self.game_data)
         return False
     
     def calculate_scores(self) -> Dict[str, float]:
-        """Calculate final scores for all players (required by base class)"""
+        """
+        Calculate final scores for all players (required by BaseGame interface).
+        
+        Implements the abstract BaseGame method for score calculation.
+        Returns final utilities from completed negotiations or zero scores
+        for failed negotiations, providing base class compatibility.
+        
+        Returns:
+            Dict[str, float]: Dictionary mapping player IDs to final scores:
+                - Successful negotiations: actual utility values
+                - Failed negotiations: 0.0 for all players
+                - No game data: 0.0 for all players
+        
+        Score Calculation:
+            Scores are the final utility values calculated during agreement
+            creation, representing negotiated value for each player.
+        
+        Example:
+            >>> scores = game.calculate_scores()
+            >>> scores
+            {"alice": 87.5, "bob": 78.3}  # After successful negotiation
+        
+        Note:
+            Scores represent utility values rather than competitive rankings.
+            Both players can achieve positive scores in value-creating negotiations.
+        """
         if hasattr(self, 'game_data'):
             if self.game_data.get("agreement_reached", False):
                 return self.game_data.get("final_utilities", {})
         return {player: 0.0 for player in getattr(self, 'players', [])}
     
     def _get_neutral_role_label(self, player_id: str) -> str:
-        """Map player to neutral role label to reduce bias."""
+        """
+        Map player identifier to neutral role label to minimize cognitive bias.
+        
+        Provides neutral terminology ("ROLE A"/"ROLE B") instead of loaded
+        domain-specific terms ("IT"/"Marketing") to reduce behavioral biases
+        and role-based assumptions in negotiation prompts and analysis.
+        
+        Args:
+            player_id (str): Player identifier to map to neutral label.
+        
+        Returns:
+            str: Neutral role label ("ROLE A" for IT team, "ROLE B" for Marketing team).
+        
+        Bias Reduction:
+            - Eliminates domain-specific role assumptions
+            - Reduces stereotype-based behavioral influences
+            - Enables more objective negotiation analysis
+            - Supports fair comparison across different scenarios
+        
+        Example:
+            >>> # If player_123 is assigned as IT team
+            >>> game._get_neutral_role_label("player_123")
+            "ROLE A"
+            >>> # If player_456 is assigned as Marketing team  
+            >>> game._get_neutral_role_label("player_456")
+            "ROLE B"
+        
+        Note:
+            Used primarily in prompt generation and result reporting to maintain
+            experimental validity and reduce confounding variables in analysis.
+        """
         if player_id == self.it_team:
             return "ROLE A"
         else:
             return "ROLE B"
     
     def get_game_prompt(self, player_id: str, game_state: Dict[str, Any] = None) -> str:
-        """Generate structured prompt for integrative negotiation - NegotiationArena style."""
+        """
+        Generate structured negotiation prompt for AI model interaction.
+        
+        Creates comprehensive, role-specific prompts that provide players with
+        all necessary context for strategic decision-making. Includes current
+        situation, available options, utility guidance, and proper JSON
+        response formatting requirements.
+        
+        Args:
+            player_id (str): Identifier of the player to generate prompt for.
+            game_state (Dict[str, Any], optional): Current game state to use
+                for prompt generation. If None, uses internal game_data.
+        
+        Returns:
+            str: Complete formatted prompt string containing:
+                - Current round and role information
+                - Available options and point values
+                - Role-specific priorities and preferences
+                - Proposal history and opponent actions
+                - Response format requirements and examples
+        
+        Prompt Components:
+            - Header with round/role identification
+            - BATNA and remaining proposal information
+            - Option descriptions with utility values
+            - Strategic guidance based on current situation
+            - JSON format requirements and examples
+        
+        Example:
+            >>> prompt = game.get_game_prompt("alice", game_state)
+            >>> "OFFICE SPACE NEGOTIATION" in prompt
+            True
+            >>> "RESPONSE FORMAT" in prompt
+            True
+        
+        Note:
+            Prompts use neutral role labels to minimize cognitive bias
+            while providing complete strategic context for informed decisions.
+        """
         current_state = game_state if game_state is not None else getattr(self, 'game_data', {})
         if not current_state:
             return "Game not initialized properly"

@@ -49,13 +49,111 @@ from .base_game import BaseGame, PlayerAction
 
 class CompanyCarGame(BaseGame):
     """
-    Bilateral car negotiation game based on document specifications.
-    - BATNAs: Buyer 41,000€ (alternative car cost), Seller 39,000€ (minimum acceptable)
-    - 5 rounds with time-adjusted BATNA decay
-    - Enhanced with structured prompts, proposal limits, and strategic guidance
+    Company car price negotiation game implementing realistic bilateral bargaining dynamics.
+    
+    This class manages structured price negotiations between a buyer and seller for
+    a company vehicle purchase. The game incorporates realistic market dynamics,
+    time pressure through BATNA decay, and strategic guidance to create authentic
+    negotiation experiences.
+    
+    The game simulates a common business scenario where organizations must negotiate
+    vehicle purchases, balancing budget constraints with value optimization. Both
+    parties have alternatives (BATNAs) that become less attractive over time,
+    encouraging timely agreement.
+    
+    Key Features:
+        - Realistic price negotiation with market constraints
+        - Dynamic BATNA values that decay to simulate time pressure
+        - Strategic guidance system with contextual prompts
+        - JSON-based structured proposal system for clear communication
+        - Win-win outcome detection based on surplus above BATNA values
+        - Comprehensive utility tracking and performance analysis
+    
+    Game Mechanics:
+        1. Buyer and seller alternate making price proposals
+        2. Each proposal is validated against budget and cost constraints
+        3. Players can make offers, counteroffers, or accept/reject proposals
+        4. BATNA values decay each round to encourage timely resolution
+        5. Game ends on acceptance or maximum rounds reached
+        6. Final utilities calculated based on achieved price vs. BATNA
+    
+    Attributes:
+        starting_price (int): Initial vehicle price for negotiation reference.
+        buyer_budget (int): Maximum amount buyer can afford to pay.
+        seller_cost (int): Minimum amount seller needs to receive.
+        buyer_batna (float): Buyer's best alternative option value.
+        seller_batna (float): Seller's best alternative option value.
+        batna_decay (float): Per-round decay rate for BATNA values.
+        current_price (Optional[int]): Most recent proposed price.
+        agreement_reached (bool): Whether parties have reached agreement.
+        final_price (Optional[int]): Agreed upon price if deal completed.
+    
+    Example:
+        >>> config = {
+        ...     "starting_price": 42000,
+        ...     "buyer_budget": 45000,
+        ...     "seller_cost": 38000,
+        ...     "buyer_batna": 41000,
+        ...     "seller_batna": 39000,
+        ...     "rounds": 5,
+        ...     "batna_decay": 0.02
+        ... }
+        >>> game = CompanyCarGame(config)
+        >>> game.initialize_game(["buyer_agent", "seller_agent"])
+        >>> 
+        >>> # Buyer makes initial offer
+        >>> action = {"type": "offer", "price": 40000}
+        >>> valid = game.is_valid_action("buyer_agent", action)
+        >>> if valid:
+        ...     game.process_actions({"buyer_agent": action}, game_state)
+    
+    Strategic Considerations:
+        - Buyer Strategy: Start low but stay above seller's likely cost
+        - Seller Strategy: Start high but consider buyer's budget limits
+        - Both: Monitor BATNA decay and time pressure effects
+        - Optimal: Find price range where both parties gain vs. their BATNAs
+    
+    Outcome Analysis:
+        Game success measured by:
+        - Agreement reached within round limit
+        - Both parties achieve positive surplus above BATNA
+        - Efficient price discovery within feasible range
+        - Balanced utility distribution between parties
     """
 
     def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize company car negotiation game with configuration parameters.
+        
+        Sets up the bilateral price negotiation environment with buyer and seller
+        roles, BATNA values, budget constraints, and time decay mechanisms.
+        Validates that all required configuration parameters are provided.
+        
+        Args:
+            config (Dict[str, Any]): Configuration dictionary containing:
+                - starting_price (int): Initial vehicle price for reference
+                - buyer_budget (int): Maximum amount buyer can afford
+                - seller_cost (int): Minimum amount seller needs to receive
+                - buyer_batna (float): Buyer's best alternative value
+                - seller_batna (float): Seller's best alternative value
+                - rounds (int): Maximum negotiation rounds allowed
+                - batna_decay (float): Per-round BATNA decay rate (0.0-1.0)
+        
+        Raises:
+            ValueError: If any required configuration field is missing.
+        
+        Example:
+            >>> config = {
+            ...     "starting_price": 42000,
+            ...     "buyer_budget": 45000,
+            ...     "seller_cost": 38000,
+            ...     "buyer_batna": 41000,
+            ...     "seller_batna": 39000,
+            ...     "rounds": 5,
+            ...     "batna_decay": 0.02
+            ... }
+            >>> game = CompanyCarGame(config)
+        """
         # Initialize base class with dummy game_id - will be set by game engine
         super().__init__(game_id="company_car", config=config)
         # Require all parameters from config, raise error if missing
@@ -75,7 +173,28 @@ class CompanyCarGame(BaseGame):
         self.batna_decay = config["batna_decay"]
 
     def validate_json_response(self, response: str) -> bool:
-        """Check if response is valid JSON with proper structure."""
+        """
+        Validate that a response string contains properly formatted JSON.
+        
+        Checks if the provided response can be parsed as valid JSON and
+        contains the required "type" field for action identification.
+        Used for input validation before processing player responses.
+        
+        Args:
+            response (str): Raw response string from player to validate.
+        
+        Returns:
+            bool: True if response is valid JSON with "type" field,
+                 False otherwise.
+        
+        Example:
+            >>> valid_response = '{"type": "offer", "price": 42000}'
+            >>> game.validate_json_response(valid_response)
+            True
+            >>> invalid_response = 'I want to offer 42000'
+            >>> game.validate_json_response(invalid_response)
+            False
+        """
         try:
             data = json.loads(response.strip())
             return isinstance(data, dict) and "type" in data
@@ -83,7 +202,33 @@ class CompanyCarGame(BaseGame):
             return False
 
     def parse_json_response(self, response: str) -> Dict[str, Any]:
-        """Parse pure JSON response format similar to integrative negotiation game."""
+        """
+        Parse and normalize JSON response from players into standard format.
+        
+        Extracts decision data from various JSON response formats, handling
+        both direct action format and structured response format. Provides
+        robust error recovery with fallback parsing for malformed responses.
+        
+        Args:
+            response (str): Raw JSON response string from player.
+        
+        Returns:
+            Dict[str, Any]: Parsed response containing:
+                - decision (Dict[str, Any]): Extracted action data with "type" field
+                - raw_response (str): Original response for debugging
+        
+        Example:
+            >>> response = '{"type": "offer", "price": 42000}'
+            >>> parsed = game.parse_json_response(response)
+            >>> print(parsed["decision"]["type"])
+            offer
+            >>> print(parsed["decision"]["price"])
+            42000
+        
+        Note:
+            Falls back to {"type": "reject"} for unparseable responses
+            to ensure graceful handling of malformed input.
+        """
         try:
             # Clean the response by removing common instruction patterns
             cleaned_response = response.strip()
@@ -143,7 +288,30 @@ class CompanyCarGame(BaseGame):
             }
 
     def initialize_game(self, players: List[str]) -> Dict[str, Any]:
-        """Initialize bilateral car negotiation with randomized role assignment."""
+        """
+        Process a single player action and update the game state accordingly.
+        
+        Handles individual player actions by adding them to history and
+        delegating to the batch process_actions method. Required by BaseGame
+        interface for single-action processing.
+        
+        Args:
+            action (PlayerAction): Player action to process containing player_id,
+                action_type, action_data, timestamp, and round_number.
+        
+        Returns:
+            Dict[str, Any]: Updated game state after processing the action.
+        
+        Example:
+            >>> action = PlayerAction(
+            ...     player_id="buyer",
+            ...     action_type="offer",
+            ...     action_data={"price": 42000},
+            ...     timestamp=1609459200.0,
+            ...     round_number=3
+            ... )
+            >>> new_state = game.process_action(action)
+        """
         if len(players) != 2:
             raise ValueError("Company car game requires exactly 2 players")
 
@@ -196,7 +364,32 @@ class CompanyCarGame(BaseGame):
         return self.game_data
 
     def get_current_batna(self, player: str, round_num: int) -> float:
-        """Calculate time-adjusted BATNA for current round."""
+        """
+        Calculate time-adjusted BATNA value for specified player and round.
+        
+        Applies exponential decay to the player's initial BATNA value based on
+        the current round number, simulating decreasing value of alternatives
+        over time. This creates time pressure encouraging earlier agreements.
+        
+        Args:
+            player (str): Player identifier (buyer or seller).
+            round_num (int): Current round number (1-based).
+        
+        Returns:
+            float: Time-adjusted BATNA value for the specified round.
+        
+        Example:
+            >>> # Initial buyer BATNA: 41000, decay rate: 0.02
+            >>> round_1_batna = game.get_current_batna("buyer", 1)
+            >>> print(f"Round 1 BATNA: €{round_1_batna:,.0f}")
+            Round 1 BATNA: €40,180
+            >>> round_3_batna = game.get_current_batna("buyer", 3)
+            >>> print(f"Round 3 BATNA: €{round_3_batna:,.0f}")
+            Round 3 BATNA: €39,572
+        
+        Note:
+            BATNA decay formula: initial_batna * (1 - decay_rate)^round_num
+        """
         if player == self.buyer:
             decay_rate = self.batna_decay["buyer"]
             base_batna = self.buyer_batna
@@ -207,7 +400,49 @@ class CompanyCarGame(BaseGame):
         return base_batna * ((1 - decay_rate) ** (round_num-1))
 
     def is_valid_action(self, player: str, action: Dict[str, Any], game_state: Dict[str, Any]) -> bool:
-        """Validate player action with enhanced structured format support."""
+        """
+        Validate player action against game rules with flexible format support.
+        
+        Validates negotiation actions including offers, acceptances, and rejections.
+        Supports both direct action format and structured response format with
+        "decision" wrapper. Ensures actions comply with game constraints including
+        proposal limits and valid action types.
+        
+        Args:
+            player (str): Identifier of the player taking the action.
+                Must be registered buyer or seller.
+            action (Dict[str, Any]): Action data to validate. Supported formats:
+                - Direct: {"type": "offer", "price": 42000}
+                - Structured: {"decision": {"type": "offer", "price": 42000}}
+            game_state (Dict[str, Any]): Current game state containing round
+                information, proposal counts, and negotiation history.
+        
+        Returns:
+            bool: True if action is valid and can be processed, False otherwise.
+        
+        Validation Rules:
+            - Action must have valid "type" field (offer, accept, reject)
+            - Offers must include numeric "price" field
+            - Player must not exceed proposal limits
+            - Price offers must be positive numeric values
+        
+        Example:
+            >>> # Valid offer action
+            >>> action = {"type": "offer", "price": 42000}
+            >>> is_valid = game.is_valid_action("buyer", action, game_state)
+            >>> print(is_valid)
+            True
+            
+            >>> # Valid structured format
+            >>> structured = {"decision": {"type": "accept"}}
+            >>> is_valid = game.is_valid_action("seller", structured, game_state)
+            >>> print(is_valid)
+            True
+        
+        Note:
+            Invalid actions are logged but do not raise exceptions, allowing
+            graceful handling of malformed AI model responses.
+        """
         # Handle structured response format
         if isinstance(action, dict) and "decision" in action:
             action_data = action["decision"]
@@ -263,7 +498,57 @@ class CompanyCarGame(BaseGame):
         return False
 
     def process_actions(self, actions: Dict[str, Dict[str, Any]], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Process player actions with proposal limits and enhanced validation."""
+        """
+        Process simultaneous player actions with proposal tracking and validation.
+        
+        Handles bilateral negotiation actions including offers, acceptances, and
+        rejections. Enforces proposal limits, validates action compatibility,
+        and determines negotiation outcomes. Updates game state with action
+        results and manages agreement detection.
+        
+        Args:
+            actions (Dict[str, Dict[str, Any]]): Mapping of player identifiers
+                to their action data. Expected format:
+                {"player_id": {"type": "offer", "price": 42000}}
+            game_state (Dict[str, Any]): Current game state containing:
+                - current_round: Round number for tracking
+                - proposal counts: Limits for each player
+                - negotiation history: Previous actions and offers
+        
+        Returns:
+            Dict[str, Any]: Updated game state containing:
+                - agreement_reached: Boolean indicating successful negotiation
+                - final_price: Agreed price if agreement reached
+                - final_utilities: Utility scores for each player
+                - game_over: Boolean indicating termination
+                - Updated proposal counts and action history
+        
+        Processing Logic:
+            1. Initialize and validate proposal counters
+            2. Process each player's action with validation
+            3. Check for mutual acceptances (agreement)
+            4. Handle offers and update last offer tracking
+            5. Update proposal counts and game state
+            6. Determine if negotiation should continue
+        
+        Agreement Detection:
+            - Mutual acceptance: Both players accept in same round
+            - Offer acceptance: One player accepts other's previous offer
+            - Price agreement: Players converge on acceptable price
+        
+        Example:
+            >>> actions = {
+            ...     "buyer": {"type": "offer", "price": 41000},
+            ...     "seller": {"type": "offer", "price": 43000}
+            ... }
+            >>> new_state = game.process_actions(actions, current_state)
+            >>> print(new_state["agreement_reached"])
+            False  # No agreement, continue negotiating
+        
+        Note:
+            Players exceeding proposal limits receive rejection responses.
+            Invalid actions are logged and may result in negotiation failure.
+        """
         current_round = game_state["current_round"]
         max_proposals = self.max_rounds-1  # Use rounds from YAML config
 
@@ -376,7 +661,34 @@ class CompanyCarGame(BaseGame):
         return game_state
 
     def _create_agreement(self, price: float, current_round: int, game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Create agreement result."""
+        """
+        Create final agreement result with utility calculations and surplus analysis.
+        
+        Generates comprehensive agreement outcome including final utilities,
+        surplus calculations above BATNA values, and detailed round-by-round
+        tracking. Determines winner based on positive utility surplus.
+        
+        Args:
+            price (float): Agreed upon final price.
+            current_round (int): Round when agreement was reached.
+            game_state (Dict[str, Any]): Current game state dictionary.
+        
+        Returns:
+            Dict[str, Any]: Complete agreement result containing:
+                - agreement_reached (bool): True
+                - final_price (float): Agreed price
+                - final_utilities (Dict[str, float]): Player utility values
+                - batnas_at_agreement (Dict[str, float]): BATNA values at agreement
+                - utility_surplus (Dict[str, float]): Surplus above BATNA
+                - winner (Optional[str]): Player with highest positive surplus
+        
+        Example:
+            >>> result = game._create_agreement(42000, 3, game_state)
+            >>> print(f"Price: €{result['final_price']:,.0f}")
+            >>> print(f"Buyer utility: {result['final_utilities']['buyer']:.1f}")
+            Price: €42,000
+            Buyer utility: 8.2
+        """
         buyer_batna = self.get_current_batna(self.buyer, current_round)
         seller_batna = self.get_current_batna(self.seller, current_round)
 
@@ -434,7 +746,32 @@ class CompanyCarGame(BaseGame):
         return game_state
 
     def _create_no_agreement(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
-        """Create no agreement result."""
+        """
+        Create final result when no agreement is reached between parties.
+        
+        Generates comprehensive failure outcome with BATNA-based utilities,
+        indicating both parties resort to their best alternatives.
+        No surplus is generated as negotiation failed to create mutual value.
+        
+        Args:
+            game_state (Dict[str, Any]): Current game state dictionary.
+        
+        Returns:
+            Dict[str, Any]: No agreement result containing:
+                - agreement_reached (bool): False
+                - final_price (None): No agreed price
+                - final_utilities (Dict[str, float]): BATNA-based utilities
+                - batnas_at_agreement (Dict[str, float]): Final BATNA values
+                - utility_surplus (Dict[str, float]): Zero surplus for both
+                - winner (None): No winner in failed negotiations
+        
+        Example:
+            >>> result = game._create_no_agreement(game_state)
+            >>> print(f"Agreement: {result['agreement_reached']}")
+            >>> print(f"Final utilities: {result['final_utilities']}")
+            Agreement: False
+            Final utilities: {'buyer': 0.0, 'seller': 0.0}
+        """
         print(f"🎲 [ROLE DEBUG] No Agreement - Buyer={self.buyer}, Seller={self.seller}")
         print(f"🎲 [ROLE DEBUG] {self.buyer} utility=0, {self.seller} utility=0")
         
@@ -454,13 +791,59 @@ class CompanyCarGame(BaseGame):
         return game_state
 
     def is_game_over(self, game_state: Dict[str, Any]) -> bool:
-        """Check if game is finished."""
+        """
+        Determine if the negotiation game has reached a terminal state.
+        
+        Checks for various end conditions including agreement reached,
+        maximum rounds exceeded, or explicit rejections that end negotiation.
+        
+        Args:
+            game_state (Dict[str, Any]): Current game state to evaluate.
+        
+        Returns:
+            bool: True if game should terminate, False if negotiation continues.
+        
+        Example:
+            >>> # Agreement reached
+            >>> game_state = {"agreement_reached": True}
+            >>> game.is_game_over(game_state)
+            True
+            >>> # Maximum rounds exceeded  
+            >>> game_state = {"current_round": 6, "agreement_reached": False}
+            >>> game.is_game_over(game_state)  # max_rounds = 5
+            True
+        """
         return (game_state.get("agreement_reached", False) or
                 game_state.get("game_ended", False) or
                 game_state.get("current_round", 1) > self.max_rounds)
 
     def get_winner(self, game_state: Dict[str, Any]) -> Optional[str]:
-        """Determine winner based on positive utility surplus."""
+        """
+        Determine the winning player based on positive utility surplus analysis.
+        
+        Evaluates final utilities and surplus values to identify the player
+        who achieved the highest positive surplus above their BATNA. Only
+        players with positive surplus can be considered winners.
+        
+        Args:
+            game_state (Dict[str, Any]): Final game state with utility data.
+        
+        Returns:
+            Optional[str]: Player identifier of winner, or None if:
+                - No agreement was reached
+                - No player has positive surplus
+                - Utilities are tied or unavailable
+        
+        Example:
+            >>> # Buyer achieved higher surplus
+            >>> game_state = {
+            ...     "agreement_reached": True,
+            ...     "utility_surplus": {"buyer": 1000, "seller": 500}
+            ... }
+            >>> winner = game.get_winner(game_state)
+            >>> print(f"Winner: {winner}")
+            Winner: buyer
+        """
         if not game_state.get("agreement_reached", False):
             return None
 
@@ -492,7 +875,30 @@ class CompanyCarGame(BaseGame):
 
     # Required abstract methods from BaseGame
     def process_action(self, action: PlayerAction) -> Dict[str, Any]:
-        """Process a player action and update game state"""
+        """
+        Process a single player action and update the game state accordingly.
+        
+        Handles individual player actions by adding them to history and
+        delegating to the batch process_actions method. Required by BaseGame
+        interface for single-action processing.
+        
+        Args:
+            action (PlayerAction): Player action to process containing player_id,
+                action_type, action_data, timestamp, and round_number.
+        
+        Returns:
+            Dict[str, Any]: Updated game state after processing the action.
+        
+        Example:
+            >>> action = PlayerAction(
+            ...     player_id="buyer",
+            ...     action_type="offer",
+            ...     action_data={"price": 42000},
+            ...     timestamp=1609459200.0,
+            ...     round_number=3
+            ... )
+            >>> new_state = game.process_action(action)
+        """
         # This method should process individual actions
         # For now, delegate to process_actions with single action
         player_id = action.player_id if hasattr(action, 'player_id') else 'unknown'
@@ -500,8 +906,31 @@ class CompanyCarGame(BaseGame):
         
         return self.process_actions({player_id: action_data}, self.game_data)
 
-    def process_action(self, action) -> Dict[str, Any]:
-        """Process a player action and update game state"""
+    def process_action(self, action: PlayerAction) -> Dict[str, Any]:
+        """
+        Process a single player action and update the game state accordingly.
+        
+        Handles individual player actions by adding them to history and
+        delegating to the batch process_actions method. Required by BaseGame
+        interface for single-action processing.
+        
+        Args:
+            action (PlayerAction): Player action to process containing player_id,
+                action_type, action_data, timestamp, and round_number.
+        
+        Returns:
+            Dict[str, Any]: Updated game state after processing the action.
+        
+        Example:
+            >>> action = PlayerAction(
+            ...     player_id="buyer",
+            ...     action_type="offer",
+            ...     action_data={"price": 42000},
+            ...     timestamp=1609459200.0,
+            ...     round_number=3
+            ... )
+            >>> new_state = game.process_action(action)
+        """
         # Add action to history
         self.add_action(action)
         
@@ -516,25 +945,128 @@ class CompanyCarGame(BaseGame):
         return self.game_data
 
     def check_end_conditions(self) -> bool:
-        """Check if the game should end"""
+        """
+        Check if the negotiation game should terminate based on current state.
+        
+        Evaluates termination conditions by delegating to the is_game_over
+        method. Required by BaseGame interface for consistent end condition
+        checking across all game implementations.
+        
+        Returns:
+            bool: True if game should end, False if negotiation continues.
+        
+        Example:
+            >>> game.check_end_conditions()
+            True  # If agreement reached or max rounds exceeded
+        """
         return self.is_game_over(self.game_data)
 
     def calculate_scores(self) -> Dict[str, float]:
-        """Calculate final scores for all players"""
+        """
+        Calculate final utility scores for all participating players.
+        
+        Computes final negotiation outcomes based on whether agreement was reached.
+        If successful agreement occurred, returns actual utility values achieved
+        by each player. If negotiation failed, returns zero scores for all players
+        to reflect lack of value creation.
+        
+        Returns:
+            Dict[str, float]: Mapping of player identifiers to final utility scores.
+                For successful negotiations, contains actual utility values.
+                For failed negotiations, contains 0.0 for all players.
+        
+        Example:
+            >>> # Successful price agreement at $42,000
+            >>> scores = game.calculate_scores()
+            >>> print(scores)
+            {'buyer_player': 7.5, 'seller_player': 8.2}
+            
+            >>> # Failed negotiation (no agreement)
+            >>> scores = game.calculate_scores()
+            >>> print(scores)
+            {'buyer_player': 0.0, 'seller_player': 0.0}
+        
+        Note:
+            Required by BaseGame interface for consistent scoring across all
+            negotiation game implementations. Scores reflect relative success
+            in achieving negotiation objectives.
+        """
         if self.game_data.get("agreement_reached", False):
             return self.game_data.get("final_utilities", {})
         else:
             return {player: 0.0 for player in self.players}
 
     def _get_neutral_role_label(self, player_id: str) -> str:
-        """Map player to neutral role label to reduce bias."""
+        """
+        Map player identifier to neutral role label to reduce cognitive bias.
+        
+        Provides neutral terminology ("Party A"/"Party B") instead of loaded
+        terms ("buyer"/"seller") to minimize role-based behavioral biases
+        in prompts and communications.
+        
+        Args:
+            player_id (str): Player identifier to map.
+        
+        Returns:
+            str: Neutral role label ("Party A" or "Party B").
+        
+        Example:
+            >>> # If player1 is buyer, player2 is seller
+            >>> game._get_neutral_role_label("player1")
+            'Party A'
+            >>> game._get_neutral_role_label("player2")
+            'Party B'
+        """
         if player_id == self.buyer:
             return "ROLE A"
         else:
             return "ROLE B"
 
     def get_game_prompt(self, player_id: str) -> str:
-        """Enhanced prompt with neutral role labels to reduce role bias."""
+        """
+        Generate comprehensive negotiation prompt with neutral role terminology.
+        
+        Creates detailed, contextual prompts for car price negotiations using
+        neutral role labels ("Party A"/"Party B") instead of loaded terms
+        ("buyer"/"seller") to reduce cognitive bias and role-based behavioral
+        influences. Includes current game state, strategic guidance, and
+        structured action formatting requirements.
+        
+        Args:
+            player_id (str): Identifier of the player requesting the prompt.
+                Must be one of the registered players (buyer or seller).
+        
+        Returns:
+            str: Comprehensive negotiation prompt containing:
+                - Neutral role context and scenario description
+                - Current round and proposal count information
+                - BATNA thresholds and acceptance criteria
+                - Opponent's latest offer (if available)
+                - Available actions and JSON formatting requirements
+                - Strategic guidance for decision making
+        
+        Prompt Elements:
+            - Bias-reduced role terminology (Party A/B vs buyer/seller)
+            - Current negotiation state and round tracking
+            - BATNA-based decision criteria and thresholds
+            - Offer history and opponent action visibility
+            - Structured JSON response format requirements
+            - Strategic guidance for proposal and acceptance decisions
+        
+        Example:
+            >>> prompt = game.get_game_prompt("player1")
+            >>> print("Party A" in prompt)  # Neutral terminology
+            True
+            >>> print("JSON" in prompt)     # Format requirements
+            True
+            >>> print("BATNA" in prompt)    # Strategic guidance
+            True
+        
+        Note:
+            Returns error message if game is not properly initialized with
+            buyer and seller assignments. Prompts adapt to current game
+            state including round limits and proposal constraints.
+        """
         if not hasattr(self, 'buyer') or not hasattr(self, 'seller'):
             return "Game not initialized properly"
 

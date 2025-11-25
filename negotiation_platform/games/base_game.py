@@ -317,11 +317,53 @@ class BaseGame(ABC):
         pass
 
     def add_action(self, action: PlayerAction):
-        """Add an action to the game history"""
+        """
+        Add a player action to the game's chronological history log.
+        
+        Maintains a complete record of all player actions taken during the
+        negotiation session for analysis, metrics calculation, and debugging.
+        
+        Args:
+            action (PlayerAction): The player action to add to history.
+                Must contain player_id, action_type, action_data, timestamp,
+                and round_number for complete action tracking.
+        
+        Example:
+            >>> action = PlayerAction(
+            ...     player_id="player1",
+            ...     action_type="offer",  
+            ...     action_data={"price": 42000},
+            ...     timestamp=1609459200.0,
+            ...     round_number=3
+            ... )
+            >>> game.add_action(action)
+        """
         self.actions_history.append(action)
 
     def get_game_info(self) -> Dict[str, Any]:
-        """Get current game information"""
+        """
+        Retrieve comprehensive information about the current game state.
+        
+        Provides a structured overview of the game's current status including
+        identifiers, state information, player list, round tracking, and
+        configuration parameters. Useful for debugging, logging, and analysis.
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing:
+                - game_id (str): Unique game identifier
+                - state (str): Current game state (waiting/active/completed/failed)
+                - players (List[str]): List of participating player identifiers
+                - current_round (int): Current round number (0-based)
+                - max_rounds (int): Maximum rounds before forced termination
+                - config (Dict[str, Any]): Complete game configuration parameters
+        
+        Example:
+            >>> info = game.get_game_info()
+            >>> print(f"Game {info['game_id']} is in {info['state']} state")
+            >>> print(f"Round {info['current_round']}/{info['max_rounds']}")
+            Game negotiation_001 is in active state
+            Round 3/5
+        """
         return {
             "game_id": self.game_id,
             "state": self.state.value,
