@@ -76,6 +76,8 @@ Model Configuration
 * ``pad_token_id``: Token ID for padding (model-specific)
 * ``api_token``: (Optional) Hugging Face API token for private models
 
+Note: The models is already set to use three models in case of the need to play a multi-player game.
+
 Game Configuration
 ------------------
 

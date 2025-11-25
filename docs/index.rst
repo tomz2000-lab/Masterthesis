@@ -8,7 +8,6 @@ This platform enables researchers to study negotiation behaviors, biases, and st
    :maxdepth: 2
    :caption: User Guide:
 
-   installation
    configuration
    games
 
@@ -17,12 +16,6 @@ This platform enables researchers to study negotiation behaviors, biases, and st
    :caption: Negotiation Platform:
 
    api/negotiation_platform
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Development:
-
-   docstring_guidelines
 
 Features
 --------

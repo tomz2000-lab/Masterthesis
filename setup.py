@@ -6,8 +6,8 @@ from setuptools import setup, find_packages
 setup(
     name="negotiation-platform",
     version="1.0.0",
-    description="A platform for conducting automated negotiations between LLMs",
-    author="Your Name",
+    description="Compare LLMs in corporate negotiation situations under uncertainty.",
+    author="Tom Ziegler",
     packages=find_packages(),
     python_requires=">=3.8",
     install_requires=[

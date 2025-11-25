@@ -193,7 +193,7 @@ Game Implementation
 -------------------
 
 All games inherit from the ``BaseGame`` class and implement standardized interfaces.
-For detailed implementation information, see :doc:`api/games`.
+For detailed implementation information, see Negotiation Platform/Games.
 
 Custom Game Development
 -----------------------
@@ -204,7 +204,7 @@ See the :class:`negotiation_platform.games.base_game.BaseGame` API documentation
 Action Formats
 --------------
 
-Games use standardized JSON action formats:
+Games use one of the standardized JSON action formats:
 
 **Company Car Actions**:
 
@@ -237,6 +237,10 @@ Games use standardized JSON action formats:
      "type": "accept"
    }
 
+   {
+     "type": "reject"
+   }
+
 **Integrative Negotiation Actions**:
 
 .. code-block:: json
@@ -253,14 +257,18 @@ Games use standardized JSON action formats:
      "type": "accept"
    }
 
+   {
+     "type": "reject"
+   }
+
 Bias Mitigation Features
 -----------------------
 
 All games implement bias reduction techniques:
 
 1. **Randomized Role Assignment**: Player roles assigned randomly each game
-2. **Neutral Role Labels**: Display "Role A/B" instead of "Buyer/Seller"
-3. **Turn Order Randomization**: First-move advantage eliminated
+2. **Neutral Role Labels**: Display "Role A/B" instead of e.g. "Buyer/Seller"
+3. **Turn Order Randomization**: First-move advantage mitigated
 4. **Balanced Configurations**: Parameters ensure fair negotiation zones
 
 Metrics and Analysis
