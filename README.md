@@ -1,6 +1,6 @@
-# AI Negotiation Platform
+# Negotiation Platform 
 
-A comprehensive framework for conducting automated negotiations between Large Language Models (LLMs) for research and analysis.
+A comprehensive framework for conducting LLM negotiations to compare the models in theri performance.
 
 ## Features
 
@@ -89,7 +89,7 @@ A comprehensive framework for conducting automated negotiations between Large La
 
 ```bibtex
 @mastersthesis{ziegler2025negotiation,
-  title={AI Negotiation Platform: Automated Multi-Agent Negotiations with Large Language Models},
+  title={Large Language Models in Business Negotiations: Capabilities and Performance Under Uncertainty},
   author={Ziegler, Tom},
   year={2025},
   school={University of Würzburg}
