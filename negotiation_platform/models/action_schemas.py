@@ -105,7 +105,7 @@ class IntegrativeProposalAction(BaseModel):
             #print(f"⚠️ [VALIDATION] branding corrected from {v} to 'Prominent'")
             return "Prominent"
 
-# Union of all possible actions
+# Union of all possible negotiation actions across game types
 GameAction = Union[
     OfferAction,
     AcceptAction, 
@@ -115,20 +115,77 @@ GameAction = Union[
     ProposeTradeAction,
     IntegrativeProposalAction
 ]
+"""Union type encompassing all valid negotiation actions.
+
+This type union provides comprehensive coverage of all supported action
+types across different negotiation game scenarios. It serves as the
+canonical reference for valid action schemas in the validation pipeline
+and enables type-safe action processing throughout the platform.
+
+Included Action Types:
+    - OfferAction: Price-based offers in bargaining scenarios
+    - AcceptAction: Universal acceptance across all game types
+    - CounterAction: Price-based counter-offers in bargaining
+    - RejectAction: Universal rejection across all game types
+    - ResourceProposalAction: Computing resource allocation proposals
+    - ProposeTradeAction: Complex resource trading proposals
+    - IntegrativeProposalAction: Multi-issue integrative negotiations
+
+Usage:
+    This union is used internally by the validation system and should
+    not typically be referenced directly in user code. Instead, use
+    the validate_and_constrain_action() function for action processing.
+"""
 
 def validate_and_constrain_action(raw_response: str, game_type: str) -> Dict[str, Any]:
-    """
-    Validate and constrain LLM response to proper action format
+    """Validate and constrain LLM response to proper negotiation action format.
+    
+    This function serves as the primary entry point for converting raw LLM
+    responses into validated, game-appropriate action dictionaries. It applies
+    comprehensive validation using Pydantic schemas, performs automatic error
+    correction, and provides robust fallback handling for malformed responses.
+    
+    The validation process includes JSON parsing, game-specific schema
+    validation, automatic value correction, and intelligent error recovery
+    to maximize the success rate of action parsing from LLM outputs.
     
     Args:
-        raw_response: Raw JSON string from LLM
-        game_type: Type of game (price_bargaining, resource_allocation, etc.)
+        raw_response (str): Raw JSON string response from the LLM, which
+            may contain formatting issues, invalid values, or non-standard
+            structure requiring correction and validation.
+        game_type (str): Type of negotiation game context for validation
+            ('price_bargaining', 'company_car', 'resource_allocation', 
+            'integrative_negotiations'). Determines which validation
+            schemas and correction rules are applied.
     
     Returns:
-        Validated and constrained action dictionary
+        Dict[str, Any]: Validated and constrained action dictionary
+            containing properly formatted action data with all required
+            fields and valid values according to game-specific rules.
+            Includes type field and game-appropriate additional fields.
     
     Raises:
-        ValueError: If response cannot be validated/constrained
+        ValueError: If the response cannot be parsed, validated, or
+            corrected into a valid action format despite multiple
+            correction attempts and fallback strategies.
+    
+    Example:
+        >>> response = '{\"type\": \"offer\", \"price\": 28000}'
+        >>> action = validate_and_constrain_action(response, 'company_car')
+        >>> print(action)
+        {'type': 'offer', 'price': 28000.0}
+        
+        >>> # Auto-correction example
+        >>> response = '{\"type\": \"propose\", \"server_room\": 75}'
+        >>> action = validate_and_constrain_action(response, 'integrative_negotiations')
+        >>> print(action['server_room'])  # Auto-corrected to 50
+        50
+    
+    Note:
+        This function includes extensive error handling and automatic
+        correction capabilities. It integrates with the auto_correct_action
+        function to handle common LLM output mistakes and provides graceful
+        degradation when validation fails completely.
     """
     import json
 
@@ -179,11 +236,52 @@ def validate_and_constrain_action(raw_response: str, game_type: str) -> Dict[str
         raise ValueError(f"Action validation failed: {e}")
 
 def auto_correct_action(parsed: Dict[str, Any], game_type: str) -> Optional[Dict[str, Any]]:
-    """
-    Auto-correct common LLM mistakes in action format
+    """Auto-correct common LLM mistakes in action format with intelligent fallbacks.
+    
+    This function implements sophisticated error correction for common mistakes
+    made by language models when generating negotiation actions. It uses
+    pattern matching, keyword detection, and game-specific knowledge to
+    recover valid actions from malformed or non-standard LLM outputs.
+    
+    Args:
+        parsed (Dict[str, Any]): Parsed action dictionary that failed
+            standard validation, potentially containing incorrect field
+            names, invalid values, or missing required information.
+        game_type (str): Type of negotiation game for context-specific
+            correction rules ('price_bargaining', 'company_car', 
+            'resource_allocation', 'integrative_negotiations').
     
     Returns:
-        Corrected action dict or None if cannot be corrected
+        Optional[Dict[str, Any]]: Corrected action dictionary if successful
+            correction is possible, None if the input cannot be meaningfully
+            corrected into a valid action format. Corrected actions conform
+            to the appropriate schema for the specified game type.
+    
+    Correction Strategies:
+        - Action type normalization (accept/agree/yes → accept)
+        - Alternative field name handling (amount/value → price)
+        - Game-specific field mapping (x/y → gpu_hours/cpu_hours)
+        - Value constraint enforcement for integrative negotiations
+        - Format conversion (nested proposal structures)
+    
+    Example:
+        >>> # Correct alternative acceptance terms
+        >>> parsed = {'type': 'agree'}
+        >>> corrected = auto_correct_action(parsed, 'company_car')
+        >>> print(corrected)
+        {'type': 'accept'}
+        
+        >>> # Correct alternative field names
+        >>> parsed = {'type': 'offer', 'amount': 25000}
+        >>> corrected = auto_correct_action(parsed, 'price_bargaining')
+        >>> print(corrected)
+        {'type': 'offer', 'price': 25000.0}
+    
+    Note:
+        This function is designed to be permissive and attempts multiple
+        correction strategies before giving up. It logs correction actions
+        for debugging and research purposes when values are automatically
+        adjusted to meet constraint requirements.
     """
     action_type = parsed.get("type", "").lower()
     

@@ -1,5 +1,48 @@
 """
-Hugging Face model wrapper for plug-and-play integration
+Hugging Face Model Wrapper
+=========================
+
+Comprehensive wrapper implementation for Hugging Face Transformers models,
+providing plug-and-play integration with the negotiation platform. This module
+handles the complexities of model loading, memory management, GPU utilization,
+and response generation for various Hugging Face language models.
+
+The wrapper supports advanced features including quantization, device mapping,
+memory optimization, and robust error handling. It provides seamless integration
+with the platform's action parsing system and includes extensive debugging
+capabilities for production deployment.
+
+Key Features:
+    - Automatic device detection and optimal GPU/CPU placement
+    - Memory-efficient loading with quantization support (4-bit, 8-bit)
+    - Robust response generation with configurable parameters
+    - Intelligent action parsing with game-specific validation
+    - Comprehensive error handling and recovery mechanisms
+    - Production-ready logging and monitoring capabilities
+
+Supported Models:
+    - All Hugging Face Transformers causal language models
+    - Meta Llama family (2, 3.1, 3.2)
+    - Mistral family (7B, 8B variants)
+    - Qwen family (3B, 7B variants)
+    - Custom fine-tuned models with compatible architectures
+
+Example:
+    >>> config = {
+    ...     'device': 'auto',
+    ...     'load_in_8bit': True,
+    ...     'temperature': 0.7,
+    ...     'max_new_tokens': 150
+    ... }
+    >>> model = HuggingFaceModelWrapper('meta-llama/Llama-2-7b-chat-hf', config)
+    >>> model.load_model()
+    >>> response = model.generate_response('Negotiate a car price.')
+    >>> action = model.parse_action(response, 'company_car')
+
+Note:
+    This implementation requires the transformers, torch, and optionally
+    bitsandbytes libraries. GPU support requires CUDA-compatible hardware
+    and appropriate driver installation.
 """
 #from dotenv import load_dotenv
 #load_dotenv()
@@ -12,9 +55,89 @@ from .base_model import BaseLLMModel
 from typing import Dict, Any
 
 class HuggingFaceModelWrapper(BaseLLMModel):
-    """Wrapper for Hugging Face models with plug-and-play functionality"""
+    """Production-ready wrapper for Hugging Face Transformers models.
+    
+    This class provides a comprehensive implementation of the BaseLLMModel
+    interface specifically designed for Hugging Face Transformers models.
+    It handles the complexities of modern language model deployment including
+    memory optimization, device management, and robust inference pipelines.
+    
+    The wrapper supports both research and production scenarios with features
+    like automatic quantization, intelligent device placement, comprehensive
+    error handling, and extensive logging for debugging and monitoring.
+    
+    Attributes:
+        tokenizer: Hugging Face tokenizer instance for the model.
+        model: Loaded Hugging Face model instance ready for inference.
+        device (str): Target device for model execution ('cuda', 'cpu', or 'auto').
+    
+    Configuration Options:
+        Device and Memory:
+            - device (str): Target device ('cuda', 'cpu', 'auto')
+            - device_map (str/dict): Advanced device placement strategy
+            - load_in_8bit (bool): Enable 8-bit quantization for memory efficiency
+            - load_in_4bit (bool): Enable 4-bit quantization for extreme efficiency
+        
+        Generation Parameters:
+            - temperature (float): Sampling temperature (0.0-2.0)
+            - max_new_tokens (int): Maximum tokens to generate
+            - top_p (float): Nucleus sampling parameter
+            - do_sample (bool): Enable sampling vs greedy decoding
+            - repetition_penalty (float): Penalty for repetitive text
+        
+        Authentication:
+            - api_token (str): Hugging Face API token for private models
+            - trust_remote_code (bool): Allow execution of remote code
+    
+    Example:
+        >>> config = {
+        ...     'device': 'auto',
+        ...     'load_in_8bit': True,
+        ...     'temperature': 0.7,
+        ...     'max_new_tokens': 120,
+        ...     'api_token': 'hf_token_here'
+        ... }
+        >>> wrapper = HuggingFaceModelWrapper('model-name', config)
+        >>> wrapper.load_model()
+        >>> response = wrapper.generate_response('Your prompt here')
+    
+    Note:
+        This implementation includes production-ready optimizations and
+        extensive error handling. For development, consider enabling
+        verbose logging to monitor model behavior and performance.
+    """
 
     def __init__(self, model_name: str, config: Dict[str, Any]):
+        """Initialize Hugging Face model wrapper with intelligent device detection.
+        
+        Sets up the wrapper with automatic device detection and configuration
+        normalization. Handles the complexity of device selection including
+        CUDA availability checking and fallback strategies for various
+        hardware configurations.
+        
+        Args:
+            model_name (str): Hugging Face model identifier, which can be:
+                - Repository ID (e.g., 'meta-llama/Llama-2-7b-chat-hf')
+                - Local model path for offline usage
+                - Custom model name for privately hosted models
+            config (Dict[str, Any]): Comprehensive configuration dictionary
+                containing device preferences, generation parameters, memory
+                optimization settings, and authentication credentials.
+        
+        Example:
+            >>> config = {
+            ...     'device': 'auto',  # Automatic device detection
+            ...     'load_in_8bit': True,  # Memory optimization
+            ...     'temperature': 0.7,  # Generation creativity
+            ...     'max_new_tokens': 150
+            ... }
+            >>> wrapper = HuggingFaceModelWrapper('model-name', config)
+        
+        Note:
+            The device setting is intelligently resolved: 'auto' selects CUDA
+            if available, otherwise falls back to CPU. Explicit device settings
+            override automatic detection but should match available hardware.
+        """
         super().__init__(model_name, config)
         self.tokenizer = None
         self.model = None
@@ -26,7 +149,43 @@ class HuggingFaceModelWrapper(BaseLLMModel):
             self.device = device_config
 
     def load_model(self):
-        """Load Hugging Face model and tokenizer"""
+        """Load Hugging Face model and tokenizer with advanced optimization.
+        
+        Performs comprehensive model loading with memory optimization, device
+        placement, quantization support, and extensive error handling. This method
+        implements production-ready loading strategies including automatic
+        quantization, intelligent device mapping, and detailed progress monitoring.
+        
+        The loading process includes:
+        - Environment optimization and TorchDynamo configuration
+        - Quantization setup (4-bit/8-bit) for memory efficiency
+        - Tokenizer initialization with authentication handling
+        - Model loading with optimal device placement
+        - Resource monitoring and diagnostic reporting
+        
+        Raises:
+            RuntimeError: If model loading fails due to insufficient resources,
+                authentication issues, or hardware compatibility problems.
+            FileNotFoundError: If the specified model cannot be found in the
+                Hugging Face Hub or local filesystem.
+            MemoryError: If insufficient GPU/CPU memory is available for the
+                model with current quantization settings.
+            ImportError: If required dependencies (bitsandbytes) are missing
+                for quantization features.
+        
+        Example:
+            >>> model = HuggingFaceModelWrapper('meta-llama/Llama-2-7b-chat-hf', config)
+            >>> model.load_model()  # Comprehensive loading with optimization
+            Loading meta-llama/Llama-2-7b-chat-hf...
+            ✅ Model loaded successfully in 45.2s
+        
+        Note:
+            This method includes extensive logging and diagnostic output for
+            debugging. It automatically handles quantization, device placement,
+            and memory optimization based on the configuration provided during
+            initialization. The loading process is optimized for both speed
+            and memory efficiency.
+        """
         try:
             print(f"Loading {self.model_name}...")
             # Enable more verbose transformers logs to help diagnose slow steps
@@ -183,7 +342,46 @@ class HuggingFaceModelWrapper(BaseLLMModel):
             raise
 
     def generate_response(self, prompt: str, **kwargs) -> str:
-        """Generate response using the loaded model"""
+        """Generate contextually appropriate response using the loaded model.
+        
+        Performs inference using the loaded Hugging Face model with intelligent
+        parameter management, device handling, and response post-processing.
+        The method prioritizes configuration-based parameters while providing
+        robust error handling and response cleaning for negotiation contexts.
+        
+        Args:
+            prompt (str): Input prompt for the model, typically containing
+                negotiation context, game rules, and situation requiring response.
+            **kwargs: Additional generation parameters (note: YAML configuration
+                takes precedence over kwargs for consistency). Supported options:
+                - early_stopping (bool): Enable early stopping for beam search
+                - length_penalty (float): Length penalty for generation
+        
+        Returns:
+            str: Generated response text, cleaned and processed for parsing.
+                The method attempts to extract clean JSON from model output
+                and removes common prefixes/suffixes that interfere with
+                action parsing.
+        
+        Raises:
+            RuntimeError: If the model is not loaded or generation fails due
+                to resource constraints, device issues, or model errors.
+            ValueError: If the prompt is empty or contains characters that
+                cause tokenization or generation failures.
+        
+        Example:
+            >>> prompt = \"Make a negotiation offer for the company car.\"
+            >>> response = model.generate_response(prompt)
+            >>> print(response)
+            '{\"type\": \"offer\", \"price\": 28000}'
+        
+        Note:
+            This method includes intelligent response cleaning that attempts
+            to extract clean JSON from model outputs and removes common
+            model-generated prefixes. Generation parameters are strictly
+            controlled by YAML configuration to ensure consistent behavior
+            across experiments.
+        """
         if not self.is_loaded:
             raise RuntimeError(f"Model {self.model_name} not loaded")
 
@@ -288,7 +486,40 @@ class HuggingFaceModelWrapper(BaseLLMModel):
             return f"Error: Could not generate response from {self.model_name}"
 
     def _preprocess_json_response(self, response: str) -> str:
-        """Fix common model JSON formatting issues before parsing"""
+        """Fix common model JSON formatting issues before parsing.
+        
+        Applies a series of regular expression transformations to address
+        common JSON formatting mistakes made by language models, including
+        malformed arrays, missing quotes, and number formatting issues.
+        This preprocessing significantly improves parsing success rates.
+        
+        Args:
+            response (str): Raw response text from the model that may contain
+                malformed JSON requiring correction before parsing.
+        
+        Returns:
+            str: Preprocessed response with common JSON formatting issues
+                corrected, ready for standard JSON parsing operations.
+        
+        Transformations Applied:
+            - Converts malformed array notation [39,000] to numeric 39000
+            - Fixes single-number arrays [100] to plain numbers 100
+            - Removes comma separators from quoted numbers \"39,000\"
+            - Adds missing quotes around object property names
+            - Corrects misplaced quotes in property names
+        
+        Example:
+            >>> response = '{\"price\": [39,000], invalid_key: 100}'
+            >>> fixed = model._preprocess_json_response(response)
+            >>> print(fixed)
+            '{\"price\": 39000, \"invalid_key\": 100}'
+        
+        Note:
+            This method is designed specifically for negotiation action
+            parsing and may not be suitable for general JSON preprocessing.
+            The transformations are optimized for common model output patterns
+            observed in negotiation scenarios.
+        """
         import re
         
         # Fix array notation for large numbers: [39,000] -> 39000
@@ -312,7 +543,47 @@ class HuggingFaceModelWrapper(BaseLLMModel):
         return response
 
     def parse_action(self, response: str, game_type: str = None, player_name: str = None) -> Dict[str, Any]:
-        """Parse LLM response into a structured action with Pydantic validation"""
+        """Parse LLM response into structured negotiation action with validation.
+        
+        Implements a comprehensive parsing pipeline that converts raw model
+        output into validated negotiation actions. The method employs multiple
+        parsing strategies, extensive error handling, and optional Pydantic
+        validation for game-specific action constraints.
+        
+        Args:
+            response (str): Raw text response from the model, which may contain
+                JSON, natural language, or mixed formats requiring extraction.
+            game_type (str, optional): Type of negotiation game for validation
+                ('company_car', 'resource_allocation', 'integrative_negotiations').
+                Enables game-specific parsing rules and action validation.
+            player_name (str, optional): Player identifier for enhanced logging
+                and debugging output during parsing operations.
+        
+        Returns:
+            Dict[str, Any]: Validated action dictionary containing:
+                - type (str): Action type ('offer', 'accept', 'reject', 'propose')
+                - Additional fields specific to action type and game context
+                - Fallback 'noop' action if parsing fails completely
+        
+        Parsing Strategy:
+            1. Response preprocessing to fix common JSON issues
+            2. Priority extraction of JSON from response start
+            3. Pattern-based JSON extraction with multiple strategies
+            4. Manual key-value extraction as fallback
+            5. Optional Pydantic validation for game-specific constraints
+        
+        Example:
+            >>> response = '{\"type\": \"offer\", \"price\": 28000}'
+            >>> action = model.parse_action(response, 'company_car', 'Buyer')
+            >>> print(action)
+            {'type': 'offer', 'price': 28000.0}
+        
+        Note:
+            This method includes extensive debugging output and graceful
+            error handling. It integrates with the action_schemas module
+            for Pydantic validation when game_type is specified, providing
+            robust action parsing for research and production scenarios.
+        """
         import json
         import re
         
@@ -423,7 +694,41 @@ class HuggingFaceModelWrapper(BaseLLMModel):
             return {"type": "noop", "reason": "parse_error"}
     
     def _extract_action_manually(self, response: str) -> Dict[str, Any]:
-        """Try to extract action manually from response text"""
+        """Extract action information manually using pattern matching.
+        
+        Fallback parsing method that uses regular expressions to extract
+        action information when standard JSON parsing fails. This method
+        looks for common negotiation patterns and keywords to construct
+        a basic action dictionary from natural language responses.
+        
+        Args:
+            response (str): Raw response text that failed JSON parsing,
+                potentially containing natural language or semi-structured
+                text with extractable action information.
+        
+        Returns:
+            Dict[str, Any]: Extracted action dictionary if patterns are found,
+                None if no recognizable action patterns can be identified.
+                Common extracted fields include:
+                - type (str): Inferred action type from keywords
+                - price (float): Extracted price values for bargaining
+        
+        Extraction Patterns:
+            - Action types: 'offer', 'accept', 'reject' from keywords
+            - Price values: Numeric values associated with 'price' keyword
+            - Context clues: Words like 'offer', 'accept', 'reject' in text
+        
+        Example:
+            >>> response = "I offer 25000 for the car"
+            >>> action = model._extract_action_manually(response)
+            >>> print(action)
+            {'type': 'offer', 'price': 25000.0}
+        
+        Note:
+            This is a last-resort parsing method with limited accuracy.
+            It's designed to extract basic action information when models
+            generate natural language instead of structured JSON responses.
+        """
         import re
         
         # Look for common patterns
@@ -450,7 +755,31 @@ class HuggingFaceModelWrapper(BaseLLMModel):
         return action_dict if action_dict else None
 
     def unload_model(self):
-        """Unload model from memory"""
+        """Unload model from memory and perform comprehensive cleanup.
+        
+        Performs thorough cleanup of model resources including GPU memory,
+        cached tensors, and Python object references. This method is essential
+        for memory management in multi-model scenarios and prevents memory
+        leaks during model switching operations.
+        
+        Cleanup Operations:
+            - Deletion of model and tokenizer objects
+            - GPU memory cache clearing (CUDA)
+            - Python garbage collection triggering
+            - Loading state reset
+        
+        Example:
+            >>> model.load_model()
+            >>> # ... use model for inference ...
+            >>> model.unload_model()  # Free all resources
+            🗑️  meta-llama/Llama-2-7b-chat-hf unloaded
+        
+        Note:
+            This method is idempotent and safe to call multiple times.
+            It's automatically called during model switching and should
+            be called explicitly when done with a model to free resources
+            for other models or applications.
+        """
         if self.model:
             del self.model
         if self.tokenizer:
