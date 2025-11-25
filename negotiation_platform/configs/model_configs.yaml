@@ -1,5 +1,5 @@
-# GPU configuration for model comparison: SWAPPED - 8B vs 3B Llama models
-#mistralai/Voxtral-Mini-3B-2507
+# Model configuration file for negotiation platform
+#mistralai/Ministral-8B-Instruct-2410
 #mistralai/Mistral-7B-Instruct-v0.3
 #meta-llama/Llama-3.1-8B-Instruct
 #meta-llama/Llama-3.2-3B-Instruct
@@ -17,6 +17,7 @@ model_a:
     do_sample: true
     trust_remote_code: true
     load_in_8bit: false
+    api_token: #put your HF token here if needed
     
 
 # 7B Mistral model for comparison (now in model_b position)
@@ -31,6 +32,7 @@ model_b:
     do_sample: true
     trust_remote_code: true
     load_in_8bit: false
+    api_token: #put your HF token here if needed
 
 model_c:
   type: "huggingface"
@@ -44,3 +46,4 @@ model_c:
     pad_token_id: 50256
     trust_remote_code: true
     load_in_8bit: false
+    api_token: #put your HF token here if needed

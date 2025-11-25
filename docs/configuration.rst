@@ -33,6 +33,7 @@ Model Configuration
        do_sample: true
        trust_remote_code: true
        load_in_8bit: false
+       api_token: #put your HF token here if needed
 
    model_b:
      type: "huggingface"
@@ -45,6 +46,7 @@ Model Configuration
        do_sample: true
        trust_remote_code: true
        load_in_8bit: false
+       api_token: #put your HF token here if needed
 
    model_c:
      type: "huggingface"
@@ -58,6 +60,7 @@ Model Configuration
        pad_token_id: 50256
        trust_remote_code: true
        load_in_8bit: false
+       api_token: #put your HF token here if needed
 
 **Model Configuration Parameters**:
 
@@ -71,6 +74,7 @@ Model Configuration
 * ``trust_remote_code``: Allow execution of remote code for certain models
 * ``load_in_8bit``: Enable 8-bit quantization for memory efficiency
 * ``pad_token_id``: Token ID for padding (model-specific)
+* ``api_token``: (Optional) Hugging Face API token for private models
 
 Game Configuration
 ------------------
@@ -208,24 +212,6 @@ Platform Configuration
      runs_per_comparison: 10
      statistical_significance: 0.05
 
-Environment Variables
----------------------
-
-You can override configuration values using environment variables:
-
-.. code-block:: bash
-
-   # HuggingFace API token for model access
-   export HF_TOKEN="your_huggingface_token_here"
-   
-   # Model configuration overrides
-   export NEGOTIATION_MODEL_DEVICE="cuda"
-   export NEGOTIATION_MODEL_TEMPERATURE="0.8"
-   
-   # Platform settings
-   export NEGOTIATION_LOG_LEVEL="DEBUG"
-   export NEGOTIATION_RESULTS_DIR="/path/to/results"
-   export NEGOTIATION_MAX_RETRIES="5"
 
 Configuration Loading
 ---------------------
@@ -273,7 +259,7 @@ Best Practices
 
 1. **Model Selection**:
    
-   * Current setup uses state-of-the-art models: Llama-3.1-8B, Qwen2.5-7B, Llama-3.2-3B
+   * Current setup uses state-of-the-art models: mistralai/Ministral-8B-Instruct-2410, mistralai/Mistral-7B-Instruct-v0.3, meta-llama/Llama-3.1-8B-Instruct, meta-llama/Llama-3.2-3B-Instruct, Qwen/Qwen2.5-3B, Qwen/Qwen2.5-7B
    * Temperature 0.7 for creative negotiation, 0.0 for deterministic behavior
    * GPU memory optimization through ``device_map: "auto"``
    * Trust remote code enabled for modern model architectures
@@ -294,7 +280,7 @@ Best Practices
 
 4. **Research Configuration**:
    
-   * 10 runs per comparison for statistical reliability
+   * 300 runs per comparison for statistical reliability
    * Bias detection through model position swapping
    * Comprehensive logging for research reproducibility
    * Uncertainty modeling in resource allocation scenarios
