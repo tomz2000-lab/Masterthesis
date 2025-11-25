@@ -10,6 +10,7 @@ This platform enables researchers to study negotiation behaviors, biases, and st
 
    installation
    configuration
+   games
 
 .. toctree::
    :maxdepth: 2

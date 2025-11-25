@@ -11,8 +11,8 @@ Different negotiation scenario implementations for various research contexts.
 Game Implementations
 -------------------
 
-Base Game Interface
-~~~~~~~~~~~~~~~~~~~
+Submodules
+----------
 
 Abstract base class defining the interface for all negotiation games.
 
@@ -22,7 +22,7 @@ Abstract base class defining the interface for all negotiation games.
    :show-inheritance:
 
 Company Car Game (Price Bargaining)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------
 
 Bilateral car price negotiation with time-adjusted BATNAs and strategic guidance.
 
@@ -32,7 +32,7 @@ Bilateral car price negotiation with time-adjusted BATNAs and strategic guidance
    :show-inheritance:
 
 Resource Allocation Game
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 Multi-resource distribution negotiation between development and marketing teams.
 
@@ -42,7 +42,7 @@ Multi-resource distribution negotiation between development and marketing teams.
    :show-inheritance:
 
 Integrative Negotiation Game
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
 Multi-issue collaborative negotiation focusing on mutual value creation.
 
@@ -52,7 +52,7 @@ Multi-issue collaborative negotiation focusing on mutual value creation.
    :show-inheritance:
 
 Negotiation Tools
-~~~~~~~~~~~~~~~~~
+-----------------
 
 Supporting utilities and tools for game implementations.
 
