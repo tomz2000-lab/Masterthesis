@@ -12,10 +12,72 @@ class FeasibilityMetric(BaseMetric):
     """
 
     def __init__(self, config: Dict[str, Any] = None):
+        """
+        Initialize the Feasibility metric with optional configuration.
+        
+        Creates a new FeasibilityMetric instance that evaluates whether
+        negotiated agreements are actually achievable given game constraints
+        and player limitations. This binary metric helps identify unrealistic
+        or impossible negotiation outcomes.
+        
+        Args:
+            config (Dict[str, Any], optional): Configuration parameters for
+                metric behavior. Currently unused but reserved for future
+                enhancements such as:
+                    - constraint_tolerance: Flexibility in feasibility checking
+                    - validation_mode: Strict vs. lenient constraint enforcement
+                    - custom_constraints: Additional feasibility rules
+                Defaults to None (empty configuration).
+        
+        Example:
+            >>> # Basic initialization
+            >>> metric = FeasibilityMetric()
+            >>> # With configuration (future use)
+            >>> config = {"tolerance": 0.05, "mode": "strict"}
+            >>> metric = FeasibilityMetric(config)
+        
+        Note:
+            Feasibility checking adapts automatically to different game types
+            and their specific constraint systems.
+        """
         super().__init__("Feasibility", config)
 
     def calculate(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
-        """Calculate feasibility for each player's perspective"""
+        """
+        Calculate feasibility score for each player's perspective on the negotiated agreement.
+        
+        Evaluates whether the final negotiated agreement is actually achievable
+        given game constraints, player resources, and external limitations.
+        Returns binary scores indicating feasibility from each player's viewpoint.
+        
+        Args:
+            game_result (GameResult): Complete game outcome containing:
+                - game_data: Game state with agreement details and constraints
+                - final_scores: Final utility outcomes for validation
+                - players: List of all participating players
+            actions_history (List[PlayerAction]): Complete action log (unused for
+                this metric but required by BaseMetric interface).
+        
+        Returns:
+            Dict[str, float]: Dictionary mapping each player ID to their feasibility
+                score as a binary value:
+                - 1.0: Agreement is feasible from this player's perspective
+                - 0.0: Agreement is not feasible or no agreement reached
+        
+        Feasibility Criteria (Game-Specific):
+            - Price Bargaining: Agreed price within BATNA constraints
+            - Resource Allocation: Total resources don't exceed available supply
+            - Integrative: All issue selections are valid and achievable
+        
+        Example:
+            >>> result = metric.calculate(game_result, actions_history)
+            >>> print(result)
+            {'buyer': 1.0, 'seller': 1.0}  # Feasible for both parties
+        
+        Note:
+            Different players may have different feasibility scores if the
+            agreement violates constraints for some but not all participants.
+        """
         results = {}
 
         # Check if an agreement was actually reached
@@ -112,7 +174,31 @@ class FeasibilityMetric(BaseMetric):
 
     def _check_agreement_feasibility(self, player_id: str, agreement: Dict[str, Any],
                                    initial_inventories: Dict[str, Dict[str, int]]) -> bool:
-        """Check if the agreement is feasible for a specific player"""
+        """Check if an agreement is feasible for a specific player.
+        
+        This method validates whether a proposed agreement can be implemented
+        by a specific player given their initial resource inventory and the
+        trade requirements specified in the agreement.
+        
+        Args:
+            player_id (str): Unique identifier for the player whose
+                feasibility is being assessed.
+            agreement (Dict[str, Any]): Agreement details containing trade
+                specifications, proposer information, and resource exchanges.
+            initial_inventories (Dict[str, Dict[str, int]]): Starting resource
+                inventories for all players, mapping player IDs to their
+                available resource quantities.
+        
+        Returns:
+            bool: True if the agreement is feasible for the specified player
+                (sufficient resources to fulfill trade requirements), False
+                if resources are insufficient or player not found.
+        
+        Note:
+            Feasibility assessment considers resource availability after
+            executing the proposed trade, ensuring the player has sufficient
+            inventory to meet their trade obligations.
+        """
         if player_id not in initial_inventories:
             return False
 
@@ -143,7 +229,28 @@ class FeasibilityMetric(BaseMetric):
         return True
 
     def get_description(self) -> str:
-        return """
+        """Provides a comprehensive description of the Feasibility metric.
+        
+        This method returns a detailed explanation of how the Feasibility metric
+        evaluates whether negotiated agreements can be realistically implemented
+        given the constraints, resources, and time pressures present in the
+        negotiation scenario.
+        
+        Returns:
+            str: A multi-line string containing:
+                - Metric definition and implementability assessment
+                - Binary scoring system (1.0 for feasible, 0.0 for infeasible)
+                - Game-specific feasibility validation criteria
+                - Constraint categories and resource limitations
+                - Time pressure and BATNA decay considerations
+        
+        Note:
+            The description covers various negotiation contexts including resource
+            allocation, budget constraints, compatibility requirements, and
+            acceptable range validations across different game types.
+        """
+        return 
+        """
         Feasibility measures whether the reached agreement is actually implementable
         given each player's constraints and time pressure (decaying BATNAs).
         Returns 1.0 if feasible, 0.0 if not feasible.

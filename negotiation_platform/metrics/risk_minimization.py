@@ -12,10 +12,75 @@ class RiskMinimizationMetric(BaseMetric):
     """
 
     def __init__(self, config: Dict[str, Any] = None):
+        """
+        Initialize the Risk Minimization metric with optional configuration.
+        
+        Creates a new RiskMinimizationMetric instance that evaluates players'
+        risk management behavior during negotiations by analyzing proposal
+        patterns relative to BATNA thresholds.
+        
+        Args:
+            config (Dict[str, Any], optional): Configuration parameters for
+                metric behavior. Currently unused but reserved for future
+                enhancements such as:
+                    - risk_threshold: Custom risk tolerance levels
+                    - weighting_scheme: How to weight different risk factors
+                    - time_horizon: Number of rounds to analyze
+                Defaults to None (empty configuration).
+        
+        Example:
+            >>> # Basic initialization
+            >>> metric = RiskMinimizationMetric()
+            >>> # With configuration (future use)
+            >>> config = {"risk_threshold": 0.05, "weighting": "exponential"}
+            >>> metric = RiskMinimizationMetric(config)
+        
+        Note:
+            Risk minimization analysis adapts automatically to different
+            game types (price bargaining, resource allocation, integrative).
+        """
         super().__init__("Risk Minimization", config)
 
     def calculate(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
-        """Calculate risk minimization percentage for each player"""
+        """
+        Calculate risk minimization percentage for each player based on proposal behavior.
+        
+        Analyzes how well each player managed risk by examining the percentage of
+        proposals that were worse than their BATNA threshold. Lower percentages
+        indicate better risk management and more conservative negotiation strategies.
+        
+        Args:
+            game_result (GameResult): Complete game outcome containing:
+                - game_data: Game state with BATNA values and agreement status
+                - final_scores: Final utility outcomes for all players
+                - players: List of all participating players
+            actions_history (List[PlayerAction]): Complete chronological log of
+                all actions taken during the negotiation, used to analyze
+                proposal patterns and risk-taking behavior.
+        
+        Returns:
+            Dict[str, float]: Dictionary mapping each player ID to their risk
+                minimization percentage (0.0-100.0). Lower values indicate
+                better risk management:
+                - 0.0: Perfect risk management (no risky proposals)
+                - 50.0: Moderate risk management (half proposals risky)
+                - 100.0: Poor risk management (all proposals risky)
+        
+        Calculation Logic:
+            1. Adapts automatically to game type (price bargaining, resource allocation, integrative)
+            2. For each player, counts proposals worse than time-adjusted BATNA
+            3. Calculates percentage: (risky_proposals / total_proposals) * 100
+            4. Accounts for BATNA decay over negotiation rounds
+        
+        Example:
+            >>> result = metric.calculate(game_result, actions_history)
+            >>> print(result)
+            {'player1': 25.0, 'player2': 10.0}  # player2 managed risk better
+        
+        Note:
+            Time-adjusted BATNA calculations account for deadline pressure
+            and opportunity cost changes throughout the negotiation.
+        """
         results = {}
 
         # Check game type to determine risk calculation logic
@@ -108,7 +173,31 @@ class RiskMinimizationMetric(BaseMetric):
         return results
 
     def _calculate_integrative_risk(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
-        """Calculate risk for integrative negotiation games by analyzing individual proposals"""
+        """Calculate risk minimization scores for integrative negotiation games.
+        
+        This method analyzes individual proposals made during integrative
+        negotiations to determine what percentage of proposals were within
+        BATNA limits for each player, providing risk management assessment.
+        
+        Args:
+            game_result (GameResult): Complete game outcome containing final
+                agreement, player utilities, and configuration data.
+            actions_history (List[PlayerAction]): Chronological sequence of
+                all player actions including proposals, counteroffers, and
+                acceptance decisions.
+        
+        Returns:
+            Dict[str, float]: Risk minimization scores (0-100) per player,
+                where higher scores indicate better risk management:
+                - 100: All proposals within BATNA limits
+                - 50: Half of proposals within BATNA limits
+                - 0: No proposals within BATNA limits
+        
+        Note:
+            For integrative negotiations, this method evaluates proposal
+            utilities against time-decayed BATNA values to account for
+            deadline pressure effects on risk tolerance.
+        """
         results = {}
 
         # Analyze individual proposals made by each player
@@ -187,7 +276,31 @@ class RiskMinimizationMetric(BaseMetric):
         return results
 
     def _calculate_resource_allocation_risk(self, game_result: GameResult, actions_history: List[PlayerAction]) -> Dict[str, float]:
-        """Calculate risk for resource allocation games by analyzing individual proposals"""
+        """Calculate risk minimization scores for resource allocation games.
+        
+        This method evaluates individual resource allocation proposals to
+        determine what percentage were within BATNA limits for each player,
+        assessing risk management in resource distribution scenarios.
+        
+        Args:
+            game_result (GameResult): Complete game outcome containing final
+                resource allocations, player utilities, and game configuration.
+            actions_history (List[PlayerAction]): Chronological sequence of
+                all player actions including resource proposals, modifications,
+                and acceptance decisions.
+        
+        Returns:
+            Dict[str, float]: Risk minimization scores (0-100) per player,
+                where higher scores indicate better risk management:
+                - 100: All resource proposals within BATNA limits
+                - 50: Half of resource proposals within BATNA limits
+                - 0: No resource proposals within BATNA limits
+        
+        Note:
+            Resource allocation risk assessment considers the utility value
+            of proposed resource distributions against time-decayed BATNA
+            thresholds to account for negotiation pressure effects.
+        """
         results = {}
 
         # Analyze individual proposals made by each player
@@ -254,7 +367,40 @@ class RiskMinimizationMetric(BaseMetric):
 
     def _simulate_deal_utility(self, player_id: str, deal: Dict[str, Any],
                                game_result: GameResult) -> float:
-        """Simulate what a player's utility would be if a deal was accepted"""
+        """
+        Simulate the utility a player would receive if a specific deal were accepted.
+        
+        Calculates the hypothetical utility value for a player based on proposed
+        deal terms. This simulation enables risk analysis by comparing potential
+        outcomes against BATNA thresholds before proposals are actually accepted.
+        
+        Args:
+            player_id (str): Identifier of the player whose utility to simulate.
+            deal (Dict[str, Any]): Proposed deal terms containing game-specific
+                parameters such as prices, resource allocations, or issue selections.
+            game_result (GameResult): Complete game context containing player
+                roles, preferences, and configuration needed for utility calculation.
+        
+        Returns:
+            float: Simulated utility value the player would receive from the deal.
+                Values are game-specific (monetary for price bargaining, points
+                for integrative negotiations, resource values for allocation games).
+        
+        Game-Specific Logic:
+            - Price Bargaining: Direct price value adjusted for buyer/seller role
+            - Resource Allocation: Weighted sum of allocated resources
+            - Integrative: Multi-issue utility calculation with preferences
+        
+        Example:
+            >>> deal = {"price": 45000}  # Price bargaining
+            >>> utility = metric._simulate_deal_utility("buyer", deal, game_result)
+            >>> print(utility)
+            45000.0
+        
+        Note:
+            This method is used internally for risk assessment and should not
+            typically be called directly by external code.
+        """
         
         # Check if this is a simple GPU/CPU allocation game
         if 'gpu_hours' in deal and 'cpu_hours' in deal:
@@ -317,7 +463,39 @@ class RiskMinimizationMetric(BaseMetric):
 
     def _calculate_utility(self, player_id: str, resources: Dict[str, int],
                           all_players: List[str]) -> float:
-        """Calculate utility for a player (matches game logic)"""
+        """
+        Calculate utility for a player based on resource allocation (matches game logic).
+        
+        Computes the utility value for a player given a specific resource allocation
+        using the same calculation logic as the resource allocation game. This ensures
+        consistency between risk analysis and actual game outcomes.
+        
+        Args:
+            player_id (str): Identifier of the player whose utility to calculate.
+            resources (Dict[str, int]): Resource allocation dictionary containing
+                resource types as keys and quantities as values.
+            all_players (List[str]): Complete list of all players in the game,
+                used for role determination and preference lookup.
+        
+        Returns:
+            float: Calculated utility value for the player based on their role
+                preferences and the provided resource allocation.
+        
+        Utility Calculation:
+            - Player A preferences: X resources (weight=2.0), Y resources (weight=0.5)
+            - Player B preferences: X resources (weight=0.5), Y resources (weight=2.0)
+            - Formula: sum(resource_quantity * preference_weight)
+        
+        Example:
+            >>> resources = {"X": 40, "Y": 60}
+            >>> utility = metric._calculate_utility("playerA", resources, ["playerA", "playerB"])
+            >>> print(utility)
+            110.0  # (40 * 2.0) + (60 * 0.5)
+        
+        Note:
+            This method mirrors the utility calculation in ResourceAllocationGame
+            to ensure accurate risk assessment during proposal analysis.
+        """
         # Default utility function - should match the game's utility calculation
         if player_id == all_players[0]:  # Player A prefers X
             return resources.get('X', 0) * 2.0 + resources.get('Y', 0) * 0.5
@@ -325,7 +503,30 @@ class RiskMinimizationMetric(BaseMetric):
             return resources.get('X', 0) * 0.5 + resources.get('Y', 0) * 2.0
 
     def _calculate_integrative_utility(self, player_id: str, proposal_data: Dict[str, Any], game_result: GameResult) -> float:
-        """Calculate utility for integrative negotiation proposals using proper game logic"""
+        """Calculate utility for integrative negotiation proposals using game-specific logic.
+        
+        This method computes the utility value of a proposal for a specific
+        player in integrative negotiation scenarios, utilizing weighted
+        scoring based on player preferences and game configuration.
+        
+        Args:
+            player_id (str): Unique identifier for the player whose utility
+                is being calculated (e.g., 'IT', 'Marketing').
+            proposal_data (Dict[str, Any]): Proposal details containing either
+                direct utility values or negotiation issue specifications.
+            game_result (GameResult): Complete game context including
+                configuration, player preferences, and weighting factors.
+        
+        Returns:
+            float: Calculated utility value for the proposal, representing
+                the total weighted benefit the player would receive from
+                accepting this specific proposal.
+        
+        Note:
+            The method handles both direct utility specifications and
+            weighted calculations based on issue values and player-specific
+            preference weights defined in the game configuration.
+        """
         
         # If the proposal contains direct utility values
         if 'utility' in proposal_data:
@@ -418,6 +619,26 @@ class RiskMinimizationMetric(BaseMetric):
         return total_utility
 
     def get_description(self) -> str:
+        """Provides a comprehensive description of the Risk Minimization metric.
+        
+        This method returns a detailed explanation of how the Risk Minimization
+        metric evaluates negotiation performance by measuring the percentage of
+        proposed deals or offers that remain within BATNA (Best Alternative to
+        a Negotiated Agreement) limits.
+        
+        Returns:
+            str: A multi-line string containing:
+                - Metric definition and purpose
+                - Mathematical formula for calculation
+                - Interpretation guide with example percentages
+                - Game-specific application rules
+                - Risk management quality indicators
+        
+        Note:
+            The description includes specific guidance for different negotiation
+            contexts, such as price bargaining versus multi-issue negotiations,
+            helping users understand when and how the metric applies.
+        """
         return """
         Risk Minimization measures the percentage of proposed deals/offers that are within BATNA limits.
         Formula: (Number of deals/offers within BATNA / Total number of deals/offers) * 100
