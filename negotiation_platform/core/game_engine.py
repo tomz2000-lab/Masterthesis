@@ -95,7 +95,33 @@ class GameEngine:
         self._register_default_games()
 
     def _register_default_games(self):
-        """Register built-in games."""
+        """
+        Register the built-in negotiation game types with the engine.
+        
+        Automatically registers all default game implementations that ship
+        with the platform. These games provide comprehensive negotiation
+        scenarios covering different strategic contexts and complexity levels.
+        
+        Registered Games:
+            - company_car: Bilateral vehicle price negotiation with time pressure
+            - resource_allocation: Multi-resource distribution between teams
+            - integrative_negotiations: Multi-issue collaborative negotiations
+        
+        Game Selection:
+            Each game type represents a different research context and strategic
+            challenge, enabling comparative studies across negotiation scenarios.
+        
+        Example:
+            >>> engine = GameEngine()
+            >>> available = engine.get_available_games()
+            >>> print(available)
+            ['company_car', 'resource_allocation', 'integrative_negotiations']
+        
+        Note:
+            This method is called automatically during initialization and should
+            not typically be called directly. Use register_game_type() to add
+            custom game implementations.
+        """
         self.register_game_type("company_car", CompanyCarGame)
         self.register_game_type("resource_allocation", ResourceAllocationGame)
         self.register_game_type("integrative_negotiations", IntegrativeNegotiationsGame)
@@ -168,11 +194,62 @@ class GameEngine:
         return game_class(config)
 
     def get_available_games(self) -> list:
-        """Get list of registered game types."""
+        """
+        Retrieve list of all registered game type identifiers.
+        
+        Returns the identifiers of all game types currently registered with
+        the engine, including both built-in games and any custom games that
+        have been added via register_game_type().
+        
+        Returns:
+            list: List of string identifiers for all registered game types.
+                These identifiers can be used with create_game() to instantiate
+                specific game instances.
+        
+        Example:
+            >>> engine = GameEngine()
+            >>> games = engine.get_available_games()
+            >>> print(games)
+            ['company_car', 'resource_allocation', 'integrative_negotiations']
+        
+        Note:
+            The returned list reflects the current state of the registry and
+            will include any custom games registered after initialization.
+        """
         return list(self.registered_games.keys())
 
     def get_game_info(self, game_type: str) -> Dict[str, Any]:
-        """Get information about a specific game type."""
+        """
+        Retrieve detailed metadata information about a registered game type.
+        
+        Provides comprehensive introspection capabilities for registered games,
+        returning class information, documentation, and metadata that can be
+        used for debugging, documentation generation, or dynamic game analysis.
+        
+        Args:
+            game_type (str): Identifier of the registered game type to inspect.
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing comprehensive game metadata:
+                - name (str): The registered identifier for the game type
+                - class (str): Name of the game class implementation
+                - description (str): Class docstring or fallback description
+        
+        Example:
+            >>> engine = GameEngine()
+            >>> info = engine.get_game_info("company_car")
+            >>> print(info["name"])
+            'company_car'
+            >>> print(info["class"])
+            'CompanyCarGame'
+        
+        Raises:
+            ValueError: If the specified game_type is not registered.
+        
+        Note:
+            This method is primarily useful for debugging, testing, and
+            documentation generation rather than normal game operation.
+        """
         if game_type not in self.registered_games:
             raise ValueError(f"Unknown game type: {game_type}")
 

@@ -149,7 +149,37 @@ class ConfigManager:
                 #self._configs[config_file[:-5]] = self._get_default_config(config_file[:-5])
     
     def load_config(self, config_path: Path) -> Dict[str, Any]:
-        """Load configuration from YAML file."""
+        """
+        Load and parse a YAML configuration file from the specified path.
+        
+        Reads a YAML configuration file and parses it into a Python dictionary.
+        Handles file reading errors gracefully by returning empty dictionaries
+        rather than crashing the configuration system.
+        
+        Args:
+            config_path (Path): Path object pointing to the YAML configuration
+                file to be loaded and parsed.
+        
+        Returns:
+            Dict[str, Any]: Parsed configuration dictionary containing all
+                key-value pairs from the YAML file. Returns empty dictionary
+                if file is missing, empty, or contains parsing errors.
+        
+        Error Handling:
+            - Missing files: Returns empty dictionary
+            - Invalid YAML syntax: Logs error and returns empty dictionary
+            - Permission errors: Logs error and returns empty dictionary
+        
+        Example:
+            >>> config_path = Path("configs/model_configs.yaml")
+            >>> config = manager.load_config(config_path)
+            >>> print(config.keys())
+            dict_keys(['model_a', 'model_b', 'model_c'])
+        
+        Note:
+            This method is used internally by load_all_configs() and typically
+            doesn't need to be called directly by users.
+        """
         try:
             with open(config_path, 'r') as file:
                 return yaml.safe_load(file) or {}
@@ -158,7 +188,35 @@ class ConfigManager:
             return {}
     
     def get_config(self, config_type: str) -> Dict[str, Any]:
-        """Get configuration by type."""
+        """
+        Retrieve complete configuration dictionary for a specific configuration type.
+        
+        Provides access to loaded configuration data by configuration type name.
+        Returns the complete configuration dictionary for the specified type,
+        enabling direct access to all settings within that configuration category.
+        
+        Args:
+            config_type (str): Type identifier for the configuration to retrieve.
+                Common types include 'model_configs', 'game_configs', and
+                'platform_config' corresponding to their respective YAML files.
+        
+        Returns:
+            Dict[str, Any]: Complete configuration dictionary for the specified
+                type. Returns empty dictionary if the configuration type is not
+                found or failed to load.
+        
+        Example:
+            >>> models_config = manager.get_config('model_configs')
+            >>> print(list(models_config.keys()))
+            ['model_a', 'model_b', 'model_c']
+            >>> platform_config = manager.get_config('platform_config')
+            >>> print(platform_config.get('timeout_seconds', 30))
+            30
+        
+        Note:
+            For model-specific or game-specific configurations, use the more
+            specialized get_model_config() or get_game_config() methods instead.
+        """
         return self._configs.get(config_type, {})
     
     def get_model_config(self, model_name: str) -> Optional[Dict[str, Any]]:

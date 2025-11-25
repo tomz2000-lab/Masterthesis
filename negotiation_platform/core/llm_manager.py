@@ -162,7 +162,31 @@ class LLMManager:
                 print(f"[ERROR] Failed to register model {model_id}: {e}")
 
     def _load_model_configs(self):
-        """Load model configurations from YAML file"""
+        """
+        Load model configurations from YAML configuration file.
+        
+        Attempts to read and parse the YAML configuration file specified by
+        config_path. If the file is not found, creates a default empty
+        configuration structure to prevent initialization failures.
+        
+        Configuration Structure:
+            The YAML file should contain model definitions with configuration
+            parameters for each model instance including model names, device
+            specifications, and generation parameters.
+        
+        Error Handling:
+            Missing configuration files are handled gracefully by creating
+            empty default configurations rather than failing initialization.
+        
+        Example:
+            >>> manager._load_model_configs()
+            >>> print(list(manager.model_configs.keys()))
+            ['model_a', 'model_b', 'model_c']
+        
+        Note:
+            This method is called automatically during initialization and
+            should not typically be called directly by users.
+        """
         try:
             with open(self.config_path, 'r') as f:
                 self.model_configs = yaml.safe_load(f)
@@ -237,7 +261,38 @@ class LLMManager:
         print(f"📝 Registered model: {model_id} (new instance for {model_name})")
 
     def load_model(self, model_id: str):
-        """Load a specific model with smart memory management"""
+        """
+        Load a specific model into memory with intelligent resource management.
+        
+        Loads the specified model into GPU/CPU memory using a smart caching system
+        that prevents memory overflow by automatically evicting least-recently-used
+        models when memory limits are approached. Thread-safe loading ensures no
+        concurrent model initialization conflicts.
+        
+        Args:
+            model_id (str): Registered identifier of the model to load into memory.
+        
+        Returns:
+            BaseLLMModel: The loaded model wrapper ready for text generation.
+        
+        Memory Management:
+            - Maintains LRU cache of loaded models
+            - Automatically evicts oldest models when max_loaded_models exceeded
+            - Shares model instances across multiple aliases to save memory
+            - Thread-safe loading prevents concurrent initialization conflicts
+        
+        Example:
+            >>> manager = LLMManager(model_configs)
+            >>> model = manager.load_model("llama-7b-chat")
+            >>> response = model.generate("Hello, how are you?")
+        
+        Raises:
+            ValueError: If model_id is not registered in the manager.
+        
+        Note:
+            Loading is performed lazily - models are only loaded when explicitly
+            requested or when generating responses.
+        """
         # Serialize load/unload operations to avoid concurrent from_pretrained calls
         with self.manager_lock:
             # Inner function does the actual work while under lock
@@ -287,7 +342,33 @@ class LLMManager:
             return _do_load()
 
     def switch_model(self, model_id: str):
-        """Switch to a different model (plug-and-play functionality)"""
+        """
+        Switch the active model for subsequent generation requests.
+        
+        Changes the default model used for generation requests that don't
+        specify a model_id. Enables dynamic model switching during runtime
+        without requiring manager reconfiguration or restart.
+        
+        Args:
+            model_id (str): Registered identifier of the model to make active.
+        
+        Lazy Loading:
+            If the target model is not currently loaded in memory, it will be
+            loaded automatically using the intelligent memory management system.
+        
+        Example:
+            >>> manager.switch_model("llama-7b-chat")
+            >>> response = manager.get_response("Hello")  # Uses llama-7b-chat
+            >>> manager.switch_model("mistral-7b")
+            >>> response = manager.get_response("Hello")  # Uses mistral-7b
+        
+        Raises:
+            ValueError: If model_id is not registered in the manager.
+        
+        Note:
+            Switching models does not immediately unload the previous active
+            model - it remains in memory subject to LRU eviction policies.
+        """
         if model_id not in self.models:
             raise ValueError(f"Model {model_id} not registered")
 
@@ -299,7 +380,44 @@ class LLMManager:
         print(f"🔄 Switched to model: {model_id}")
 
     def get_response(self, prompt: str, model_id: str = None, **kwargs) -> str:
-        """Get response from a specific model or the currently active model"""
+        """
+        Generate text response using specified model or currently active model.
+        
+        Primary interface for text generation that handles model selection,
+        lazy loading, and response generation. Automatically loads models
+        on-demand if not already in memory and manages the generation pipeline.
+        
+        Args:
+            prompt (str): Input text prompt for the language model to process.
+            model_id (str, optional): Specific model identifier to use for
+                generation. If None, uses the currently active model.
+            **kwargs: Additional generation parameters passed to the model:
+                - temperature (float): Randomness control (0.0-1.0)
+                - max_length (int): Maximum response length
+                - top_p (float): Nucleus sampling parameter
+                - do_sample (bool): Whether to use sampling
+        
+        Returns:
+            str: Generated text response from the language model.
+        
+        Lazy Loading:
+            Models are loaded automatically if not already in memory,
+            making this method fully self-contained for generation requests.
+        
+        Example:
+            >>> manager = LLMManager(model_configs)
+            >>> response = manager.get_response("What is AI?", temperature=0.7)
+            >>> print(response)
+            "Artificial Intelligence is..."
+        
+        Raises:
+            RuntimeError: If no model is specified and no active model is set.
+            ValueError: If the specified model_id is not registered.
+        
+        Note:
+            This method automatically updates the active model if a specific
+            model_id is provided, making it the new default for future calls.
+        """
         target_model = model_id or self.active_model
         
         if not target_model:
@@ -317,7 +435,34 @@ class LLMManager:
         return self.models[target_model].generate_response(prompt, **kwargs)
 
     def unload_model(self, model_id: str):
-        """Unload a specific model from memory"""
+        """
+        Unload a specific model from GPU/CPU memory to free resources.
+        
+        Removes the specified model from memory while respecting shared model
+        instances. If multiple model aliases reference the same underlying model,
+        the unload operation will only proceed if no other aliases are using it.
+        
+        Args:
+            model_id (str): Registered identifier of the model to unload from memory.
+        
+        Memory Management:
+            - Respects shared model instances across multiple aliases
+            - Updates LRU tracking to reflect unloaded state
+            - Frees GPU/CPU memory allocated to the model
+        
+        Example:
+            >>> manager.unload_model("llama-7b-chat")
+            >>> # Model is removed from memory, alias remains registered
+            >>> manager.load_model("llama-7b-chat")  # Can be reloaded later
+        
+        Raises:
+            ValueError: If model_id is not registered in the manager.
+        
+        Note:
+            Unloading does not remove the model from the registry - it can
+            be reloaded later via load_model(). This is primarily useful for
+            manual memory management in resource-constrained environments.
+        """
         if model_id not in self.models:
             raise ValueError(f"Model {model_id} not registered")
         
@@ -340,14 +485,63 @@ class LLMManager:
             print(f"⚠️  Model {model_id} was not loaded")
 
     def list_models(self) -> Dict[str, Dict[str, Any]]:
-        """List all registered models and their status"""
+        """
+        Retrieve comprehensive information about all registered models.
+        
+        Provides detailed metadata about all models in the registry including
+        configuration details, loading status, and memory usage information.
+        Useful for debugging, monitoring, and system introspection.
+        
+        Returns:
+            Dict[str, Dict[str, Any]]: Dictionary mapping model IDs to their
+                detailed information including:
+                - model_name (str): HuggingFace model identifier
+                - is_loaded (bool): Current memory loading status
+                - device (str): Target device specification
+                - configuration details from the model wrapper
+        
+        Example:
+            >>> models = manager.list_models()
+            >>> for model_id, info in models.items():
+            ...     print(f"{model_id}: loaded={info.get('is_loaded', False)}")
+            llama-7b-chat: loaded=True
+            mistral-7b: loaded=False
+        
+        Note:
+            This method is primarily useful for monitoring and debugging
+            rather than normal operation. The information reflects the current
+            state and may change as models are loaded and unloaded.
+        """
         return {
             model_id: model.get_model_info()
             for model_id, model in self.models.items()
         }
 
     def cleanup(self):
-        """Unload all models and cleanup resources"""
+        """
+        Unload all models and free all allocated resources.
+        
+        Performs comprehensive cleanup by unloading all models from memory,
+        clearing caches, and resetting internal state. Should be called when
+        the manager is no longer needed to ensure proper resource cleanup.
+        
+        Cleanup Operations:
+            - Unloads all models from GPU/CPU memory
+            - Clears LRU tracking and shared model caches
+            - Resets active model state
+            - Frees all allocated GPU/CPU resources
+        
+        Example:
+            >>> manager = LLMManager(model_configs)
+            >>> # ... use models ...
+            >>> manager.cleanup()  # Free all resources
+        
+        Note:
+            After cleanup, the manager instance should not be used further.
+            Create a new manager instance if continued operation is needed.
+            This method is particularly important for long-running applications
+            to prevent memory leaks.
+        """
         for model_name, wrapper in self.shared_models.items():
             if wrapper.is_loaded:
                 wrapper.unload_model()
