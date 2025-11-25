@@ -197,7 +197,62 @@ def run_single_negotiation(config_manager, models, game_type="company_car"):
 
 
 def run_model_comparison(config_manager, models, games=None):
-    """Run systematic comparison between models."""
+    """Execute comprehensive multi-model comparison across negotiation games.
+    
+    Performs systematic evaluation of multiple AI models across different
+    negotiation scenarios to assess relative performance, strategy effectiveness,
+    and behavioral consistency. This function implements a rigorous comparison
+    methodology with multiple runs per model pair for statistical reliability.
+    
+    Args:
+        config_manager (ConfigManager): Initialized configuration manager containing
+            model definitions, game configurations, and platform settings.
+        models (List[str]): List of model identifiers to compare. All pairwise
+            combinations will be tested across specified games.
+        games (List[str], optional): List of game types to include in comparison.
+            Defaults to ["company_car", "resource_allocation", "integrative_negotiations"]
+            if not specified. Each game type must be registered in GameEngine.
+    
+    Returns:
+        Dict[str, Dict[str, List[Dict]]]: Hierarchical results structure:
+            - game_type -> model_pair -> list of session results
+            - Each session result contains metrics, outcomes, and metadata
+            - Suitable for statistical analysis and visualization
+    
+    Comparison Methodology:
+        1. For each game type in the evaluation set
+        2. Test all unique model pairs (avoiding duplicates)
+        3. Run multiple sessions per pair for statistical significance
+        4. Calculate comprehensive metrics for each session
+        5. Aggregate results with summary statistics
+        6. Save detailed results to timestamped JSON file
+    
+    Output Artifacts:
+        - Console summary with agreement rates and average metrics
+        - Detailed JSON results file in configured results directory
+        - Individual session logs for debugging and analysis
+    
+    Example:
+        >>> config = ConfigManager()
+        >>> models = ["model_a", "model_b", "model_c"]
+        >>> results = run_model_comparison(config, models)
+        Running Model Comparison
+        Models: ['model_a', 'model_b', 'model_c']
+        >>> print(results.keys())
+        dict_keys(['company_car', 'resource_allocation', 'integrative_negotiations'])
+    
+    Performance Considerations:
+        - Models are loaded and unloaded for each pair to manage memory
+        - Multiple runs per pair provide statistical reliability
+        - Results are saved incrementally to prevent data loss
+        - Detailed logging enables progress monitoring
+    
+    Note:
+        This function is designed for research and evaluation purposes.
+        Large model sets or many games may require significant computation
+        time and GPU resources. Consider running in stages for very large
+        evaluations.
+    """
     if games is None:
         games = ["company_car", "resource_allocation", "integrative_negotiations"]
 
@@ -267,7 +322,44 @@ def run_model_comparison(config_manager, models, games=None):
 
 
 def _generate_comparison_summary(results):
-    """Generate and print comparison summary."""
+    """Generate and display comprehensive comparison summary statistics.
+    
+    Processes raw comparison results to calculate and display meaningful
+    summary statistics including agreement rates, average metrics, and
+    performance trends across different model pairs and game types.
+    
+    Args:
+        results (Dict[str, Dict[str, List[Dict]]]): Hierarchical results from
+            run_model_comparison containing game types, model pairs, and
+            individual session results with metrics and outcomes.
+    
+    Output Format:
+        Console display organized by game type showing:
+        - Model pair identifiers (e.g., "model_a_vs_model_b")
+        - Agreement rates as fractions and percentages
+        - Average metric values across all runs for each pair
+        - Performance comparison indicators
+    
+    Summary Statistics:
+        - Agreement Rate: Percentage of sessions reaching successful agreements
+        - Average Metrics: Mean values across runs for each performance metric
+        - Comparative Analysis: Relative performance indicators between pairs
+    
+    Example Output:
+        === COMPARISON SUMMARY ===
+        
+        Company Car:
+          model_a_vs_model_b: 2/3 agreements (66.7%)
+            utility_surplus: {'model_a': 1250.0, 'model_b': 980.5}
+            risk_minimization: {'model_a': 85.2, 'model_b': 72.1}
+          model_a_vs_model_c: 3/3 agreements (100.0%)
+            utility_surplus: {'model_a': 1450.2, 'model_c': 1120.8}
+    
+    Note:
+        This function provides immediate feedback during comparison runs
+        and serves as a quick assessment tool before detailed analysis
+        of the saved JSON results.
+    """
     print(f"\n=== COMPARISON SUMMARY ===")
 
     for game_type, game_results in results.items():
@@ -288,7 +380,49 @@ def _generate_comparison_summary(results):
 
 
 def _calculate_average_metrics(results):
-    """Calculate average metrics across runs."""
+    """Calculate average metric values across multiple negotiation runs.
+    
+    Processes a collection of negotiation session results to compute mean
+    metric values for each player across all runs. This provides statistical
+    aggregation for reliable performance assessment when multiple runs are
+    conducted for the same model pair.
+    
+    Args:
+        results (List[Dict[str, Any]]): List of individual session results,
+            each containing a 'metrics' dictionary with player-specific
+            metric values (e.g., utility_surplus, risk_minimization).
+    
+    Returns:
+        Dict[str, Dict[str, float]]: Averaged metrics organized as:
+            metric_name -> player_id -> average_value
+            Returns empty dict if no valid results with metrics are provided.
+    
+    Calculation Process:
+        1. Aggregate metric values across all runs for each player
+        2. Count valid sessions containing metric data
+        3. Calculate arithmetic mean for each metric-player combination
+        4. Handle missing or incomplete metric data gracefully
+    
+    Example:
+        >>> session_results = [
+        ...     {'metrics': {'utility_surplus': {'player1': 100, 'player2': 80}}},
+        ...     {'metrics': {'utility_surplus': {'player1': 120, 'player2': 90}}}
+        ... ]
+        >>> averages = _calculate_average_metrics(session_results)
+        >>> print(averages)
+        {'utility_surplus': {'player1': 110.0, 'player2': 85.0}}
+    
+    Error Handling:
+        - Skips sessions without 'metrics' field
+        - Handles missing players in some sessions
+        - Returns empty dict if no valid data found
+        - Gracefully processes incomplete metric sets
+    
+    Note:
+        This function assumes all metric values are numeric and suitable
+        for arithmetic averaging. Non-numeric metrics are ignored to
+        prevent calculation errors.
+    """
     metrics_sums = {}
     count = 0
 
@@ -316,7 +450,59 @@ def _calculate_average_metrics(results):
 
 
 def main():
-    """Main application entry point."""
+    """Main application entry point with command-line interface.
+    
+    Provides comprehensive command-line interface for the Negotiation Platform
+    with support for various execution modes including quick testing, systematic
+    model comparison, and interactive exploration. Handles argument parsing,
+    logging configuration, and orchestrates the appropriate execution workflow.
+    
+    Command-Line Options:
+        --quick: Execute single negotiation session for rapid testing
+        --comparison: Run comprehensive multi-model comparison study
+        --models: Specify list of models to use (default: model_a, model_b, model_c)
+        --game: Choose game type for single runs (default: company_car)
+        --log-level: Set logging verbosity (DEBUG, INFO, WARNING, ERROR)
+    
+    Execution Modes:
+        1. Quick Mode (--quick): Single negotiation with specified models and game
+        2. Comparison Mode (--comparison): Systematic evaluation across model pairs
+        3. Interactive Mode (default): User-guided selection of execution options
+    
+    Example Usage:
+        # Quick single negotiation
+        python main.py --quick --models model_a model_b --game company_car
+        
+        # Comprehensive comparison
+        python main.py --comparison --models model_a model_b model_c
+        
+        # Interactive mode with debug logging
+        python main.py --log-level DEBUG
+    
+    Platform Initialization:
+        1. Configure logging system with specified verbosity level
+        2. Initialize ConfigManager with default or custom configuration
+        3. Display available models and confirm selection
+        4. Execute requested workflow with comprehensive error handling
+    
+    Error Handling:
+        - Graceful handling of KeyboardInterrupt (Ctrl+C)
+        - Comprehensive exception logging with stack traces
+        - Proper cleanup and resource management on exit
+        - User-friendly error messages for common issues
+    
+    Output:
+        - Progress indicators during execution
+        - Summary results and key findings
+        - File locations for detailed results
+        - Success confirmation upon completion
+    
+    Note:
+        This function serves as the primary demonstration of platform
+        capabilities and provides templates for custom integration patterns.
+        For programmatic usage, consider calling individual functions directly
+        rather than using the command-line interface.
+    """
     parser = argparse.ArgumentParser(description="Negotiation Platform")
     parser.add_argument("--quick", action="store_true",
                         help="Run quick single negotiation test")
