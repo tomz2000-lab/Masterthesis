@@ -1,15 +1,15 @@
 company_car:
   starting_price: 45000
-  buyer_budget: 42000 #40000
-  seller_cost: 36000  #38000
-  buyer_batna: 41000    # ADJUSTED: Reduced from 41000 to create smaller utility surpluses
-  seller_batna: 39000   # ADJUSTED: Reduced from 39000 to create smaller utility surpluses
+  buyer_budget: 42000 
+  seller_cost: 36000  
+  buyer_batna: 41000    
+  seller_batna: 39000   
   rounds: 5
   batna_decay:
     buyer: 0.015    # BALANCED: Same decay rate for both players (0.015 removed to stabilize negotiations)
     seller: 0.015   # BALANCED: Same decay rate for both players (0.015 removed to stabilize negotiations)
   # Training parameters to encourage acceptance
-  acceptance_training:
+  acceptance_training: #unused
     profit_threshold: 0.10    # Accept offers within 10% of BATNA
     urgency_multiplier: 1.5   # Increase acceptance likelihood each round
     risk_aversion: 0.8        # Higher = more likely to accept safe deals
@@ -17,15 +17,15 @@ company_car:
 resource_allocation:
   total_resources: 100
   constraints:
-    gpu_bandwidth: 380  # 4x + 4y <= 380 (simpler: x + y <= 95, slightly below total)
+    gpu_bandwidth: 380  # 4x + 4y <= 380 
     min_gpu: 5              # x >= 5 (minimum GPU allocation)
     min_cpu: 5              # y >= 5 (minimum CPU allocation)
   batnas:
     development: 300    # BALANCED: Higher BATNA to reduce their systematic utility advantage
     marketing: 270      # BALANCED: Lower BATNA to compensate for consistently low CPU allocations
   batna_decay:
-    development: 0.015  # BALANCED: Same decay rate for both players (was 0.03)
-    marketing: 0.015    # BALANCED: Same decay rate for both players (was 0.02)
+    development: 0.015  # BALANCED: Same decay rate for both players 
+    marketing: 0.015    # BALANCED: Same decay rate for both players 
   rounds: 5
   utility_functions:
     development:
@@ -74,8 +74,8 @@ integrative_negotiations:
       cleaning: 0.2
       branding: 0.3
   batnas:
-    IT: 27        # OPTIMIZED: Based on median minus 1σ to reduce 40% tie rate (from 27)
-    Marketing: 19  # OPTIMIZED: Based on median minus 1σ to reduce 62% tie rate (from 19)
+    IT: 27        
+    Marketing: 19  
   rounds: 5
   batna_decay: 0.015
  
