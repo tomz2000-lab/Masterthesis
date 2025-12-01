@@ -21,13 +21,10 @@ A comprehensive framework for conducting LLM negotiations to compare the models 
 
 2. Transfer project to a remote cluster (preserve directory structure)
 ```bash
-   # Using scp (PowerShell / Linux): replace <user> and <host> and <remote_path>
+   # Using scp: replace <user> and <host> and <remote_path>
    scp -r . <user>@<host>:/home/<user>/<remote_path>/Masterthesis
 
-   # Using rsync (recommended for large repos / resumable transfers):
-   rsync -avz --progress --exclude "negotiation_env/" --exclude ".git/" ./ <user>@<host>:/home/<user>/<remote_path>/Masterthesis
-
-   # Example (your earlier cluster):
+   # Example:
    scp -r . s123456@julia2.hpc.uni-wuerzburg.de:/home/s123456/Masterthesis
 ```
 
@@ -39,16 +36,13 @@ A comprehensive framework for conducting LLM negotiations to compare the models 
    # Change to project directory
    cd /home/<user>/<remote_path>/Masterthesis
 
-   # Inspect available slurm scripts (examples are in `batch_slurm_files/` and top-level)
+   # Inspect available slurm scripts (examples are in `batch_slurm_files/`)
    ls -l batch_slurm_files/ run_*.slurm
 
    # Submit a pre-provided batch job (adjust the script to set correct paths or env vars)
    sbatch batch_slurm_files/run_company_car.slurm
 
-   # Or submit a generic single-game runner
-   sbatch run_single_game.slurm
-
-   # Use `squeue -u <user>` to check job status, and `sacct -j <jobid>` to inspect job output
+   # Use `squeue -u <user>` to check job status
 ```
 
 4. Transfer result files from cluster to local machine
@@ -66,25 +60,23 @@ A comprehensive framework for conducting LLM negotiations to compare the models 
 
 5. Run win and metric comparisons locally
 ```bash
-   # Run win statistics analysis on specific result file
-   python results/win_statistics.py batch_comparison/resource_game/resource_allocation_2037717.out
-
-   # Run metrics statistics analysis on the same file
-   python results/metrics_statistics.py batch_comparison/resource_game/resource_allocation_2037717.out
+   # Run resource allocation results:
+   python results/win_statistics.py batch_comparison/resource_game/resource_allocation_2021495.out
+   python results/metrics_statistics.py batch_comparison/resource_game/resource_allocation_2021495.out
 
    # For company car results:
-   python results/win_statistics.py batch_comparison/company_car/company_car_1862304.out
-   python results/metrics_statistics.py batch_comparison/company_car/company_car_1862304.out
+   python results/win_statistics.py batch_comparison/company_car/company_car_2021072.out
+   python results/metrics_statistics.py batch_comparison/company_car/company_car_2021072.out
 
    # For integrative negotiation results:
-   python results/win_statistics.py batch_comparison/integrative_game/integrative_negotiation_1858216.out
-   python results/metrics_statistics.py batch_comparison/integrative_game/integrative_negotiation_1858216.out
+   python results/win_statistics.py batch_comparison/integrative_game/integrative_negotiation_2021496.out
+   python results/metrics_statistics.py batch_comparison/integrative_game/integrative_negotiation_2021496.out
 ```
 
 
 ## Runs according to constellation
 
-Withiin this table you can find all the nubers of the runs with thier corresponding comparison constellation:
+Within this table you can find all the nubers of the runs with thier corresponding comparison constellation:
 
 | Pairs                       | Car Game | Integrative Game | Resource Game |
 |-----------------------------|----------|------------------|--------------|
@@ -126,7 +118,7 @@ Feel free to include this citation when referencing the negotiation framework or
 
 
 ## Acknowledgement
-This work builds on the concepts and methods established by Bianchi et al. (2024), who introduced the NegotiationArena platform—an evaluation framework for assessing how effectively large language models negotiate across different types of two-agent negotiation games. Their study provides foundational insights for analyzing agent interactions, negotiation dynamics, and benchmarking LLM negotiation capabilities in varied scenarios.
+This work builds on the concepts and methods established by Bianchi et al. (2024), who introduced the NegotiationArena platform—an evaluation framework for assessing how effectively Large Language Models negotiate across different types of two-agent negotiation games. Their study provides foundational insights for analyzing agent interactions, negotiation dynamics, and benchmarking LLM negotiation capabilities in varied scenarios.
 
 ```bibtex
 @article{bianchi2024llms,
