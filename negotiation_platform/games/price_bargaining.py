@@ -696,14 +696,10 @@ class CompanyCarGame(BaseGame):
         # - The car has intrinsic value equal to the buyer's BATNA (alternative car cost)
         # - The seller's minimum cost is their BATNA
         
-        # Calculate absolute utilities
+        # Calculate absolute utilities (not used any more, as it is too confusing)
         buyer_absolute_utility = buyer_batna - (price - buyer_batna)  # Value - net cost = BATNA - (price - BATNA) = 2*BATNA - price
         seller_absolute_utility = price - seller_batna + seller_batna  # Revenue - cost + BATNA = price
         
-        # Actually, let's keep it simple and consistent with session manager expectations:
-        # Session manager expects: final_utilities = absolute utility, then calculates surplus = utility - BATNA
-        # So we need: utility such that (utility - BATNA) = our desired surplus
-        # Therefore: utility = desired_surplus + BATNA
         
         # The surplus we want is:
         buyer_surplus = buyer_batna - price  # Money saved vs BATNA
