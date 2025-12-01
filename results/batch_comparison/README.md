@@ -4,9 +4,9 @@ This directory contains experimental output files from batch runs comparing diff
 
 ## Directory Structure
 
-- `car_game/` - Company car negotiation experiments
-- `integrative_game/` - Integrative negotiation experiments  
-- `resource_game/` - Resource allocation negotiation experiments
+- `car_game/car_errpr` - Company car negotiation experiments
+- `integrative_game/integrative_error` - Integrative negotiation experiments  
+- `resource_game/resource_error` - Resource allocation negotiation experiments
 
 ## File Naming Convention
 
@@ -26,39 +26,9 @@ Each `.out` file contains:
 4. **Negotiation Progress**: Round-by-round proposals, acceptances, rejections
 5. **Performance Metrics**: 
    - Risk Minimization scores
-   - Deadline Sensitivity scores
+   - Deadline Feasability scores
    - Feasibility scores
    - Utility Surplus calculations
 6. **Agreement Analysis**: Final outcomes and agreement statistics
+7. **Further metrics**: Average agreement round and the agreement rate are further metircs, measured through the statistics code
 
-## Usage
-
-These files can be analyzed using the statistical comparison scripts in the `results/` directory:
-
-```bash
-python compare_games_statistics.py batch_comparison/integrative_game/integrative_negotiation_2019176.out
-```
-
-## Model Comparisons
-
-The experiments compare different LLM models (typically model_a, model_b, model_c) across:
-
-- **Bias Control**: Role randomization and first-mover randomization
-- **Statistical Analysis**: Regression-based bias correction
-- **Performance Metrics**: Multiple behavioral and outcome measures
-
-## File Sizes
-
-These files are large (typically 50KB-500KB each) due to detailed logging of:
-- Complete negotiation transcripts
-- Detailed model reasoning
-- Comprehensive metric calculations
-- Multiple game iterations per file
-
-## Documentation Purpose
-
-These files serve as:
-1. **Experimental Evidence**: Raw data supporting research conclusions
-2. **Reproducibility**: Complete logs for result verification
-3. **Analysis Examples**: Sample data for testing statistical methods
-4. **Model Behavior Documentation**: Detailed traces of LLM negotiation strategies
